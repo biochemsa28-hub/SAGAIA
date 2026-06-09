@@ -1,5 +1,5 @@
--- ============================================================
--- MicroDrama Studio AI — Initial Database Schema
+﻿-- ============================================================
+-- SAGAIA — Initial Database Schema
 -- Compatible with: SQLite (Phase 1) + Cloudflare D1 (Phase 2)
 -- ============================================================
 

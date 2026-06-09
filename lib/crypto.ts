@@ -1,11 +1,11 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+﻿import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
 
 const ALGO = "aes-256-gcm";
 
 function getKey(): Buffer {
-  const secret = process.env.NEXTAUTH_SECRET ?? "microdrama-dev-secret-key-32chars";
+  const secret = process.env.NEXTAUTH_SECRET ?? "SAGAIA-dev-secret-key-32chars";
   // Derive a 32-byte key from the secret
-  return scryptSync(secret, "microdrama-salt", 32);
+  return scryptSync(secret, "SAGAIA-salt", 32);
 }
 
 export function encrypt(plaintext: string): string {

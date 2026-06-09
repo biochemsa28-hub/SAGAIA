@@ -1,4 +1,4 @@
-import type { StoryInput } from "@/lib/validators/story.schema";
+﻿import type { StoryInput } from "@/lib/validators/story.schema";
 
 const DURATION_SCENE_MAP: Record<string, { min: number; max: number; seconds: number }> = {
   "30s":    { min: 3,  max: 5,  seconds: 30 },
@@ -14,7 +14,7 @@ const LANGUAGE_INSTRUCTION: Record<string, string> = {
 };
 
 export function buildSystemPrompt(): string {
-  return `You are MicroDrama Studio AI, an expert narrative director and content production specialist.
+  return `You are SAGAIA, an expert narrative director and content production specialist.
 
 Your role is to generate complete, production-ready microstory packages for viral short and long-form video content.
 
@@ -44,7 +44,7 @@ export function buildUserPrompt(input: StoryInput): string {
 
   return `${langInstruction}
 
-Generate a complete microdrama production package with these specifications:
+Generate a complete SAGAIA production package with these specifications:
 
 NICHE: ${input.niche}
 SUB-NICHE: ${input.sub_niche ?? "general"}

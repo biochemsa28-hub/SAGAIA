@@ -1,4 +1,4 @@
----
+﻿---
 name: cloudflare-architect
 version: 1.0.0
 category: infrastructure
@@ -30,46 +30,46 @@ Cubre Workers, D1, R2, Queues, Workflows y configuración de Wrangler.
 ### D1 Setup
 ```bash
 # Crear base de datos
-wrangler d1 create microdrama-db
+wrangler d1 create SAGAIA-db
 
 # Obtener database_id del output y ponerlo en wrangler.toml
 # Correr migrations
-wrangler d1 execute microdrama-db --file=./db/schema/001_initial.sql
+wrangler d1 execute SAGAIA-db --file=./db/schema/001_initial.sql
 
 # Verificar
-wrangler d1 execute microdrama-db --command="SELECT name FROM sqlite_master WHERE type='table'"
+wrangler d1 execute SAGAIA-db --command="SELECT name FROM sqlite_master WHERE type='table'"
 ```
 
 ### R2 Setup
 ```bash
 # Crear bucket
-wrangler r2 bucket create microdrama-assets
+wrangler r2 bucket create SAGAIA-assets
 
 # Crear bucket de dev
-wrangler r2 bucket create microdrama-assets-dev
+wrangler r2 bucket create SAGAIA-assets-dev
 ```
 
 ### wrangler.toml Template
 ```toml
-name = "microdrama-studio-api"
+name = "SAGAIA-studio-api"
 compatibility_date = "2024-09-23"
 main = "workers/api/index.ts"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "microdrama-db"
+database_name = "SAGAIA-db"
 database_id = "REPLACE_WITH_YOUR_ID"
 
 [[r2_buckets]]
 binding = "ASSETS"
-bucket_name = "microdrama-assets"
+bucket_name = "SAGAIA-assets"
 
 [[queues.producers]]
 binding = "JOB_QUEUE"
-queue = "microdrama-jobs"
+queue = "SAGAIA-jobs"
 
 [[queues.consumers]]
-queue = "microdrama-jobs"
+queue = "SAGAIA-jobs"
 max_batch_size = 10
 max_batch_timeout = 30
 

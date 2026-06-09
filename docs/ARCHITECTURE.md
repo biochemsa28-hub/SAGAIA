@@ -1,4 +1,4 @@
-# MicroDrama Studio AI — Technical Architecture
+﻿# SAGAIA — Technical Architecture
 
 **Version:** 1.0.0
 
@@ -71,7 +71,7 @@ class MockAdapter implements AIAdapter { ... }     // always available
 ### File Structure
 
 ```
-microdrama-studio/
+SAGAIA-studio/
 ├── app/                          # Next.js App Router
 │   ├── (auth)/                   # Auth pages (no sidebar)
 │   ├── (dashboard)/              # App pages (with sidebar)

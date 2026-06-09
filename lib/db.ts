@@ -1,4 +1,4 @@
-import { createClient, type Client } from "@libsql/client";
+﻿import { createClient, type Client } from "@libsql/client";
 import { readFileSync } from "fs";
 import { isAbsolute, resolve, join } from "path";
 import { mkdirSync } from "fs";
@@ -17,7 +17,7 @@ export function getDb(): Client {
   }
 
   // ── Local SQLite (development) ────────────────────────────────────────────
-  const rawPath = process.env.DATABASE_PATH ?? "./db/microdrama.db";
+  const rawPath = process.env.DATABASE_PATH ?? "./db/SAGAIA.db";
   const absPath = isAbsolute(rawPath) ? rawPath : resolve(process.cwd(), rawPath);
 
   const sep = absPath.includes("/") ? "/" : "\\";
@@ -39,7 +39,7 @@ export async function initDb(): Promise<void> {
   let schema: string;
   try {
     // Local: derive path from DATABASE_PATH
-    const rawPath = process.env.DATABASE_PATH ?? "./db/microdrama.db";
+    const rawPath = process.env.DATABASE_PATH ?? "./db/SAGAIA.db";
     const absDbPath = isAbsolute(rawPath) ? rawPath : resolve(process.cwd(), rawPath);
     const projectRoot = resolve(absDbPath, "../../");
     schema = readFileSync(join(projectRoot, "db/schema/001_initial.sql"), "utf-8");

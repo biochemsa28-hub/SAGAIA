@@ -120,7 +120,7 @@ export default function ProjectDetailPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `microdrama_${detail.project.title.slice(0, 30).replace(/\s+/g, "_")}.zip`;
+      a.download = `sagaia_${detail.project.title.slice(0, 30).replace(/\s+/g, "_")}.zip`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {

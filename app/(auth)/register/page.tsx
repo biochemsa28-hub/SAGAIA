@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -48,7 +48,7 @@ export default function RegisterPage() {
         <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center">
           <Clapperboard className="w-5 h-5 text-white" />
         </div>
-        <span className="text-white font-bold text-xl">MicroDrama Studio</span>
+        <span className="text-white font-bold text-xl">SAGAIA</span>
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">

@@ -1,4 +1,4 @@
-# MicroDrama Studio AI — Product Specification
+﻿# SAGAIA — Product Specification
 
 **Version:** 1.0.0  
 **Status:** MVP Planning  
@@ -8,7 +8,7 @@
 
 ## 1. Vision
 
-MicroDrama Studio AI is a SaaS platform that transforms a topic or micronicho into a
+SAGAIA is a SaaS platform that transforms a topic or micronicho into a
 complete production package for short and long-form narrative video content. No camera,
 no crew, no editing experience required.
 

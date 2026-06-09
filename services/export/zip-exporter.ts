@@ -1,4 +1,4 @@
-import archiver from "archiver";
+﻿import archiver from "archiver";
 import { PassThrough } from "stream";
 import { existsSync, createReadStream } from "fs";
 import { join, isAbsolute, resolve } from "path";
@@ -173,7 +173,7 @@ function buildSceneTxt(scene: StoryOutput["scenes"][number]): string {
 
 function buildReadme(s: StoryOutput, projectName: string): string {
   return [
-    `MICRODRAMA STUDIO AI — Paquete de producción`,
+    `SAGAIA — Paquete de producción`,
     `Proyecto: ${projectName}`,
     `Generado: ${new Date().toISOString()}`,
     "",

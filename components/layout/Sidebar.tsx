@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -32,7 +32,7 @@ export function Sidebar() {
             <Sparkles className="w-4 h-4 text-white" />
           </div>
           <div>
-            <p className="text-white text-sm font-bold leading-tight">MicroDrama</p>
+            <p className="text-white text-sm font-bold leading-tight">SAGAIA</p>
             <p className="text-violet-400 text-xs leading-tight">Studio AI</p>
           </div>
         </div>
