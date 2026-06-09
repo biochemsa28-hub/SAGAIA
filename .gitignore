@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# production build
+.next/
+out/
+
+# environment secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+.env.production
+
+# local database & generated audio
+db/*.db
+db/*.db-shm
+db/*.db-wal
+storage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
