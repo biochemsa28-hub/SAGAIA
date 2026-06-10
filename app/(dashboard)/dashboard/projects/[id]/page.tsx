@@ -47,21 +47,66 @@ export default function ProjectDetailPage() {
 
   async function generateVideos() {
     setGeneratingVideos(true);
-    setVideoStatus(null);
+    setVideoStatus("Enviando a Kling…");
     try {
-      const res = await fetch("/api/videos", {
+      // Step 1: submit jobs (fast, returns request IDs)
+      const submitRes = await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_id: id }),
+        body: JSON.stringify({ project_id: id, action: "submit" }),
       });
-      const data = (await res.json()) as { success: boolean; succeeded: number; total: number; mock?: boolean; error?: string };
-      if (res.ok && data.success) {
-        setVideoStatus(`✓ ${data.succeeded}/${data.total} videos${data.mock ? " (mock)" : " animados"}`);
-        // Reload to show new videos
-        window.location.reload();
-      } else {
-        setVideoStatus(data.error ?? "Error al animar");
+      const submitData = (await submitRes.json()) as {
+        success: boolean;
+        jobs: Array<{ scene_number: number; request_id: string; status: string }>;
+        error?: string;
+      };
+      if (!submitRes.ok || !submitData.success) {
+        setVideoStatus(submitData.error ?? "Error al enviar");
+        return;
       }
+
+      const pendingJobs = submitData.jobs.filter((j) => j.request_id);
+      setVideoStatus(`⏳ Animando ${pendingJobs.length} clips… (puede tardar 2-3 min)`);
+
+      // Step 2: poll until all done
+      let jobs = pendingJobs;
+      let attempts = 0;
+      while (attempts < 40) {
+        await new Promise((r) => setTimeout(r, 5000)); // wait 5s between polls
+        attempts++;
+
+        const collectRes = await fetch("/api/videos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: id,
+            action: "collect",
+            jobs: jobs.map((j) => ({ scene_number: j.scene_number, request_id: j.request_id })),
+          }),
+        });
+        const collectData = (await collectRes.json()) as {
+          all_done: boolean;
+          scenes: Array<{ scene_number: number; status: string }>;
+        };
+
+        const done = collectData.scenes.filter((s) => s.status === "completed").length;
+        const total = jobs.length;
+        setVideoStatus(`⏳ ${done}/${total} clips listos…`);
+
+        if (collectData.all_done) {
+          setVideoStatus(`✓ ${done}/${total} videos animados`);
+          window.location.reload();
+          return;
+        }
+
+        // Only keep pending jobs
+        jobs = jobs.filter((j) => {
+          const s = collectData.scenes.find((s) => s.scene_number === j.scene_number);
+          return s?.status !== "completed" && s?.status !== "failed";
+        });
+      }
+
+      setVideoStatus("Tiempo de espera agotado — recarga la página para ver resultados");
     } catch {
       setVideoStatus("Error de conexión");
     } finally {

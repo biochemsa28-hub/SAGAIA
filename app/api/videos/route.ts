@@ -2,115 +2,118 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getProjectDetail, updateProjectStatus, upsertAsset } from "@/lib/db/repository";
-import { generateProjectVideos } from "@/services/fal/video-generator";
+import { submitVideoJobs, checkVideoJob, downloadVideo } from "@/services/fal/video-generator";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 min — Kling takes ~30s per clip
+export const maxDuration = 60;
 
-const BodySchema = z.object({
+const SubmitSchema = z.object({
   project_id: z.string().uuid(),
+  action: z.enum(["submit", "collect"]).default("submit"),
+  jobs: z.array(z.object({
+    scene_number: z.number(),
+    request_id: z.string(),
+  })).optional(),
 });
 
+// POST /api/videos — submit jobs OR collect results
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body: unknown = await req.json();
-    const parsed = BodySchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: "project_id requerido" }, { status: 400 });
+    const parsed = SubmitSchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
 
     await initDb();
-    const detail = await getProjectDetail(parsed.data.project_id, session.user.id);
-    if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
-    if (!detail.scenes?.length) return NextResponse.json({ error: "El proyecto no tiene escenas" }, { status: 422 });
 
-    // Get image assets for this project (need image URLs to animate)
-    const imageAssets = detail.assets?.filter((a) => a.asset_type === "image") ?? [];
-    if (!imageAssets.length) {
-      return NextResponse.json(
-        { error: "Genera las imágenes primero antes de animar" },
-        { status: 422 }
-      );
-    }
+    // ── ACTION: submit ────────────────────────────────────────────────────────
+    if (parsed.data.action === "submit") {
+      const detail = await getProjectDetail(parsed.data.project_id, session.user.id);
+      if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      if (!detail.scenes?.length) return NextResponse.json({ error: "Sin escenas" }, { status: 422 });
 
-    // Build scene list with image URLs
-    const scenesWithImages = detail.scenes
-      .map((scene) => {
-        const asset = imageAssets.find((a) => {
-          // Match by scene_id or by order
-          return a.scene_id
-            ? a.scene_id === scene.id
-            : imageAssets.indexOf(a) === scene.scene_number - 1;
-        });
-        return {
+      const imageAssets = detail.assets?.filter((a) => a.asset_type === "image") ?? [];
+      if (!imageAssets.length) {
+        return NextResponse.json({ error: "Genera las imágenes primero" }, { status: 422 });
+      }
+
+      const scenes = detail.scenes
+        .map((scene, idx) => ({
           scene_number: scene.scene_number,
           animation_prompt: scene.animation_prompt ?? "cinematic camera movement, smooth motion",
-          image_url: asset?.public_url ?? null,
-        };
-      })
-      .filter((s): s is typeof s & { image_url: string } => s.image_url !== null);
+          image_url: imageAssets[idx]?.public_url ?? imageAssets[0]?.public_url ?? "",
+        }))
+        .filter((s) => s.image_url);
 
-    if (!scenesWithImages.length) {
-      return NextResponse.json(
-        { error: "No se encontraron imágenes asociadas a las escenas" },
-        { status: 422 }
-      );
+      const jobs = await submitVideoJobs({ scenes });
+
+      return NextResponse.json({
+        success: true,
+        action: "submitted",
+        total: jobs.length,
+        jobs: jobs.map((j) => ({
+          scene_number: j.sceneNumber,
+          request_id: j.requestId,
+          status: j.status,
+          error: j.error,
+        })),
+      });
     }
 
-    await updateProjectStatus(parsed.data.project_id, "generating");
+    // ── ACTION: collect ───────────────────────────────────────────────────────
+    if (parsed.data.action === "collect" && parsed.data.jobs?.length) {
+      const results = await Promise.all(
+        parsed.data.jobs.map(async (job) => {
+          const status = await checkVideoJob(job.request_id);
+          return { scene_number: job.scene_number, request_id: job.request_id, ...status };
+        })
+      );
 
-    const results = await generateProjectVideos({
-      projectId: parsed.data.project_id,
-      scenes: scenesWithImages,
-    });
-
-    // Save video URLs to assets table
-    await Promise.all(
-      results
-        .filter((r) => r.success && r.url)
-        .map((r) =>
-          upsertAsset({
+      // Download + save completed ones
+      const completed = results.filter((r) => r.status === "completed" && r.url);
+      for (const r of completed) {
+        try {
+          const { filePath } = await downloadVideo({
+            url: r.url!,
             projectId: parsed.data.project_id,
-            sceneNumber: r.sceneNumber,
+            sceneNumber: r.scene_number,
+          });
+          await upsertAsset({
+            projectId: parsed.data.project_id,
+            sceneNumber: r.scene_number,
             assetType: "video",
             publicUrl: r.url!,
-            filePath: r.filePath,
+            filePath,
             mimeType: "video/mp4",
-          })
-        )
-    );
+          });
+        } catch (e) {
+          console.error("[videos collect]", e);
+        }
+      }
 
-    const succeeded = results.filter((r) => r.success).length;
-    const failed = results.filter((r) => !r.success).length;
+      const allDone = results.every((r) => r.status === "completed" || r.status === "failed");
+      if (allDone) {
+        const anySuccess = results.some((r) => r.status === "completed");
+        await updateProjectStatus(parsed.data.project_id, anySuccess ? "ready" : "images_done");
+      }
 
-    await updateProjectStatus(
-      parsed.data.project_id,
-      failed === 0 ? "ready" : "images_done"
-    );
+      return NextResponse.json({
+        success: true,
+        action: "collect",
+        all_done: allDone,
+        scenes: results,
+      });
+    }
 
-    return NextResponse.json({
-      success: true,
-      total: results.length,
-      succeeded,
-      failed,
-      mock: results[0]?.mock ?? false,
-      errors: results.filter((r) => !r.success).map((r) => ({ scene: r.sceneNumber, error: r.error })),
-      scenes: results.map((r) => ({
-        scene_number: r.sceneNumber,
-        success: r.success,
-        url: r.url,
-        file_size_bytes: r.fileSizeBytes,
-        duration_ms: r.durationMs,
-        error: r.error,
-      })),
-    });
+    return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[API /videos]", message);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
