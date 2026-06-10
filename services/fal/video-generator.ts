@@ -53,12 +53,13 @@ async function generateReal(params: {
   fal.config({ credentials: apiKey });
   const t0 = Date.now();
 
-  const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = await (fal.subscribe as any)("fal-ai/kling-video/v1.6/standard/image-to-video", {
     input: {
       prompt: animationPrompt,
       image_url: imageUrl,
       duration: "5",
-    } as Record<string, unknown>,
+    },
     logs: false,
   });
 
