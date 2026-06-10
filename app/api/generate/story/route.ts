@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const BodySchema = z.object({
-  title: z.string().min(1),
+  title: z.string().optional(),
   niche: z.string().min(1),
   sub_niche: z.string().optional(),
   topic: z.string().min(1),
@@ -21,6 +21,7 @@ const BodySchema = z.object({
   duration_target: z.string().min(1),
   language: z.string().default("es"),
   visual_style: z.string().default("cinematic"),
+  target_platform: z.string().optional(),
   additional_instructions: z.string().optional(),
 });
 
@@ -54,11 +55,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Create project record ─────────────────────────────────────────────────
+    const autoTitle = parsed.data.title ||
+      `${parsed.data.niche} — ${parsed.data.topic.slice(0, 40)}`;
+
     let projectId: string | null = null;
     if (userId) {
       projectId = await createProject({
         userId,
-        title: parsed.data.title,
+        title: autoTitle,
         niche: parsed.data.niche,
         subNiche: parsed.data.sub_niche,
         topic: parsed.data.topic,
