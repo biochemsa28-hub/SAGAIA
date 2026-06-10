@@ -25,6 +25,8 @@ export default function ProjectDetailPage() {
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
   const [generatingImages, setGeneratingImages] = useState(false);
   const [imageStatus, setImageStatus] = useState<string | null>(null);
+  const [generatingVideos, setGeneratingVideos] = useState(false);
+  const [videoStatus, setVideoStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -41,6 +43,30 @@ export default function ProjectDetailPage() {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  }
+
+  async function generateVideos() {
+    setGeneratingVideos(true);
+    setVideoStatus(null);
+    try {
+      const res = await fetch("/api/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id }),
+      });
+      const data = (await res.json()) as { success: boolean; succeeded: number; total: number; mock?: boolean; error?: string };
+      if (res.ok && data.success) {
+        setVideoStatus(`✓ ${data.succeeded}/${data.total} videos${data.mock ? " (mock)" : " animados"}`);
+        // Reload to show new videos
+        window.location.reload();
+      } else {
+        setVideoStatus(data.error ?? "Error al animar");
+      }
+    } catch {
+      setVideoStatus("Error de conexión");
+    } finally {
+      setGeneratingVideos(false);
+    }
   }
 
   async function generateImages() {
@@ -170,6 +196,7 @@ export default function ProjectDetailPage() {
   const { project, story, scenes, seo, assets } = detail;
   const seoHashtags: string[] = seo ? (JSON.parse(seo.hashtags) as string[]) : [];
   const imageAssets = assets?.filter((a) => a.asset_type === "image") ?? [];
+  const videoAssets = assets?.filter((a) => a.asset_type === "video") ?? [];
 
   return (
     <>
@@ -199,6 +226,17 @@ export default function ProjectDetailPage() {
             <div className="flex flex-col items-end gap-1.5">
               <div className="flex gap-2 flex-wrap justify-end">
                 <Button
+                  onClick={generateVideos}
+                  disabled={generatingVideos}
+                  variant="outline"
+                  className="shrink-0"
+                >
+                  {generatingVideos
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Film className="w-4 h-4" />}
+                  Animar clips
+                </Button>
+                <Button
                   onClick={generateImages}
                   disabled={generatingImages}
                   variant="outline"
@@ -227,6 +265,7 @@ export default function ProjectDetailPage() {
                   Exportar ZIP
                 </Button>
               </div>
+              {videoStatus && <p className="text-xs text-zinc-400">{videoStatus}</p>}
               {imageStatus && <p className="text-xs text-zinc-400">{imageStatus}</p>}
               {voiceStatus && <p className="text-xs text-zinc-400">{voiceStatus}</p>}
             </div>
@@ -372,6 +411,41 @@ export default function ProjectDetailPage() {
                           Ver original ↗
                         </a>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Generated Videos */}
+            {videoAssets.length > 0 && (
+              <Card>
+                <div className="flex items-center gap-2 mb-4">
+                  <Film className="w-4 h-4 text-purple-400" />
+                  <h2 className="text-sm font-semibold text-white">Videos animados</h2>
+                  <span className="ml-auto text-xs text-zinc-500">{videoAssets.length} clips · Kling v1.6</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {videoAssets.map((asset, i) => (
+                    <div key={asset.id} className="relative group">
+                      <video
+                        src={asset.public_url!}
+                        className="w-full aspect-[9/16] object-cover rounded-lg border border-zinc-700"
+                        controls
+                        playsInline
+                        muted
+                      />
+                      <div className="absolute top-2 left-2 bg-black/60 rounded px-1.5 py-0.5">
+                        <p className="text-xs text-zinc-300">Escena {i + 1}</p>
+                      </div>
+                      <a
+                        href={asset.public_url!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute top-2 right-2 bg-black/60 rounded px-1.5 py-0.5 text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        ↗
+                      </a>
                     </div>
                   ))}
                 </div>
