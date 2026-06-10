@@ -1,4 +1,4 @@
-﻿import type { StoryInput } from "@/lib/validators/story.schema";
+import type { StoryInput } from "@/lib/validators/story.schema";
 
 const DURATION_SCENE_MAP: Record<string, { min: number; max: number; seconds: number }> = {
   "30s":    { min: 3,  max: 5,  seconds: 30 },

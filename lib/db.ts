@@ -1,4 +1,4 @@
-﻿import { createClient, type Client } from "@libsql/client";
+import { createClient, type Client } from "@libsql/client";
 import { readFileSync } from "fs";
 import { isAbsolute, resolve, join } from "path";
 import { mkdirSync } from "fs";

@@ -1,4 +1,4 @@
-﻿import archiver from "archiver";
+import archiver from "archiver";
 import { PassThrough } from "stream";
 import { existsSync, createReadStream } from "fs";
 import { join, isAbsolute, resolve } from "path";
