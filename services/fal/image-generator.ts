@@ -39,8 +39,6 @@ async function generateMock(projectId: string, sceneNumber: number): Promise<Ima
   return { success: true, filePath, url: "/placeholder.png", mock: true, durationMs: 0 };
 }
 
-type FalResult = { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> };
-
 async function callFlux(prompt: string): Promise<string | null> {
   try {
     const result = await fal.subscribe("fal-ai/flux/schnell", {
@@ -51,11 +49,13 @@ async function callFlux(prompt: string): Promise<string | null> {
         num_images: 1,
       },
       logs: false,
-    }) as FalResult;
-    // SDK wraps response in { data: { images: [...] } }
-    const images = result?.data?.images ?? result?.images;
-    const url = images?.[0]?.url ?? null;
-    console.log("[fal.ai] url:", url ?? "null", "keys:", Object.keys(result ?? {}).join(","));
+    });
+    // Navigate the response safely regardless of SDK wrapper shape
+    const obj = result as Record<string, unknown>;
+    const data = (obj?.["data"] ?? obj) as Record<string, unknown>;
+    const images = data?.["images"] as Array<Record<string, unknown>> | undefined;
+    const url = (images?.[0]?.["url"] as string) ?? null;
+    console.log("[fal.ai] extracted url:", url ?? "null");
     return url;
   } catch (e) {
     console.error("[fal.ai callFlux error]", e instanceof Error ? e.message : String(e));
