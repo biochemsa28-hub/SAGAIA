@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getProjectDetail, updateProjectStatus } from "@/lib/db/repository";
+import { getProjectDetail, updateProjectStatus, upsertAsset } from "@/lib/db/repository";
 import { generateProjectVoice } from "@/services/elevenlabs/voice-generator";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -40,6 +40,32 @@ export async function POST(req: NextRequest) {
 
     const failed = results.filter((r) => !r.success);
     const succeeded = results.filter((r) => r.success);
+
+    // Upload audio files to fal.ai storage for public URLs
+    await Promise.all(
+      results
+        .filter((r) => r.success && r.filePath && !r.mock)
+        .map(async (r) => {
+          try {
+            const { readFileSync } = await import("fs");
+            const audioBuffer = readFileSync(r.filePath!);
+            const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+            const { fal } = await import("@fal-ai/client");
+            fal.config({ credentials: process.env.FAL_API_KEY });
+            const uploaded = await fal.storage.upload(blob) as string;
+            await upsertAsset({
+              projectId: parsed.data.project_id,
+              sceneNumber: r.sceneNumber,
+              assetType: "audio",
+              publicUrl: uploaded,
+              filePath: r.filePath,
+              mimeType: "audio/mpeg",
+            });
+          } catch (e) {
+            console.error("[voice upload]", e instanceof Error ? e.message : e);
+          }
+        })
+    );
 
     await updateProjectStatus(
       parsed.data.project_id,

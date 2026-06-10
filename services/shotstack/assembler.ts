@@ -82,16 +82,18 @@ function buildTimeline(params: {
     if (addSubtitles && scene.narrationText) {
       subtitleClips.push({
         asset: {
-          type: "html",
-          html: `<p>${scene.narrationText}</p>`,
-          css: "p { font-family: 'Open Sans'; font-size: 30px; color: #ffffff; text-shadow: 2px 2px 4px #000000; text-align: center; padding: 0 20px; line-height: 1.4; }",
-          width: 1080,
-          height: 300,
+          type: "text",
+          text: scene.narrationText,
+          style: "subtitle",
+          color: "#ffffff",
+          size: "small",
+          background: "rgba(0,0,0,0.5)",
+          position: "bottom",
         },
         start: timeOffset,
         length: dur,
         position: "bottom",
-        offset: { y: -0.1 },
+        offset: { y: -0.05 },
       });
     }
 
