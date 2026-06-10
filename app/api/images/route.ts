@@ -54,7 +54,6 @@ export async function POST(req: NextRequest) {
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
 
-    // Update project status
     await updateProjectStatus(
       parsed.data.project_id,
       failed === 0 ? "images_done" : "images_partial"
