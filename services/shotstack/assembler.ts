@@ -84,11 +84,14 @@ function buildTimeline(params: {
         asset: {
           type: "text",
           text: scene.narrationText,
-          style: "subtitle",
           color: "#ffffff",
           size: "small",
-          background: "rgba(0,0,0,0.5)",
-          position: "bottom",
+          font: {
+            family: "Open Sans",
+            color: "#ffffff",
+            size: 28,
+            lineHeight: 1.4,
+          },
         },
         start: timeOffset,
         length: dur,
