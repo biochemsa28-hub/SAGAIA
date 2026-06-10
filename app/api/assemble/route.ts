@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getProjectDetail, updateProjectStatus, upsertAsset } from "@/lib/db/repository";
-import { submitAssembly, checkAssembly } from "@/services/creatomate/assembler";
+import { submitAssembly, checkAssembly } from "@/services/shotstack/assembler";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
 
@@ -90,5 +90,5 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   const hasKey = Boolean(process.env.CREATOMATE_API_KEY);
-  return NextResponse.json({ status: "ok", has_key: hasKey });
+  return NextResponse.json({ status: "ok", provider: "shotstack", has_key: hasKey });
 }
