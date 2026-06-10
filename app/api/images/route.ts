@@ -59,12 +59,18 @@ export async function POST(req: NextRequest) {
       failed === 0 ? "images_done" : "images_partial"
     );
 
+    // Log errors for debugging
+    results.filter(r => !r.success).forEach(r => {
+      console.error(`[images] Scene ${r.sceneNumber} failed:`, r.error);
+    });
+
     return NextResponse.json({
       success: true,
       total: results.length,
       succeeded,
       failed,
       mock: results[0]?.mock ?? false,
+      errors: results.filter(r => !r.success).map(r => ({ scene: r.sceneNumber, error: r.error })),
       scenes: results.map((r) => ({
         scene_number: r.sceneNumber,
         success: r.success,
