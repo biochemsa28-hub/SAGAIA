@@ -87,7 +87,6 @@ function buildTimeline(params: {
           css: "p { font-family: 'Open Sans'; font-size: 30px; color: #ffffff; text-shadow: 2px 2px 4px #000000; text-align: center; padding: 0 20px; line-height: 1.4; }",
           width: 1080,
           height: 300,
-          position: "bottom-center",
         },
         start: timeOffset,
         length: dur,
