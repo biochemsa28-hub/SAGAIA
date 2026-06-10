@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (parsed.data.action === "check" && parsed.data.render_id) {
       const status = await checkAssembly(parsed.data.render_id);
 
-      if (status.status === "succeeded" && status.url) {
+      if (status.status === "done" && status.url) {
         await upsertAsset({
           projectId: parsed.data.project_id,
           assetType: "final_video",
@@ -77,7 +77,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       render_id: result.renderId,
-      output_url: result.outputUrl,
       status: result.status,
     });
 

@@ -78,7 +78,7 @@ export default function ProjectDetailPage() {
         });
         const checkData = (await checkRes.json()) as { status: string; url?: string; error?: string };
 
-        if (checkData.status === "succeeded" && checkData.url) {
+        if (checkData.status === "done" && checkData.url) {
           setAssembleStatus("✓ Video final listo");
           setFinalVideoUrl(checkData.url);
           return;
