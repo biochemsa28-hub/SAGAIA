@@ -27,6 +27,9 @@ export default function ProjectDetailPage() {
   const [imageStatus, setImageStatus] = useState<string | null>(null);
   const [generatingVideos, setGeneratingVideos] = useState(false);
   const [videoStatus, setVideoStatus] = useState<string | null>(null);
+  const [assembling, setAssembling] = useState(false);
+  const [assembleStatus, setAssembleStatus] = useState<string | null>(null);
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -43,6 +46,55 @@ export default function ProjectDetailPage() {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  }
+
+  async function assembleVideo() {
+    setAssembling(true);
+    setAssembleStatus("Enviando a Creatomate…");
+    setFinalVideoUrl(null);
+    try {
+      // Step 1: submit
+      const submitRes = await fetch("/api/assemble", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id, action: "submit", add_subtitles: true }),
+      });
+      const submitData = (await submitRes.json()) as { render_id?: string; output_url?: string; error?: string };
+      if (!submitRes.ok || !submitData.render_id) {
+        setAssembleStatus(submitData.error ?? "Error al enviar");
+        return;
+      }
+
+      setAssembleStatus("⏳ Ensamblando video… (1-2 min)");
+      const renderId = submitData.render_id;
+
+      // Step 2: poll every 5s
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const checkRes = await fetch("/api/assemble", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: id, action: "check", render_id: renderId }),
+        });
+        const checkData = (await checkRes.json()) as { status: string; url?: string; error?: string };
+
+        if (checkData.status === "succeeded" && checkData.url) {
+          setAssembleStatus("✓ Video final listo");
+          setFinalVideoUrl(checkData.url);
+          return;
+        }
+        if (checkData.status === "failed") {
+          setAssembleStatus(`Error: ${checkData.error ?? "render fallido"}`);
+          return;
+        }
+        setAssembleStatus(`⏳ Ensamblando… (${checkData.status})`);
+      }
+      setAssembleStatus("Tiempo agotado — intenta de nuevo");
+    } catch {
+      setAssembleStatus("Error de conexión");
+    } finally {
+      setAssembling(false);
+    }
   }
 
   async function generateVideos() {
@@ -242,6 +294,8 @@ export default function ProjectDetailPage() {
   const seoHashtags: string[] = seo ? (JSON.parse(seo.hashtags) as string[]) : [];
   const imageAssets = assets?.filter((a) => a.asset_type === "image") ?? [];
   const videoAssets = assets?.filter((a) => a.asset_type === "video") ?? [];
+  const finalVideo = assets?.find((a) => a.asset_type === "final_video");
+  const displayFinalUrl = finalVideoUrl ?? finalVideo?.public_url ?? null;
 
   return (
     <>
@@ -270,6 +324,16 @@ export default function ProjectDetailPage() {
           {story && (
             <div className="flex flex-col items-end gap-1.5">
               <div className="flex gap-2 flex-wrap justify-end">
+                <Button
+                  onClick={assembleVideo}
+                  disabled={assembling}
+                  className="shrink-0 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500"
+                >
+                  {assembling
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Zap className="w-4 h-4" />}
+                  Video final
+                </Button>
                 <Button
                   onClick={generateVideos}
                   disabled={generatingVideos}
@@ -310,6 +374,7 @@ export default function ProjectDetailPage() {
                   Exportar ZIP
                 </Button>
               </div>
+              {assembleStatus && <p className="text-xs text-zinc-400">{assembleStatus}</p>}
               {videoStatus && <p className="text-xs text-zinc-400">{videoStatus}</p>}
               {imageStatus && <p className="text-xs text-zinc-400">{imageStatus}</p>}
               {voiceStatus && <p className="text-xs text-zinc-400">{voiceStatus}</p>}
@@ -458,6 +523,42 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Final assembled video */}
+            {displayFinalUrl && (
+              <Card>
+                <div className="flex items-center gap-2 mb-4">
+                  <Zap className="w-4 h-4 text-pink-400" />
+                  <h2 className="text-sm font-semibold text-white">Video final</h2>
+                  <span className="ml-auto text-xs text-zinc-500">Creatomate · 1080×1920</span>
+                </div>
+                <div className="max-w-xs mx-auto">
+                  <video
+                    src={displayFinalUrl}
+                    className="w-full aspect-[9/16] object-cover rounded-xl border border-zinc-700"
+                    controls
+                    playsInline
+                  />
+                  <div className="flex gap-2 mt-3">
+                    <a
+                      href={displayFinalUrl}
+                      download
+                      className="flex-1 text-center py-2 px-3 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium rounded-lg transition-colors"
+                    >
+                      ⬇ Descargar MP4
+                    </a>
+                    <a
+                      href={displayFinalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-lg transition-colors"
+                    >
+                      ↗ Abrir
+                    </a>
+                  </div>
                 </div>
               </Card>
             )}
