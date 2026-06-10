@@ -57,13 +57,16 @@ async function generateMock(projectId: string, sceneNumber: number): Promise<Ima
 type FalResult = { images?: Array<{ url: string; content_type: string }> };
 
 async function callFlux(prompt: string): Promise<string | null> {
-  const result = await fal.subscribe("fal-ai/flux/schnell", {
+  // Use flux/dev — supports enable_safety_checker param and handles dark/dramatic content
+  const result = await fal.subscribe("fal-ai/flux/dev", {
     input: {
       prompt,
       image_size: "portrait_16_9" as const,
-      num_inference_steps: 4,
+      num_inference_steps: 28,
+      guidance_scale: 3.5,
       num_images: 1,
       enable_safety_checker: false,
+      output_format: "jpeg",
     },
     logs: false,
   }) as FalResult;
