@@ -23,6 +23,8 @@ export default function ProjectDetailPage() {
   const [downloading, setDownloading] = useState(false);
   const [generatingVoice, setGeneratingVoice] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [imageStatus, setImageStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -39,6 +41,28 @@ export default function ProjectDetailPage() {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  }
+
+  async function generateImages() {
+    setGeneratingImages(true);
+    setImageStatus(null);
+    try {
+      const res = await fetch("/api/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id }),
+      });
+      const data = (await res.json()) as { success: boolean; succeeded: number; total: number; mock?: boolean };
+      if (res.ok && data.success) {
+        setImageStatus(`✓ ${data.succeeded}/${data.total} imágenes${data.mock ? " (mock)" : " generadas"}`);
+      } else {
+        setImageStatus("Error al generar imágenes");
+      }
+    } catch {
+      setImageStatus("Error de conexión");
+    } finally {
+      setGeneratingImages(false);
+    }
   }
 
   async function generateVoice() {
@@ -172,7 +196,18 @@ export default function ProjectDetailPage() {
 
           {story && (
             <div className="flex flex-col items-end gap-1.5">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-end">
+                <Button
+                  onClick={generateImages}
+                  disabled={generatingImages}
+                  variant="outline"
+                  className="shrink-0"
+                >
+                  {generatingImages
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <ImageIcon className="w-4 h-4" />}
+                  Generar imágenes
+                </Button>
                 <Button
                   onClick={generateVoice}
                   disabled={generatingVoice}
@@ -191,9 +226,8 @@ export default function ProjectDetailPage() {
                   Exportar ZIP
                 </Button>
               </div>
-              {voiceStatus && (
-                <p className="text-xs text-zinc-400">{voiceStatus}</p>
-              )}
+              {imageStatus && <p className="text-xs text-zinc-400">{imageStatus}</p>}
+              {voiceStatus && <p className="text-xs text-zinc-400">{voiceStatus}</p>}
             </div>
           )}
         </div>

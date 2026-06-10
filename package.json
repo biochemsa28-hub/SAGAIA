@@ -15,6 +15,7 @@
     "db:seed": "node db/seeds/run.js"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.10.1",
     "@libsql/client": "^0.14.0",
     "@radix-ui/react-dialog": "^1.1.16",
     "@radix-ui/react-progress": "^1.1.9",
