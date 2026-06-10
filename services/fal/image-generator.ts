@@ -39,7 +39,7 @@ async function generateMock(projectId: string, sceneNumber: number): Promise<Ima
   return { success: true, filePath, url: "/placeholder.png", mock: true, durationMs: 0 };
 }
 
-type FalResult = { images?: Array<{ url: string }> };
+type FalResult = { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> };
 
 async function callFlux(prompt: string): Promise<string | null> {
   try {
@@ -51,11 +51,12 @@ async function callFlux(prompt: string): Promise<string | null> {
         num_images: 1,
       },
       logs: false,
-    });
-    // Log full response shape to diagnose
-    console.log("[fal.ai raw result]", JSON.stringify(result).slice(0, 500));
-    const r = result as FalResult;
-    return r.images?.[0]?.url ?? null;
+    }) as FalResult;
+    // SDK wraps response in { data: { images: [...] } }
+    const images = result?.data?.images ?? result?.images;
+    const url = images?.[0]?.url ?? null;
+    console.log("[fal.ai] url:", url ?? "null", "keys:", Object.keys(result ?? {}).join(","));
+    return url;
   } catch (e) {
     console.error("[fal.ai callFlux error]", e instanceof Error ? e.message : String(e));
     return null;
