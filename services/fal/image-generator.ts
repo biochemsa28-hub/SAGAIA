@@ -43,7 +43,6 @@ type FalResult = { images?: Array<{ url: string }> };
 
 async function callFlux(prompt: string): Promise<string | null> {
   try {
-    // Use flux/schnell — fastest, cheapest, works on free tier
     const result = await fal.subscribe("fal-ai/flux/schnell", {
       input: {
         prompt,
@@ -52,10 +51,13 @@ async function callFlux(prompt: string): Promise<string | null> {
         num_images: 1,
       },
       logs: false,
-    }) as FalResult;
-    return result.images?.[0]?.url ?? null;
+    });
+    // Log full response shape to diagnose
+    console.log("[fal.ai raw result]", JSON.stringify(result).slice(0, 500));
+    const r = result as FalResult;
+    return r.images?.[0]?.url ?? null;
   } catch (e) {
-    console.error("[fal.ai callFlux]", e instanceof Error ? e.message : e);
+    console.error("[fal.ai callFlux error]", e instanceof Error ? e.message : String(e));
     return null;
   }
 }
