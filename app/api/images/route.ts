@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getProjectDetail, updateProjectStatus } from "@/lib/db/repository";
+import { getProjectDetail, updateProjectStatus, upsertAsset } from "@/lib/db/repository";
 import { generateProjectImages } from "@/services/fal/image-generator";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -34,6 +34,22 @@ export async function POST(req: NextRequest) {
         image_prompt: s.image_prompt ?? "",
       })),
     });
+
+    // Save URLs to DB assets table
+    await Promise.all(
+      results
+        .filter((r) => r.success && r.url)
+        .map((r) =>
+          upsertAsset({
+            projectId: parsed.data.project_id,
+            sceneNumber: r.sceneNumber,
+            assetType: "image",
+            publicUrl: r.url!,
+            filePath: r.filePath,
+            mimeType: "image/jpeg",
+          })
+        )
+    );
 
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;

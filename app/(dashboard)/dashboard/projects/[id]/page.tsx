@@ -167,8 +167,9 @@ export default function ProjectDetailPage() {
 
   if (!detail) return null;
 
-  const { project, story, scenes, seo } = detail;
+  const { project, story, scenes, seo, assets } = detail;
   const seoHashtags: string[] = seo ? (JSON.parse(seo.hashtags) as string[]) : [];
+  const imageAssets = assets?.filter((a) => a.asset_type === "image") ?? [];
 
   return (
     <>
@@ -343,6 +344,39 @@ export default function ProjectDetailPage() {
                 })}
               </div>
             </div>
+
+            {/* Generated Images */}
+            {imageAssets.length > 0 && (
+              <Card>
+                <div className="flex items-center gap-2 mb-4">
+                  <ImageIcon className="w-4 h-4 text-blue-400" />
+                  <h2 className="text-sm font-semibold text-white">Imágenes generadas</h2>
+                  <span className="ml-auto text-xs text-zinc-500">{imageAssets.length} imágenes · Flux Schnell</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {imageAssets.map((asset, i) => (
+                    <div key={asset.id} className="relative group">
+                      <img
+                        src={asset.public_url!}
+                        alt={`Escena ${i + 1}`}
+                        className="w-full aspect-[9/16] object-cover rounded-lg border border-zinc-700"
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                        <p className="text-xs text-zinc-300">Escena {i + 1}</p>
+                        <a
+                          href={asset.public_url!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-400 hover:underline"
+                        >
+                          Ver original ↗
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             {/* SEO */}
             {seo && (

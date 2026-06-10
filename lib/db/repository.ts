@@ -410,6 +410,7 @@ export interface ProjectDetail {
   story: DbStory | null;
   scenes: DbScene[];
   seo: DbSeoPackage | null;
+  assets: DbAsset[];
 }
 
 export async function getProjectDetail(id: string, userId: string): Promise<ProjectDetail | null> {
@@ -428,12 +429,76 @@ export async function getProjectDetail(id: string, userId: string): Promise<Proj
     db.execute({ sql: "SELECT * FROM seo_packages WHERE project_id = ?", args: [id] }),
   ]);
 
+  const assetsRes = await db.execute({
+    sql: "SELECT * FROM assets WHERE project_id = ? ORDER BY created_at ASC",
+    args: [id],
+  });
+
   return {
     project,
     story: (storyRes.rows[0] as unknown as DbStory) ?? null,
     scenes: storyRes.rows[0] ? (scenesRes.rows as unknown as DbScene[]) : [],
     seo: (seoRes.rows[0] as unknown as DbSeoPackage) ?? null,
+    assets: assetsRes.rows as unknown as DbAsset[],
   };
+}
+
+// ─── Assets ───────────────────────────────────────────────────────────────────
+
+export interface DbAsset {
+  id: string;
+  project_id: string;
+  scene_id: string | null;
+  asset_type: string;  // audio|image|video|thumbnail|zip
+  status: string;
+  file_path: string | null;
+  public_url: string | null;
+  file_size_bytes: number | null;
+  mime_type: string | null;
+  metadata: string | null;
+  created_at: string;
+}
+
+export async function upsertAsset(params: {
+  projectId: string;
+  sceneNumber?: number;
+  assetType: string;
+  publicUrl: string;
+  filePath?: string;
+  mimeType?: string;
+}): Promise<void> {
+  const db = getDb();
+
+  // Find scene_id if sceneNumber provided
+  let sceneId: string | null = null;
+  if (params.sceneNumber !== undefined) {
+    const res = await db.execute({
+      sql: "SELECT id FROM scenes WHERE project_id = ? AND scene_number = ?",
+      args: [params.projectId, params.sceneNumber],
+    });
+    sceneId = (res.rows[0] as Record<string, unknown>)?.["id"] as string ?? null;
+  }
+
+  // Upsert: if asset exists for this project+scene+type, update it
+  const existing = await db.execute({
+    sql: "SELECT id FROM assets WHERE project_id = ? AND scene_id = ? AND asset_type = ?",
+    args: [params.projectId, sceneId, params.assetType],
+  });
+
+  if (existing.rows[0]) {
+    const assetId = (existing.rows[0] as Record<string, unknown>)["id"] as string;
+    await db.execute({
+      sql: "UPDATE assets SET public_url = ?, file_path = ?, status = 'done', updated_at = datetime('now') WHERE id = ?",
+      args: [params.publicUrl, params.filePath ?? null, assetId],
+    });
+  } else {
+    await db.execute({
+      sql: `INSERT INTO assets (id, project_id, scene_id, asset_type, status, public_url, file_path, mime_type)
+            VALUES (?, ?, ?, ?, 'done', ?, ?, ?)`,
+      args: [uuidv4(), params.projectId, sceneId, params.assetType,
+             params.publicUrl, params.filePath ?? null, params.mimeType ?? null],
+    });
+  }
 }
 
 // ─── Project Stats (for dashboard) ────────────────────────────────────────────
