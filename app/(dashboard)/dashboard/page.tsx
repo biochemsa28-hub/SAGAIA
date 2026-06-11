@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
@@ -7,6 +7,25 @@ import {
   PlusCircle, Film, Sparkles, Download,
   TrendingUp, Clock, CheckCircle, LogOut, PartyPopper,
 } from "lucide-react";
+
+// Isolated component so useSearchParams doesn't break SSR prerender
+function PaymentBanner() {
+  const params = useSearchParams();
+  const paymentSuccess = params.get("payment") === "success";
+  const paymentPlan = params.get("plan");
+  if (!paymentSuccess) return null;
+  return (
+    <div className="flex items-center gap-3 bg-emerald-950/50 border border-emerald-700/40 rounded-xl px-4 py-3">
+      <PartyPopper className="w-5 h-5 text-emerald-400 shrink-0" />
+      <div>
+        <p className="text-sm font-semibold text-emerald-300">¡Pago exitoso!</p>
+        <p className="text-xs text-emerald-600">
+          Tu plan <span className="capitalize font-medium text-emerald-400">{paymentPlan}</span> está activo — los créditos ya aparecen en tu cuenta.
+        </p>
+      </div>
+    </div>
+  );
+}
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,9 +40,6 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const params = useSearchParams();
-  const paymentSuccess = params.get("payment") === "success";
-  const paymentPlan = params.get("plan");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -58,17 +74,9 @@ export default function DashboardPage() {
       <div className="p-6 space-y-6">
 
         {/* Payment success banner */}
-        {paymentSuccess && (
-          <div className="flex items-center gap-3 bg-emerald-950/50 border border-emerald-700/40 rounded-xl px-4 py-3">
-            <PartyPopper className="w-5 h-5 text-emerald-400 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-300">¡Pago exitoso!</p>
-              <p className="text-xs text-emerald-600">
-                Tu plan <span className="capitalize font-medium text-emerald-400">{paymentPlan}</span> está activo — los créditos ya aparecen en tu cuenta.
-              </p>
-            </div>
-          </div>
-        )}
+        <Suspense fallback={null}>
+          <PaymentBanner />
+        </Suspense>
 
         {/* Hero CTA */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-900/60 to-purple-900/40 border border-violet-700/30 p-6">
