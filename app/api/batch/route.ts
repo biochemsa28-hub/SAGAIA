@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getUserById, deductCredit, createProject, saveStoryOutput } from "@/lib/db/repository";
-import { generateStory } from "@/services/openai/story-generator";
+import { storyGeneratorService } from "@/services/openai/story-generator";
+import {
+  getUserById, deductCredit,
+  createProject, saveGenerationResult, updateProjectStatus,
+} from "@/lib/db/repository";
 import { initDb } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -34,10 +37,12 @@ export async function POST(req: NextRequest) {
 
     const user = await getUserById(session.user.id);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-    if (user.credits < body.items.length) {
+
+    const validItems = body.items.filter((it) => it.idea?.trim().length > 5);
+    if (user.credits < validItems.length) {
       return NextResponse.json({
-        error: `No tienes suficientes créditos. Necesitas ${body.items.length}, tienes ${user.credits}.`,
-        credits_needed: body.items.length,
+        error: `No tienes suficientes créditos. Necesitas ${validItems.length}, tienes ${user.credits}.`,
+        credits_needed: validItems.length,
         credits_available: user.credits,
       }, { status: 402 });
     }
@@ -51,8 +56,8 @@ export async function POST(req: NextRequest) {
       error?: string;
     }> = [];
 
-    for (let i = 0; i < body.items.length; i++) {
-      const item = body.items[i];
+    for (let i = 0; i < validItems.length; i++) {
+      const item = validItems[i]!;
       try {
         // Deduct credit
         const { ok, remaining } = await deductCredit(session.user.id);
@@ -61,38 +66,50 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        // Generate story
-        const story = await generateStory({
-          niche: item.niche,
-          idea: item.idea,
-          tone: item.tone,
-          language: item.language ?? "es",
-          duration_target: item.duration_target ?? "60-90s",
-          visual_style: item.visual_style ?? "cinematic",
-          platform: item.platform ?? "tiktok",
-        });
-
-        // Save project
-        const project = await createProject({
+        // Create project
+        const projectId = await createProject({
           userId: session.user.id,
-          title: story.meta?.title ?? item.idea.slice(0, 60),
+          title: item.idea.slice(0, 60),
           niche: item.niche,
+          topic: item.idea,
+          tone: item.tone,
+          durationTarget: item.duration_target ?? "60-90s",
+          language: item.language ?? "es",
+          visualStyle: item.visual_style ?? "cinematic",
+          aiProvider: process.env.FORCE_MOCK_AI === "true" ? "mock" : "openai",
+        });
+        await updateProjectStatus(projectId, "generating");
+
+        // Generate story
+        const result = await storyGeneratorService.generate({
+          niche: item.niche,
+          topic: item.idea,
           tone: item.tone,
           language: item.language ?? "es",
           duration_target: item.duration_target ?? "60-90s",
           visual_style: item.visual_style ?? "cinematic",
-          platform: item.platform ?? "tiktok",
-          idea: item.idea,
         });
 
-        await saveStoryOutput(project.id, story);
+        if (!result.success || !result.data) {
+          await updateProjectStatus(projectId, "failed", result.error);
+          results.push({ index: i, idea: item.idea, status: "error", error: result.error ?? "Error al generar" });
+          continue;
+        }
+
+        await saveGenerationResult({
+          projectId,
+          story: result.data,
+          rawAiResponse: JSON.stringify(result.data),
+          aiProvider: result.provider ?? "mock",
+        });
+        await updateProjectStatus(projectId, "ready");
 
         results.push({
           index: i,
           idea: item.idea,
           status: "created",
-          project_id: project.id,
-          title: project.title,
+          project_id: projectId,
+          title: item.idea.slice(0, 60),
         });
       } catch (err) {
         results.push({

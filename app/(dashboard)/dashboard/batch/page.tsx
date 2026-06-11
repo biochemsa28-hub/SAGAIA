@@ -5,9 +5,7 @@ import { Loader2, Plus, Trash2, Zap, CheckCircle2, AlertCircle, Package } from "
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { NICHOS } from "@/lib/constants/nichos";
-
-const TONES = ["dramatico", "emocional", "misterioso", "motivacional", "romantico", "comico"];
+import { NICHOS, TONES as TONE_LIST } from "@/lib/constants/nichos";
 
 interface BatchItem {
   idea: string;
@@ -33,7 +31,7 @@ export default function BatchPage() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ResultItem[] | null>(null);
 
-  const nichoOptions = Object.keys(NICHOS);
+  // no extra var needed — use NICHOS array directly
 
   function addItem() {
     if (items.length >= 10) { toast("Máximo 10 proyectos por lote", "error"); return; }
@@ -142,8 +140,8 @@ export default function BatchPage() {
                       onChange={(e) => updateItem(i, "niche", e.target.value)}
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors"
                     >
-                      {nichoOptions.map((n) => (
-                        <option key={n} value={n}>{(NICHOS as Record<string, { label: string }>)[n]?.label ?? n}</option>
+                      {NICHOS.map((n) => (
+                        <option key={n.id} value={n.id}>{n.label}</option>
                       ))}
                     </select>
                   </div>
@@ -154,8 +152,8 @@ export default function BatchPage() {
                       onChange={(e) => updateItem(i, "tone", e.target.value)}
                       className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors"
                     >
-                      {TONES.map((t) => (
-                        <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                      {TONE_LIST.map((t) => (
+                        <option key={t.id} value={t.id}>{t.label}</option>
                       ))}
                     </select>
                   </div>
