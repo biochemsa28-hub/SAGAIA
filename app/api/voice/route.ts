@@ -49,10 +49,16 @@ export async function POST(req: NextRequest) {
           try {
             const { readFileSync } = await import("fs");
             const audioBuffer = readFileSync(r.filePath!);
-            const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+            // Use File with .mp3 name so fal.ai storage returns a .mp3 URL
+            // (Blob upload results in .mpeg extension which Shotstack rejects)
+            const file = new File(
+              [audioBuffer],
+              `scene_${r.sceneNumber}.mp3`,
+              { type: "audio/mpeg" }
+            );
             const { fal } = await import("@fal-ai/client");
             fal.config({ credentials: process.env.FAL_API_KEY });
-            const uploaded = await fal.storage.upload(blob) as string;
+            const uploaded = await fal.storage.upload(file) as string;
             await upsertAsset({
               projectId: parsed.data.project_id,
               sceneNumber: r.sceneNumber,
