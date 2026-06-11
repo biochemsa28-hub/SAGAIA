@@ -151,9 +151,9 @@ export default function DashboardPage() {
           <h4 className="text-sm font-semibold text-zinc-300 mb-3">🚀 Flujo de producción</h4>
           <div className="grid grid-cols-3 gap-4">
             {[
-              { step: "1", label: "Elige nicho y tema",    desc: "Terror, romance, misterio, inspiracional…" },
-              { step: "2", label: "IA genera el paquete",  desc: "Guion, escenas, prompts SEO en 2 min" },
-              { step: "3", label: "Descarga y produce",    desc: "ZIP con todo listo para Midjourney y edición" },
+              { step: "1", label: "Elige nicho y tema",     desc: "Terror, romance, misterio, inspiracional…" },
+              { step: "2", label: "SAGAIA lo produce todo", desc: "Voz, imágenes, clips animados y video final con IA" },
+              { step: "3", label: "Descarga y publica",    desc: "Video MP4 listo para TikTok, Reels e YouTube Shorts" },
             ].map(({ step, label, desc }) => (
               <div key={step} className="flex gap-3">
                 <div className="w-6 h-6 rounded-full bg-violet-600/20 border border-violet-700/40 flex items-center justify-center shrink-0 mt-0.5">
