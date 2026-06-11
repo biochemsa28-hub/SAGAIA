@@ -25,7 +25,7 @@ export default function PricingPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function checkout(planId: string) {
-    if (!session) { router.push("/auth/login"); return; }
+    if (!session) { router.push("/login"); return; }
     setLoading(planId);
     setError(null);
     try {

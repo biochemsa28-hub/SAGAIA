@@ -7,8 +7,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SAGAIA",
-  description: "Generate professional microstory production packages with AI",
+  title: { default: "SAGAIA — Microdramas IA", template: "%s · SAGAIA" },
+  description: "Crea microdramas virales con IA: voz, imágenes, clips animados y video MP4 en minutos.",
+  metadataBase: new URL("https://sagaia.vercel.app"),
 };
 
 export default function RootLayout({
