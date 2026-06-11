@@ -1,16 +1,25 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, Zap, Loader2, ArrowLeft } from "lucide-react";
 import { PLANS } from "@/lib/stripe";
 
+function CancelledBanner() {
+  const params = useSearchParams();
+  const cancelled = params.get("payment") === "cancelled";
+  if (!cancelled) return null;
+  return (
+    <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-8 text-center text-sm text-zinc-400">
+      Pago cancelado. Puedes intentarlo de nuevo cuando quieras.
+    </div>
+  );
+}
+
 export default function PricingPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const params = useSearchParams();
-  const cancelled = params.get("payment") === "cancelled";
 
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,11 +73,9 @@ export default function PricingPage() {
         </div>
 
         {/* Cancelled notice */}
-        {cancelled && (
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-8 text-center text-sm text-zinc-400">
-            Pago cancelado. Puedes intentarlo de nuevo cuando quieras.
-          </div>
-        )}
+        <Suspense fallback={null}>
+          <CancelledBanner />
+        </Suspense>
 
         {/* Error */}
         {error && (
