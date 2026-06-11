@@ -85,7 +85,6 @@ function buildTimeline(params: {
         asset: {
           type: "text",
           text: scene.narrationText,
-          size: "medium",
           width: 900,
           height: 200,
         },
