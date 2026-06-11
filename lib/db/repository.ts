@@ -175,6 +175,14 @@ export async function addCredits(userId: string, amount: number): Promise<number
   return Number(row?.["credits"] ?? 0);
 }
 
+export async function updateUserPlan(userId: string, plan: string): Promise<void> {
+  const db = getDb();
+  await db.execute({
+    sql: "UPDATE users SET plan = ?, updated_at = datetime('now') WHERE id = ?",
+    args: [plan, userId],
+  });
+}
+
 // ─── API Logs ─────────────────────────────────────────────────────────────────
 
 export async function createApiLog(params: {

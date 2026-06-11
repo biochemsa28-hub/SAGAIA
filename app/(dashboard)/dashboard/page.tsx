@@ -2,9 +2,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import {
   PlusCircle, Film, Sparkles, Download,
-  TrendingUp, Clock, CheckCircle, LogOut,
+  TrendingUp, Clock, CheckCircle, LogOut, PartyPopper,
 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/card";
@@ -20,6 +21,9 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const params = useSearchParams();
+  const paymentSuccess = params.get("payment") === "success";
+  const paymentPlan = params.get("plan");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,6 +56,19 @@ export default function DashboardPage() {
         }
       />
       <div className="p-6 space-y-6">
+
+        {/* Payment success banner */}
+        {paymentSuccess && (
+          <div className="flex items-center gap-3 bg-emerald-950/50 border border-emerald-700/40 rounded-xl px-4 py-3">
+            <PartyPopper className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-300">¡Pago exitoso!</p>
+              <p className="text-xs text-emerald-600">
+                Tu plan <span className="capitalize font-medium text-emerald-400">{paymentPlan}</span> está activo — los créditos ya aparecen en tu cuenta.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Hero CTA */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-900/60 to-purple-900/40 border border-violet-700/30 p-6">

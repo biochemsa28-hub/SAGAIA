@@ -1,7 +1,8 @@
 "use client";
-import { Bell, Zap } from "lucide-react";
+import { Bell, Zap, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 interface TopBarProps {
@@ -12,6 +13,7 @@ interface TopBarProps {
 
 export function TopBar({ title, subtitle, actions }: TopBarProps) {
   const { data: session } = useSession();
+  const router = useRouter();
   const [credits, setCredits] = useState<number | null>(null);
 
   const initials = session?.user?.name
@@ -44,12 +46,21 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
         <button className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors">
           <Bell className="w-4 h-4 text-zinc-400" />
         </button>
-        <div className={`flex items-center gap-2 bg-violet-600/10 border border-violet-700/30 rounded-lg px-3 py-1.5 ${credits === 0 ? "border-red-700/40 bg-red-600/10" : ""}`}>
+        <button
+          onClick={() => router.push("/pricing")}
+          className={`flex items-center gap-2 rounded-lg px-3 py-1.5 transition-colors border ${
+            credits === 0
+              ? "border-red-700/40 bg-red-600/10 hover:bg-red-600/20"
+              : "border-violet-700/30 bg-violet-600/10 hover:bg-violet-600/20"
+          }`}
+          title="Recargar créditos"
+        >
           <Zap className={`w-3.5 h-3.5 ${creditColor}`} />
           <span className={`text-xs font-medium ${creditColor}`}>
             {credits === null ? "…" : `${credits} crédito${credits !== 1 ? "s" : ""}`}
           </span>
-        </div>
+          <Plus className={`w-3 h-3 ${creditColor} opacity-70`} />
+        </button>
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center">
           <span className="text-xs font-bold text-white">{initials}</span>
         </div>
