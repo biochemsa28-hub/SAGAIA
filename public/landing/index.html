@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAGAIA — Crea Microdramas Virales con IA en 7 Minutos</title>
+  <meta name="description" content="SAGAIA convierte cualquier idea en un microdrama completo con voz profesional, imágenes cinematográficas, clips animados y video MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos." />
+  <meta name="keywords" content="microdrama IA, crear videos con inteligencia artificial, generador videos TikTok, Reels automatizados, YouTube Shorts IA, SAGAIA" />
+  <link rel="canonical" href="https://sagaia.vercel.app" />
+
+  <!-- OG -->
+  <meta property="og:title" content="SAGAIA — De idea a video viral en 7 minutos" />
+  <meta property="og:description" content="Voz · Imágenes · Clips · Video MP4. Todo automático con IA." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://sagaia.vercel.app" />
+  <meta property="og:image" content="https://sagaia.vercel.app/og-image.png" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="SAGAIA — Microdramas IA en minutos" />
+  <meta name="twitter:description" content="Crea microdramas virales con IA: voz, imágenes, clips y video final MP4." />
+
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #09090b;
+      --bg2:      #18181b;
+      --border:   #27272a;
+      --zinc400:  #a1a1aa;
+      --zinc500:  #71717a;
+      --zinc600:  #52525b;
+      --violet:   #7c3aed;
+      --violet2:  #6d28d9;
+      --pink:     #db2777;
+      --emerald:  #059669;
+      --blue:     #2563eb;
+      --purple:   #7c3aed;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: #fff;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+
+    /* ── Utilities ── */
+    .grad-text {
+      background: linear-gradient(135deg, #a78bfa, #f472b6, #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .grad-btn {
+      background: linear-gradient(135deg, #7c3aed, #db2777);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s;
+    }
+    .grad-btn:hover { opacity: .9; transform: translateY(-1px); }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(9,9,11,.85);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: 1100px; margin: 0 auto; padding: 0 20px;
+      height: 64px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: bold;
+    }
+    .logo-name { font-size: 18px; font-weight: 800; letter-spacing: -.5px; }
+    .nav-links { display: flex; align-items: center; gap: 12px; }
+    .btn-login {
+      font-size: 14px; color: var(--zinc400);
+      padding: 8px 16px; border-radius: 8px;
+      transition: color .2s;
+    }
+    .btn-login:hover { color: #fff; }
+    .btn-cta {
+      font-size: 14px; font-weight: 600;
+      padding: 9px 20px; border-radius: 10px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 140px 20px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -60%);
+      width: 700px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(124,58,237,.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(124,58,237,.1);
+      border: 1px solid rgba(124,58,237,.3);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 12px; color: #c4b5fd;
+      font-weight: 500; margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 20px;
+    }
+    .hero p {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--zinc400);
+      max-width: 600px; margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+    .hero-btns {
+      display: flex; flex-wrap: wrap;
+      align-items: center; justify-content: center; gap: 14px;
+      margin-bottom: 16px;
+    }
+    .btn-primary {
+      font-size: 16px; font-weight: 700;
+      padding: 16px 36px; border-radius: 14px;
+      display: inline-flex; align-items: center; gap: 8px;
+      box-shadow: 0 20px 60px rgba(124,58,237,.35);
+    }
+    .btn-secondary {
+      font-size: 14px; color: var(--zinc400);
+      transition: color .2s;
+    }
+    .btn-secondary:hover { color: #fff; }
+    .hero-note { font-size: 12px; color: var(--zinc600); }
+
+    /* ── Stats ── */
+    .stats {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 40px 20px;
+    }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 24px; max-width: 800px; margin: 0 auto; text-align: center;
+    }
+    @media(min-width: 640px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+    .stat-value { font-size: 1.9rem; font-weight: 800; color: #fff; }
+    .stat-label { font-size: 12px; color: var(--zinc500); margin-top: 4px; }
+
+    /* ── How it works ── */
+    .section { padding: 80px 20px; }
+    .section-title { text-align: center; margin-bottom: 12px; }
+    .section-title h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; }
+    .section-sub { text-align: center; color: var(--zinc400); font-size: 15px; margin-bottom: 52px; }
+
+    .steps { display: grid; gap: 16px; max-width: 800px; margin: 0 auto; }
+    @media(min-width: 720px) { .steps { grid-template-columns: repeat(4, 1fr); } }
+    .step {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+      position: relative;
+      transition: border-color .2s;
+    }
+    .step:hover { border-color: rgba(124,58,237,.4); }
+    .step-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(124,58,237,.15);
+      border: 1px solid rgba(124,58,237,.3);
+      color: #c4b5fd; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px;
+    }
+    .step-emoji { font-size: 2rem; margin-bottom: 10px; }
+    .step h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .step p { font-size: 13px; color: var(--zinc400); line-height: 1.5; }
+    .step-arrow {
+      display: none; position: absolute; right: -18px; top: 50%;
+      transform: translateY(-50%); color: var(--zinc600); font-size: 20px;
+    }
+    @media(min-width: 720px) { .step-arrow { display: block; } }
+
+    /* ── Pipeline ── */
+    .pipeline { max-width: 800px; margin: 0 auto; }
+    .pipe-row {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 20px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; margin-bottom: 10px;
+      transition: border-color .2s;
+    }
+    .pipe-row:hover { border-color: rgba(124,58,237,.35); }
+    .pipe-icon { font-size: 2rem; flex-shrink: 0; width: 44px; text-align: center; margin-top: 2px; }
+    .pipe-label {
+      font-size: 11px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+    .pipe-label.emerald { color: #34d399; }
+    .pipe-label.blue    { color: #60a5fa; }
+    .pipe-label.purple  { color: #a78bfa; }
+    .pipe-label.pink    { color: #f472b6; }
+    .pipe-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .pipe-desc  { font-size: 13px; color: var(--zinc400); }
+    .pipe-time {
+      margin-left: auto; flex-shrink: 0;
+      font-size: 12px; color: var(--zinc600);
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 100px;
+      white-space: nowrap;
+    }
+
+    /* ── Niches ── */
+    .niches-bg { background: rgba(24,24,27,.6); }
+    .niches-grid {
+      display: flex; flex-wrap: wrap;
+      justify-content: center; gap: 10px;
+      max-width: 700px; margin: 0 auto;
+    }
+    .niche-pill {
+      padding: 10px 20px; border-radius: 100px;
+      background: var(--bg2); border: 1px solid var(--border);
+      font-size: 14px; color: #d4d4d8;
+      cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+    .niche-pill:hover { border-color: rgba(124,58,237,.5); color: #c4b5fd; }
+
+    /* ── Pricing ── */
+    .pricing-grid {
+      display: grid; gap: 20px; max-width: 920px; margin: 0 auto;
+    }
+    @media(min-width: 720px) { .pricing-grid { grid-template-columns: repeat(3, 1fr); } }
+    .plan-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px 24px;
+      display: flex; flex-direction: column;
+      position: relative; transition: border-color .2s, transform .2s;
+    }
+    .plan-card:hover { border-color: rgba(124,58,237,.4); transform: translateY(-3px); }
+    .plan-card.popular {
+      border-color: rgba(124,58,237,.6);
+      background: rgba(124,58,237,.06);
+      box-shadow: 0 0 40px rgba(124,58,237,.12);
+    }
+    .popular-tag {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, #7c3aed, #db2777);
+      color: #fff; font-size: 11px; font-weight: 700;
+      padding: 4px 14px; border-radius: 100px;
+      letter-spacing: .05em;
+    }
+    .plan-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+    .plan-desc { font-size: 13px; color: var(--zinc500); margin-bottom: 20px; }
+    .plan-price { display: flex; align-items: flex-end; gap: 4px; margin-bottom: 6px; }
+    .plan-amount { font-size: 3rem; font-weight: 900; line-height: 1; }
+    .plan-currency { font-size: 14px; color: var(--zinc500); margin-bottom: 8px; }
+    .plan-credits { font-size: 14px; color: #a78bfa; font-weight: 600; margin-bottom: 24px; }
+    .plan-features { list-style: none; flex: 1; margin-bottom: 24px; }
+    .plan-features li {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 13px; color: #d4d4d8;
+      padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .plan-features li:last-child { border-bottom: none; }
+    .check { color: #34d399; flex-shrink: 0; margin-top: 2px; }
+    .plan-btn {
+      width: 100%; padding: 14px;
+      border-radius: 12px; font-size: 14px; font-weight: 700;
+      cursor: pointer; border: none; transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .plan-btn.default {
+      background: #27272a; color: #fff;
+      border: 1px solid #3f3f46;
+    }
+    .plan-btn.default:hover { background: #3f3f46; }
+
+    /* ── Social proof ── */
+    .testimonials {
+      display: grid; gap: 16px; max-width: 900px; margin: 0 auto;
+    }
+    @media(min-width: 640px) { .testimonials { grid-template-columns: repeat(3, 1fr); } }
+    .testimonial {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px;
+    }
+    .t-stars { color: #facc15; font-size: 14px; margin-bottom: 10px; }
+    .t-text  { font-size: 14px; color: #d4d4d8; line-height: 1.6; margin-bottom: 14px; }
+    .t-author { display: flex; align-items: center; gap: 10px; }
+    .t-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #7c3aed, #db2777);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+    }
+    .t-name  { font-size: 13px; font-weight: 600; }
+    .t-role  { font-size: 12px; color: var(--zinc500); }
+
+    /* ── FAQ ── */
+    .faq { max-width: 700px; margin: 0 auto; }
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 18px 0;
+    }
+    .faq-q {
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      user-select: none;
+    }
+    .faq-q .arrow { transition: transform .25s; color: var(--zinc500); font-size: 18px; }
+    .faq-item.open .faq-q .arrow { transform: rotate(180deg); }
+    .faq-a {
+      font-size: 14px; color: var(--zinc400); line-height: 1.7;
+      max-height: 0; overflow: hidden;
+      transition: max-height .3s ease, padding .3s;
+    }
+    .faq-item.open .faq-a { max-height: 300px; padding-top: 10px; }
+
+    /* ── CTA Final ── */
+    .cta-final {
+      text-align: center; padding: 100px 20px;
+      position: relative; overflow: hidden;
+    }
+    .cta-glow {
+      position: absolute; bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 600px; height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(124,58,237,.2) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-final h2 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 900; letter-spacing: -.03em;
+      margin-bottom: 16px;
+    }
+    .cta-final p { font-size: 16px; color: var(--zinc400); margin-bottom: 36px; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 20px;
+    }
+    .footer-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; flex-wrap: wrap;
+      align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+    .footer-links a { font-size: 13px; color: var(--zinc600); transition: color .2s; }
+    .footer-links a:hover { color: var(--zinc400); }
+    .footer-copy { font-size: 12px; color: var(--zinc600); }
+
+    /* ── Floating CTA (mobile) ── */
+    .floating-cta {
+      display: none;
+      position: fixed; bottom: 16px; left: 16px; right: 16px; z-index: 90;
+    }
+    @media(max-width: 640px) { .floating-cta { display: block; } }
+    .floating-cta a {
+      width: 100%; padding: 16px;
+      border-radius: 14px; font-size: 15px; font-weight: 700;
+      text-align: center; display: block;
+      box-shadow: 0 8px 32px rgba(124,58,237,.5);
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp .7s ease both; }
+    .delay-1 { animation-delay: .1s; }
+    .delay-2 { animation-delay: .2s; }
+    .delay-3 { animation-delay: .3s; }
+    .delay-4 { animation-delay: .45s; }
+
+    /* ── Video mockup ── */
+    .video-mockup {
+      max-width: 340px; margin: 48px auto 0;
+      background: #000; border-radius: 24px;
+      border: 2px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 40px 100px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+      aspect-ratio: 9/16;
+      position: relative;
+    }
+    .mockup-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.8) 100%);
+      display: flex; flex-direction: column;
+      justify-content: flex-end; padding: 20px;
+    }
+    .mockup-tag {
+      display: inline-block; background: rgba(124,58,237,.8);
+      font-size: 11px; font-weight: 700; padding: 3px 10px;
+      border-radius: 100px; margin-bottom: 8px; width: fit-content;
+    }
+    .mockup-title { font-size: 15px; font-weight: 700; line-height: 1.3; margin-bottom: 6px; }
+    .mockup-icons { display: flex; gap: 16px; font-size: 12px; color: rgba(255,255,255,.6); }
+
+    /* ── Number ticker ── */
+    .ticker {
+      display: inline-block;
+      background: linear-gradient(135deg, #7c3aed22, #db277722);
+      border: 1px solid rgba(124,58,237,.3);
+      border-radius: 12px; padding: 8px 20px;
+      font-size: 13px; color: #c4b5fd;
+      margin-bottom: 40px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Nav ── -->
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="logo">
+        <div class="logo-icon">✦</div>
+        <span class="logo-name">SAGAIA</span>
+      </a>
+      <div class="nav-links">
+        <a href="#precios" class="btn-login">Precios</a>
+        <a href="https://sagaia.vercel.app/login" class="btn-login">Iniciar sesión</a>
+        <a href="https://sagaia.vercel.app/register" class="btn-cta grad-btn" style="border-radius:10px;padding:9px 18px;font-size:14px;font-weight:700;">
+          ⚡ Empezar gratis
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ── -->
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <div class="container">
+
+      <div class="badge fade-up">
+        ✦ &nbsp;Producción IA completa · Sin experiencia requerida
+      </div>
+
+      <h1 class="fade-up delay-1">
+        De idea a<br>
+        <span class="grad-text">microdrama viral</span><br>
+        en 7 minutos
+      </h1>
+
+      <p class="fade-up delay-2">
+        SAGAIA produce todo automáticamente — voz profesional, imágenes
+        cinematográficas, clips animados y video MP4 listo para publicar
+        en TikTok, Reels y YouTube Shorts.
+      </p>
+
+      <div class="hero-btns fade-up delay-3">
+        <a href="https://sagaia.vercel.app/register" class="btn-primary grad-btn">
+          ⚡ Crear mi primer microdrama gratis
+        </a>
+        <a href="https://sagaia.vercel.app/login" class="btn-secondary">
+          Ya tengo cuenta →
+        </a>
+      </div>
+
+      <p class="hero-note fade-up delay-4">
+        5 créditos gratis al registrarte · Sin tarjeta de crédito
+      </p>
+
+      <!-- Mockup de teléfono -->
+      <div class="video-mockup fade-up delay-4">
+        <div style="width:100%;height:100%;background:linear-gradient(180deg,#1a0533 0%,#0d0d1a 100%);display:flex;align-items:center;justify-content:center;">
+          <div style="text-align:center;">
+            <div style="font-size:3rem;margin-bottom:12px;">🎬</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.5);">Tu video aparecerá aquí</div>
+          </div>
+        </div>
+        <div class="mockup-overlay">
+          <span class="mockup-tag">SAGAIA IA</span>
+          <p class="mockup-title">El secreto que nadie te contó sobre el éxito</p>
+          <div class="mockup-icons">
+            <span>❤️ 48.2K</span>
+            <span>💬 1.2K</span>
+            <span>↗ Compartir</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Stats ── -->
+  <section class="stats">
+    <div class="stats-grid">
+      <div>
+        <div class="stat-value grad-text">7 min</div>
+        <div class="stat-label">Producción completa</div>
+      </div>
+      <div>
+        <div class="stat-value grad-text">1 clic</div>
+        <div class="stat-label">Para generar todo</div>
+      </div>
+      <div>
+        <div class="stat-value grad-text">9:16</div>
+        <div class="stat-label">Formato viral nativo</div>
+      </div>
+      <div>
+        <div class="stat-value grad-text">3 redes</div>
+        <div class="stat-label">TikTok · Reels · Shorts</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Cómo funciona ── -->
+  <section class="section">
+    <div class="container">
+      <div class="section-title">
+        <h2>Cómo funciona</h2>
+      </div>
+      <p class="section-sub">Escribe tu idea. SAGAIA hace el resto en 4 pasos automáticos.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-emoji">💡</div>
+          <h3>Elige tu idea</h3>
+          <p>Selecciona un nicho, tono y escribe una línea de tu historia.</p>
+          <span class="step-arrow">›</span>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-emoji">📖</div>
+          <h3>IA escribe el guión</h3>
+          <p>GPT-4 crea un microdrama profesional con hook, drama y CTA.</p>
+          <span class="step-arrow">›</span>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-emoji">🏭</div>
+          <h3>Producción automática</h3>
+          <p>Voz, imágenes y clips se generan solos en paralelo.</p>
+          <span class="step-arrow">›</span>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-emoji">📱</div>
+          <h3>Descarga y publica</h3>
+          <p>MP4 1080×1920 con subtítulos listo para subir a tus redes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Pipeline ── -->
+  <section class="section" style="padding-top:0;">
+    <div class="container">
+      <div class="section-title">
+        <h2>El pipeline de producción</h2>
+      </div>
+      <p class="section-sub">4 IAs trabajando en secuencia por ti</p>
+
+      <div class="pipeline">
+        <div class="pipe-row">
+          <div class="pipe-icon">🎤</div>
+          <div style="flex:1;">
+            <div class="pipe-label emerald">Paso 1</div>
+            <div class="pipe-title">Voz profesional</div>
+            <div class="pipe-desc">ElevenLabs genera narración natural en español o inglés con emoción real.</div>
+          </div>
+          <span class="pipe-time">~30 seg</span>
+        </div>
+        <div class="pipe-row">
+          <div class="pipe-icon">🖼️</div>
+          <div style="flex:1;">
+            <div class="pipe-label blue">Paso 2</div>
+            <div class="pipe-title">Imágenes cinematográficas</div>
+            <div class="pipe-desc">Flux Schnell crea imágenes 9:16 ultra-realistas por escena.</div>
+          </div>
+          <span class="pipe-time">~1 min</span>
+        </div>
+        <div class="pipe-row">
+          <div class="pipe-icon">🎬</div>
+          <div style="flex:1;">
+            <div class="pipe-label purple">Paso 3</div>
+            <div class="pipe-title">Clips animados</div>
+            <div class="pipe-desc">Kling v1.6 anima cada imagen con movimiento de cámara profesional.</div>
+          </div>
+          <span class="pipe-time">~3 min</span>
+        </div>
+        <div class="pipe-row">
+          <div class="pipe-icon">⚡</div>
+          <div style="flex:1;">
+            <div class="pipe-label pink">Paso 4</div>
+            <div class="pipe-title">Video final MP4</div>
+            <div class="pipe-desc">Shotstack ensambla todo: audio, subtítulos, transiciones y video 1080×1920.</div>
+          </div>
+          <span class="pipe-time">~2 min</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Nichos ── -->
+  <section class="section niches-bg">
+    <div class="container">
+      <div class="section-title">
+        <h2>Para cualquier nicho de contenido</h2>
+      </div>
+      <p class="section-sub">Elige tu género — SAGAIA adapta tono, imágenes y narrativa automáticamente</p>
+
+      <div class="niches-grid">
+        <span class="niche-pill">💔 Drama de pareja</span>
+        <span class="niche-pill">👻 Terror psicológico</span>
+        <span class="niche-pill">💼 Negocios & éxito</span>
+        <span class="niche-pill">🌍 Historia real</span>
+        <span class="niche-pill">🧠 Motivación</span>
+        <span class="niche-pill">💋 Romance</span>
+        <span class="niche-pill">🔮 Misterio</span>
+        <span class="niche-pill">🏆 Superación</span>
+        <span class="niche-pill">💰 Dinero & finanzas</span>
+        <span class="niche-pill">🎭 Comedia</span>
+        <span class="niche-pill">🕵️ Suspense</span>
+        <span class="niche-pill">⚡ Ciencia ficción</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Testimonios ── -->
+  <section class="section">
+    <div class="container">
+      <div class="section-title">
+        <h2>Creadores que ya lo usan</h2>
+      </div>
+      <p class="section-sub">Resultados reales de quienes producen en serie con SAGAIA</p>
+
+      <div class="testimonials">
+        <div class="testimonial">
+          <div class="t-stars">★★★★★</div>
+          <p class="t-text">"Produzco 10 microdramas por semana en lugar de 1. Mi cuenta pasó de 0 a 85K seguidores en 2 meses."</p>
+          <div class="t-author">
+            <div class="t-avatar">M</div>
+            <div>
+              <div class="t-name">Mariana R.</div>
+              <div class="t-role">Creadora de contenido · 85K seguidores</div>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial">
+          <div class="t-stars">★★★★★</div>
+          <p class="t-text">"Manejo 3 cuentas de diferentes nichos. SAGAIA me ahorra 40 horas semanales. ROI inmediato."</p>
+          <div class="t-author">
+            <div class="t-avatar">C</div>
+            <div>
+              <div class="t-name">Carlos V.</div>
+              <div class="t-role">Gestor de contenido · 3 cuentas activas</div>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial">
+          <div class="t-stars">★★★★★</div>
+          <p class="t-text">"Los videos salen profesionales. Mis clientes no pueden creer que se generaron con IA en minutos."</p>
+          <div class="t-author">
+            <div class="t-avatar">A</div>
+            <div>
+              <div class="t-name">Andrea L.</div>
+              <div class="t-role">Agencia de marketing · CDMX</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Precios ── -->
+  <section class="section niches-bg" id="precios">
+    <div class="container">
+      <div class="section-title">
+        <h2>Un crédito = un microdrama completo</h2>
+      </div>
+      <p class="section-sub">Pago único · Sin suscripción · Los créditos no expiran · Procesado por Stripe</p>
+
+      <div class="pricing-grid">
+
+        <div class="plan-card">
+          <div class="plan-name">Starter</div>
+          <div class="plan-desc">Para empezar a crear</div>
+          <div class="plan-price">
+            <span class="plan-amount">$9</span>
+            <span class="plan-currency">USD</span>
+          </div>
+          <div class="plan-credits">10 créditos · $0.90 c/u</div>
+          <ul class="plan-features">
+            <li><span class="check">✓</span> 10 microdramas completos</li>
+            <li><span class="check">✓</span> Voz ElevenLabs</li>
+            <li><span class="check">✓</span> Imágenes Flux Schnell</li>
+            <li><span class="check">✓</span> Clips Kling v1.6</li>
+            <li><span class="check">✓</span> Video MP4 1080×1920</li>
+            <li><span class="check">✓</span> Subtítulos incluidos</li>
+          </ul>
+          <a href="https://sagaia.vercel.app/pricing" class="plan-btn default">Comprar 10 créditos</a>
+        </div>
+
+        <div class="plan-card popular">
+          <div class="popular-tag">MÁS POPULAR</div>
+          <div class="plan-name">Pro</div>
+          <div class="plan-desc">Para creadores activos</div>
+          <div class="plan-price">
+            <span class="plan-amount grad-text">$29</span>
+            <span class="plan-currency">USD</span>
+          </div>
+          <div class="plan-credits">40 créditos · $0.73 c/u</div>
+          <ul class="plan-features">
+            <li><span class="check">✓</span> 40 microdramas completos</li>
+            <li><span class="check">✓</span> Todo lo del plan Starter</li>
+            <li><span class="check">✓</span> Exportación ZIP de assets</li>
+            <li><span class="check">✓</span> Pack SEO completo</li>
+            <li><span class="check">✓</span> Hashtags y títulos IA</li>
+            <li><span class="check">✓</span> Soporte prioritario</li>
+          </ul>
+          <a href="https://sagaia.vercel.app/pricing" class="plan-btn grad-btn">⚡ Comprar 40 créditos</a>
+        </div>
+
+        <div class="plan-card">
+          <div class="plan-name">Studio</div>
+          <div class="plan-desc">Para producción en serie</div>
+          <div class="plan-price">
+            <span class="plan-amount">$79</span>
+            <span class="plan-currency">USD</span>
+          </div>
+          <div class="plan-credits">120 créditos · $0.66 c/u</div>
+          <ul class="plan-features">
+            <li><span class="check">✓</span> 120 microdramas completos</li>
+            <li><span class="check">✓</span> Todo lo del plan Pro</li>
+            <li><span class="check">✓</span> Producción en lote (batch)</li>
+            <li><span class="check">✓</span> Acceso API</li>
+            <li><span class="check">✓</span> 10 nichos simultáneos</li>
+            <li><span class="check">✓</span> Soporte dedicado</li>
+          </ul>
+          <a href="https://sagaia.vercel.app/pricing" class="plan-btn default">Comprar 120 créditos</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FAQ ── -->
+  <section class="section">
+    <div class="container">
+      <div class="section-title">
+        <h2>Preguntas frecuentes</h2>
+      </div>
+      <p class="section-sub" style="margin-bottom:36px;">Todo lo que necesitas saber antes de empezar</p>
+
+      <div class="faq">
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿Cuánto tarda en generar un microdrama?
+            <span class="arrow">▾</span>
+          </div>
+          <div class="faq-a">En promedio 7 minutos para el pipeline completo: 30 segundos para la voz, 1 minuto para imágenes, 3 minutos para animar clips con Kling, y 2 minutos para ensamblar el video final con Shotstack.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿Los créditos tienen fecha de vencimiento?
+            <span class="arrow">▾</span>
+          </div>
+          <div class="faq-a">No. Los créditos que compras son permanentes y no expiran. Puedes usarlos a tu ritmo.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿En qué idiomas puedo generar los microdramas?
+            <span class="arrow">▾</span>
+          </div>
+          <div class="faq-a">Español e inglés están completamente soportados. El guión, voz y subtítulos se generan en el idioma que elijas al crear tu proyecto.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿Puedo usar los videos para monetización?
+            <span class="arrow">▾</span>
+          </div>
+          <div class="faq-a">Sí. Los videos generados son 100% tuyo. Puedes publicarlos, monetizarlos y usarlos para clientes. SAGAIA no reclama derechos sobre el contenido que produces.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿Necesito experiencia en edición de video?
+            <span class="arrow">▾</span>
+          </div>
+          <div class="faq-a">Cero. SAGAIA hace todo automáticamente: escribe el guión, genera las imágenes, anima los clips, agrega voz y subtítulos, y entrega el MP4 final. Solo necesitas una idea.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿Qué formato tiene el video final?
+            <span class="arrow">▾</span>
+          </div>
+          <div class="faq-a">MP4 en resolución 1080×1920 (formato 9:16 vertical), optimizado para TikTok, Instagram Reels y YouTube Shorts. Incluye subtítulos quemados y audio sincronizado.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA Final ── -->
+  <section class="cta-final">
+    <div class="cta-glow"></div>
+    <div class="container" style="position:relative;z-index:1;">
+      <div class="ticker">
+        🔥 &nbsp;Registros activos esta semana
+      </div>
+      <h2>Empieza a producir hoy</h2>
+      <p>5 microdramas gratis. Sin tarjeta de crédito. Sin límite de ideas.</p>
+      <a href="https://sagaia.vercel.app/register" class="btn-primary grad-btn" style="display:inline-flex;font-size:16px;padding:18px 42px;border-radius:16px;box-shadow:0 20px 60px rgba(124,58,237,.4);">
+        ⚡ Crear mi cuenta gratis
+      </a>
+      <p style="font-size:12px;color:var(--zinc600);margin-top:16px;">
+        Pago único cuando necesites más créditos · Cancela cuando quieras
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <div class="footer-inner">
+      <div class="logo">
+        <div class="logo-icon" style="width:26px;height:26px;font-size:13px;">✦</div>
+        <span style="font-weight:800;">SAGAIA</span>
+        <span style="color:var(--zinc600);font-size:13px;">· Studio AI</span>
+      </div>
+      <div class="footer-links">
+        <a href="#precios">Precios</a>
+        <a href="https://sagaia.vercel.app/login">Iniciar sesión</a>
+        <a href="https://sagaia.vercel.app/register">Registrarse</a>
+        <a href="mailto:hola@sagaia.app">Contacto</a>
+      </div>
+      <p class="footer-copy">© 2026 SAGAIA. Todos los derechos reservados.</p>
+    </div>
+  </footer>
+
+  <!-- ── Floating CTA mobile ── -->
+  <div class="floating-cta">
+    <a href="https://sagaia.vercel.app/register" class="grad-btn">
+      ⚡ Empezar gratis — 5 créditos incluidos
+    </a>
+  </div>
+
+  <script>
+    // FAQ toggle
+    function toggleFaq(el) {
+      const item = el.parentElement;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    }
+
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.style.opacity = '1';
+          e.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.step, .pipe-row, .plan-card, .testimonial, .faq-item').forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(20px)';
+      el.style.transition = 'opacity .6s ease, transform .6s ease';
+      observer.observe(el);
+    });
+
+    // Smooth nav link
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

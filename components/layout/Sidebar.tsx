@@ -4,13 +4,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard, PlusCircle, BookOpen,
-  Settings, ScrollText, Sparkles, ChevronRight, Zap,
+  Settings, ScrollText, Sparkles, ChevronRight, Zap, Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/dashboard",               icon: LayoutDashboard, label: "Dashboard"      },
   { href: "/dashboard/projects/new",  icon: PlusCircle,      label: "Nueva historia", highlight: true },
+  { href: "/dashboard/batch",         icon: Package,         label: "Lote (Batch)",  highlight: true },
   { href: "/dashboard/library",       icon: BookOpen,        label: "Biblioteca"     },
   { href: "/dashboard/logs",          icon: ScrollText,      label: "Logs"           },
   { href: "/dashboard/settings",      icon: Settings,        label: "Configuración"  },
