@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─── Logo sparkle animation ──────────────────────────────────────────────── */
+@keyframes sparkle-glow {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 0px rgba(167, 139, 250, 0));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(12deg);
+    filter: drop-shadow(0 0 6px rgba(167, 139, 250, 0.9));
+  }
+}
+
+@keyframes logo-ping {
+  0% { transform: scale(1); opacity: 0.4; }
+  70% { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.logo-sparkle {
+  animation: sparkle-glow 3s ease-in-out infinite;
+}
+
+.logo-ping {
+  animation: logo-ping 3s ease-out infinite;
+}

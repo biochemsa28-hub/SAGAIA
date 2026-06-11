@@ -28,8 +28,11 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-zinc-800">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
+          <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center">
+            {/* Pulse ring */}
+            <span className="logo-ping absolute inset-0 rounded-lg bg-violet-500/50" />
+            {/* Animated sparkle */}
+            <Sparkles className="logo-sparkle w-4 h-4 text-white relative z-10" />
           </div>
           <div>
             <p className="text-white text-sm font-bold leading-tight">SAGAIA</p>
