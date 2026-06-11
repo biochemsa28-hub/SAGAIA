@@ -85,12 +85,9 @@ function buildTimeline(params: {
         asset: {
           type: "text",
           text: scene.narrationText,
-          color: "#ffffff",
           size: "medium",
-          background: "rgba(0,0,0,0.55)",
           width: 900,
           height: 200,
-          alignment: { horizontal: "center", vertical: "center" },
         },
         start: timeOffset,
         length: dur,
