@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Download, Loader2, Film, FileText,
   Image as ImageIcon, Zap, Hash, ChevronDown, ChevronUp,
-  Copy, Check, Mic, Play, CheckCircle2, Circle, ChevronRight,
+  Copy, Check, Mic, Play, CheckCircle2,
 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/card";
@@ -18,13 +19,60 @@ import type { ProjectDetail } from "@/lib/db/repository";
 type StepId = "voice" | "images" | "clips" | "final";
 type StepStatus = "pending" | "running" | "done" | "error";
 
-interface Step {
-  id: StepId;
-  label: string;
-  sublabel: string;
-  icon: React.ReactNode;
-  status: StepStatus;
-  statusText?: string;
+const STEP_META: Record<StepId, { label: string; sublabel: string; estimate: string; color: string }> = {
+  voice:  { label: "Voz",      sublabel: "ElevenLabs",  estimate: "~30 seg",  color: "emerald" },
+  images: { label: "Imágenes", sublabel: "Flux Schnell", estimate: "~1 min",  color: "blue"    },
+  clips:  { label: "Clips",    sublabel: "Kling v1.6",  estimate: "~3 min",  color: "purple"  },
+  final:  { label: "Video",    sublabel: "Shotstack",   estimate: "~2 min",  color: "pink"    },
+};
+
+// ─── Step row component ───────────────────────────────────────────────────────
+function StepRow({
+  id, status, text, elapsed,
+}: { id: StepId; status: StepStatus; text: string; elapsed?: number }) {
+  const meta = STEP_META[id];
+  const icons: Record<StepId, string> = { voice: "🎤", images: "🖼️", clips: "🎬", final: "⚡" };
+
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+      status === "running" ? "bg-violet-950/40 border border-violet-700/40" :
+      status === "done"    ? "bg-zinc-900/60" :
+      status === "error"   ? "bg-red-950/30 border border-red-800/30" :
+      "opacity-40"
+    }`}>
+      {/* Icon/status */}
+      <div className="w-8 h-8 shrink-0 flex items-center justify-center">
+        {status === "running" && <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />}
+        {status === "done"    && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+        {status === "error"   && <span className="text-red-400 text-lg">✕</span>}
+        {status === "pending" && <span className="text-xl">{icons[id]}</span>}
+      </div>
+
+      {/* Label */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-white">{meta.label}</span>
+          <span className="text-xs text-zinc-600">{meta.sublabel}</span>
+        </div>
+        {text && (
+          <p className={`text-xs mt-0.5 ${status === "error" ? "text-red-400" : "text-zinc-400"}`}>{text}</p>
+        )}
+      </div>
+
+      {/* Time */}
+      <div className="text-right shrink-0">
+        {status === "done" && elapsed !== undefined && (
+          <span className="text-xs text-emerald-500">{elapsed}s</span>
+        )}
+        {status === "running" && elapsed !== undefined && (
+          <span className="text-xs text-violet-400 tabular-nums">{elapsed}s</span>
+        )}
+        {status === "pending" && (
+          <span className="text-xs text-zinc-600">{meta.estimate}</span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -45,7 +93,12 @@ export default function ProjectDetailPage() {
   const [stepText, setStepText] = useState<Record<StepId, string>>({
     voice: "", images: "", clips: "", final: "",
   });
+  const [stepElapsed, setStepElapsed] = useState<Record<StepId, number>>({
+    voice: 0, images: 0, clips: 0, final: 0,
+  });
   const [producingAll, setProducingAll] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stepStartRef = useRef<number>(0);
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -78,6 +131,20 @@ export default function ProjectDetailPage() {
   function setStep(step: StepId, status: StepStatus, text = "") {
     setStepStatus((p) => ({ ...p, [step]: status }));
     setStepText((p) => ({ ...p, [step]: text }));
+
+    if (status === "running") {
+      // start per-step timer
+      if (timerRef.current) clearInterval(timerRef.current);
+      stepStartRef.current = Date.now();
+      timerRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - stepStartRef.current) / 1000);
+        setStepElapsed((p) => ({ ...p, [step]: elapsed }));
+      }, 1000);
+    } else if (status === "done" || status === "error") {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      const elapsed = Math.floor((Date.now() - stepStartRef.current) / 1000);
+      setStepElapsed((p) => ({ ...p, [step]: elapsed }));
+    }
   }
 
   // ── Voice ──────────────────────────────────────────────────────────────────
@@ -291,19 +358,12 @@ export default function ProjectDetailPage() {
   const finalVideo = assets?.find((a) => a.asset_type === "final_video");
   const displayFinalUrl = finalVideoUrl ?? finalVideo?.public_url ?? null;
 
-  const steps: Step[] = [
-    { id: "voice",  label: "Voz",     sublabel: "ElevenLabs",   icon: <Mic className="w-4 h-4" />,       status: stepStatus.voice,  statusText: stepText.voice  },
-    { id: "images", label: "Imágenes",sublabel: "Flux Schnell",  icon: <ImageIcon className="w-4 h-4" />, status: stepStatus.images, statusText: stepText.images },
-    { id: "clips",  label: "Clips",   sublabel: "Kling v1.6",   icon: <Film className="w-4 h-4" />,      status: stepStatus.clips,  statusText: stepText.clips  },
-    { id: "final",  label: "Video",   sublabel: "Shotstack",    icon: <Zap className="w-4 h-4" />,       status: stepStatus.final,  statusText: stepText.final  },
-  ];
-
-  const stepRunners: Record<StepId, () => Promise<void>> = {
-    voice: runVoice, images: runImages, clips: runClips, final: runFinal,
-  };
-
-  const allDone = steps.every((s) => s.status === "done");
-  const anyRunning = steps.some((s) => s.status === "running") || producingAll;
+  const STEP_IDS: StepId[] = ["voice", "images", "clips", "final"];
+  const allDone = STEP_IDS.every((s) => stepStatus[s] === "done");
+  const anyRunning = STEP_IDS.some((s) => stepStatus[s] === "running") || producingAll;
+  const hasError = STEP_IDS.some((s) => stepStatus[s] === "error");
+  const doneCount = STEP_IDS.filter((s) => stepStatus[s] === "done").length;
+  const totalProgress = Math.round((doneCount / STEP_IDS.length) * 100);
 
   return (
     <>
@@ -340,95 +400,78 @@ export default function ProjectDetailPage() {
           )}
         </div>
 
-        {/* ── Production Pipeline ─────────────────────────────────────────── */}
+        {/* ── Production Panel ────────────────────────────────────────────── */}
         {story && (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-white">Producción</h2>
-              {!allDone && (
-                <Button
-                  onClick={produceAll}
-                  disabled={anyRunning}
-                  size="sm"
-                  className="bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-xs"
-                >
-                  {anyRunning
-                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Produciendo…</>
-                    : <><Play className="w-3.5 h-3.5 mr-1.5" />Producir todo</>}
-                </Button>
-              )}
+          <Card className="p-5 space-y-4">
+
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-white">Producción de video</h2>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {allDone ? "Video completo y listo" : "Tiempo total estimado ~7 min"}
+                </p>
+              </div>
               {allDone && (
-                <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded-full">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Completo
                 </span>
               )}
             </div>
 
-            {/* Steps row */}
-            <div className="flex items-stretch gap-1">
-              {steps.map((step, i) => {
-                const isDone = step.status === "done";
-                const isRunning = step.status === "running";
-                const isError = step.status === "error";
+            {/* Progress bar */}
+            {(anyRunning || allDone || doneCount > 0) && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-zinc-600">
+                  <span>{doneCount} de 4 pasos</span>
+                  <span>{totalProgress}%</span>
+                </div>
+                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-violet-500 to-pink-500 rounded-full transition-all duration-700"
+                    style={{ width: `${totalProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
-                return (
-                  <div key={step.id} className="flex items-center flex-1 min-w-0">
-                    {/* Step card */}
-                    <div className={`flex-1 rounded-xl border p-3 transition-all ${
-                      isDone
-                        ? "border-emerald-700/40 bg-emerald-950/30"
-                        : isRunning
-                        ? "border-violet-600/60 bg-violet-950/30"
-                        : isError
-                        ? "border-red-700/40 bg-red-950/20"
-                        : "border-zinc-700/50 bg-zinc-800/30"
-                    }`}>
-                      {/* Icon + status dot */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                          isDone ? "bg-emerald-600/20 text-emerald-400"
-                          : isRunning ? "bg-violet-600/20 text-violet-400"
-                          : isError ? "bg-red-600/20 text-red-400"
-                          : "bg-zinc-700/40 text-zinc-500"
-                        }`}>
-                          {isRunning
-                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : isDone
-                            ? <CheckCircle2 className="w-3.5 h-3.5" />
-                            : step.icon}
-                        </div>
-                        {/* Run individual step */}
-                        {!isDone && !isRunning && !anyRunning && (
-                          <button
-                            onClick={() => stepRunners[step.id]().catch(() => {})}
-                            className="text-zinc-500 hover:text-violet-400 transition-colors"
-                            title={`Ejecutar ${step.label}`}
-                          >
-                            <Circle className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      <p className={`text-xs font-semibold ${
-                        isDone ? "text-emerald-300" : isRunning ? "text-violet-300" : isError ? "text-red-400" : "text-zinc-400"
-                      }`}>{step.label}</p>
-                      <p className="text-[10px] text-zinc-600 mt-0.5">{step.sublabel}</p>
-
-                      {step.statusText && (
-                        <p className={`text-[10px] mt-1 leading-tight ${
-                          isError ? "text-red-400" : "text-zinc-500"
-                        }`}>{step.statusText}</p>
-                      )}
-                    </div>
-
-                    {/* Arrow connector */}
-                    {i < steps.length - 1 && (
-                      <ChevronRight className="w-3 h-3 text-zinc-700 shrink-0 mx-0.5" />
-                    )}
-                  </div>
-                );
-              })}
+            {/* Steps list */}
+            <div className="space-y-1.5">
+              {STEP_IDS.map((sid) => (
+                <StepRow
+                  key={sid}
+                  id={sid}
+                  status={stepStatus[sid]}
+                  text={stepText[sid]}
+                  elapsed={stepElapsed[sid]}
+                />
+              ))}
             </div>
+
+            {/* Main CTA */}
+            {!allDone && (
+              <button
+                onClick={produceAll}
+                disabled={anyRunning}
+                className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-violet-900/20"
+              >
+                {anyRunning ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Produciendo video…</>
+                ) : hasError ? (
+                  <><Play className="w-4 h-4" /> Reintentar producción</>
+                ) : doneCount > 0 ? (
+                  <><Play className="w-4 h-4" /> Continuar producción</>
+                ) : (
+                  <><Zap className="w-4 h-4" /> Generar video completo</>
+                )}
+              </button>
+            )}
+
+            {anyRunning && (
+              <p className="text-center text-xs text-zinc-600">
+                No cierres esta página mientras se produce el video
+              </p>
+            )}
           </Card>
         )}
 
