@@ -1,5 +1,5 @@
 "use client";
-import { Bell, Zap, Plus } from "lucide-react";
+import { Zap, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -32,37 +32,46 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
 
   const creditColor =
     credits === null ? "text-violet-300" :
-    credits === 0 ? "text-red-400" :
-    credits <= 2 ? "text-amber-400" : "text-violet-300";
+    credits === 0    ? "text-red-400"    :
+    credits <= 2     ? "text-amber-400"  : "text-violet-300";
+
+  const barBg =
+    credits === 0    ? "border-red-700/40 bg-red-600/10 hover:bg-red-600/20"    :
+    credits !== null && credits <= 2 ? "border-amber-700/40 bg-amber-600/10 hover:bg-amber-600/20" :
+    "border-violet-700/30 bg-violet-600/10 hover:bg-violet-600/20";
 
   return (
-    <header className="h-14 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-10">
+    <header className="h-14 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
+      {/* Left: title */}
       <div>
-        <h1 className="text-sm font-semibold text-white">{title}</h1>
-        {subtitle && <p className="text-xs text-zinc-500">{subtitle}</p>}
+        <h1 className="text-sm font-semibold text-white leading-tight">{title}</h1>
+        {subtitle && <p className="text-[11px] text-zinc-500">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-3">
+
+      {/* Right: actions + credits + avatar */}
+      <div className="flex items-center gap-2">
         {actions}
-        <button className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors">
-          <Bell className="w-4 h-4 text-zinc-400" />
-        </button>
+
+        {/* Credits chip — click → pricing */}
         <button
           onClick={() => router.push("/pricing")}
-          className={`flex items-center gap-2 rounded-lg px-3 py-1.5 transition-colors border ${
-            credits === 0
-              ? "border-red-700/40 bg-red-600/10 hover:bg-red-600/20"
-              : "border-violet-700/30 bg-violet-600/10 hover:bg-violet-600/20"
-          }`}
-          title="Recargar créditos"
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors border ${barBg}`}
+          title={credits === 0 ? "Sin créditos — Recargar" : "Recargar créditos"}
         >
           <Zap className={`w-3.5 h-3.5 ${creditColor}`} />
-          <span className={`text-xs font-medium ${creditColor}`}>
-            {credits === null ? "…" : `${credits} crédito${credits !== 1 ? "s" : ""}`}
+          <span className={`text-xs font-semibold ${creditColor}`}>
+            {credits === null ? "…" : credits}
           </span>
-          <Plus className={`w-3 h-3 ${creditColor} opacity-70`} />
+          <Plus className={`w-3 h-3 ${creditColor} opacity-60`} />
         </button>
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center">
-          <span className="text-xs font-bold text-white">{initials}</span>
+
+        {/* Avatar */}
+        <div
+          className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+          title={session?.user?.name ?? "Mi cuenta"}
+          onClick={() => router.push("/dashboard/settings")}
+        >
+          <span className="text-[11px] font-bold text-white">{initials}</span>
         </div>
       </div>
     </header>

@@ -21,10 +21,10 @@ type StepId = "voice" | "images" | "clips" | "final";
 type StepStatus = "pending" | "running" | "done" | "error";
 
 const STEP_META: Record<StepId, { label: string; sublabel: string; estimate: string; color: string }> = {
-  voice:  { label: "Voz",      sublabel: "ElevenLabs",  estimate: "~30 seg",  color: "emerald" },
-  images: { label: "Imágenes", sublabel: "Flux Schnell", estimate: "~1 min",  color: "blue"    },
-  clips:  { label: "Clips",    sublabel: "Kling v1.6",  estimate: "~3 min",  color: "purple"  },
-  final:  { label: "Video",    sublabel: "Shotstack",   estimate: "~2 min",  color: "pink"    },
+  voice:  { label: "Voz",      sublabel: "Narración IA",  estimate: "~30 seg",  color: "emerald" },
+  images: { label: "Imágenes", sublabel: "Imágenes IA",  estimate: "~1 min",  color: "blue"    },
+  clips:  { label: "Clips",    sublabel: "Animación IA",  estimate: "~3 min",  color: "purple"  },
+  final:  { label: "Video final", sublabel: "Ensamblaje IA", estimate: "~2 min",  color: "pink"    },
 };
 
 // ─── Step row component ───────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ export default function ProjectDetailPage() {
     });
     const data = (await res.json()) as { success: boolean; succeeded: number; total: number; voice?: string; mock?: boolean; error?: string };
     if (res.ok && data.success) {
-      setStep("voice", "done", `${data.succeeded}/${data.total} escenas${data.mock ? " (mock)" : ` · ${data.voice ?? ""}`}`);
+      setStep("voice", "done", `${data.succeeded}/${data.total} escenas generadas`);
       toast("🎤 Voz generada correctamente", "success");
     } else {
       setStep("voice", "error", data.error ?? "Error al generar voz");
@@ -178,7 +178,7 @@ export default function ProjectDetailPage() {
     });
     const data = (await res.json()) as { success: boolean; succeeded: number; total: number; mock?: boolean; error?: string };
     if (res.ok && data.success) {
-      setStep("images", "done", `${data.succeeded}/${data.total} imágenes${data.mock ? " (mock)" : ""}`);
+      setStep("images", "done", `${data.succeeded}/${data.total} imágenes generadas`);
       toast("🖼️ Imágenes generadas correctamente", "success");
     } else {
       setStep("images", "error", data.error ?? "Error al generar imágenes");
@@ -189,7 +189,7 @@ export default function ProjectDetailPage() {
 
   // ── Clips (Kling) ──────────────────────────────────────────────────────────
   async function runClips() {
-    setStep("clips", "running", "Enviando a Kling…");
+    setStep("clips", "running", "Procesando animaciones…");
     const submitRes = await fetch("/api/videos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -241,7 +241,7 @@ export default function ProjectDetailPage() {
 
   // ── Final video ────────────────────────────────────────────────────────────
   async function runFinal() {
-    setStep("final", "running", "Enviando a Shotstack…");
+    setStep("final", "running", "Iniciando ensamblaje…");
     setFinalVideoUrl(null);
     const submitRes = await fetch("/api/assemble", {
       method: "POST",
@@ -504,7 +504,7 @@ export default function ProjectDetailPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Zap className="w-4 h-4 text-pink-400" />
                   <h2 className="text-sm font-semibold text-white">Video final</h2>
-                  <span className="ml-auto text-xs text-zinc-500">Shotstack · 1080×1920</span>
+                  <span className="ml-auto text-xs text-zinc-500">1080×1920 · MP4</span>
                 </div>
                 <div className="max-w-xs mx-auto">
                   <video
@@ -633,7 +633,7 @@ export default function ProjectDetailPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <ImageIcon className="w-4 h-4 text-blue-400" />
                   <h2 className="text-sm font-semibold text-white">Imágenes</h2>
-                  <span className="ml-auto text-xs text-zinc-500">{imageAssets.length} · Flux Schnell</span>
+                  <span className="ml-auto text-xs text-zinc-500">{imageAssets.length} escenas</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {imageAssets.map((asset, i) => (
@@ -659,7 +659,7 @@ export default function ProjectDetailPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Film className="w-4 h-4 text-purple-400" />
                   <h2 className="text-sm font-semibold text-white">Clips animados</h2>
-                  <span className="ml-auto text-xs text-zinc-500">{videoAssets.length} · Kling v1.6</span>
+                  <span className="ml-auto text-xs text-zinc-500">{videoAssets.length} clips</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {videoAssets.map((asset, i) => (

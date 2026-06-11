@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "SAGAIA — Crea microseries virales con IA en minutos",
   description:
-    "SAGAIA convierte tu idea en un microserie completo: voz profesional, imágenes generadas, clips animados y video final MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos.",
+    "SAGAIA convierte tu idea en una microserie completo: voz profesional, imágenes generadas, clips animados y video final MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos.",
   keywords: [
-    "microserie IA", "crear videos con inteligencia artificial", "generador de videos cortos",
+    "microserie IA", "crear microseries con IA", "generador de videos cortos IA",
     "TikTok automatizado", "Reels IA", "YouTube Shorts IA", "storytelling automatizado",
     "producción de contenido IA", "SAGAIA"
   ],
