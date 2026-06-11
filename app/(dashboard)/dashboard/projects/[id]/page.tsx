@@ -9,6 +9,7 @@ import {
   Copy, Check, Mic, Play, CheckCircle2,
 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
+import { useToast } from "@/components/ui/toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badge";
@@ -97,6 +98,7 @@ export default function ProjectDetailPage() {
     voice: 0, images: 0, clips: 0, final: 0,
   });
   const [producingAll, setProducingAll] = useState(false);
+  const { toast } = useToast();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stepStartRef = useRef<number>(0);
 
@@ -158,8 +160,10 @@ export default function ProjectDetailPage() {
     const data = (await res.json()) as { success: boolean; succeeded: number; total: number; voice?: string; mock?: boolean; error?: string };
     if (res.ok && data.success) {
       setStep("voice", "done", `${data.succeeded}/${data.total} escenas${data.mock ? " (mock)" : ` · ${data.voice ?? ""}`}`);
+      toast("🎤 Voz generada correctamente", "success");
     } else {
       setStep("voice", "error", data.error ?? "Error al generar voz");
+      toast(data.error ?? "Error al generar voz", "error");
       throw new Error(data.error ?? "voice failed");
     }
   }
@@ -175,8 +179,10 @@ export default function ProjectDetailPage() {
     const data = (await res.json()) as { success: boolean; succeeded: number; total: number; mock?: boolean; error?: string };
     if (res.ok && data.success) {
       setStep("images", "done", `${data.succeeded}/${data.total} imágenes${data.mock ? " (mock)" : ""}`);
+      toast("🖼️ Imágenes generadas correctamente", "success");
     } else {
       setStep("images", "error", data.error ?? "Error al generar imágenes");
+      toast(data.error ?? "Error al generar imágenes", "error");
       throw new Error(data.error ?? "images failed");
     }
   }
@@ -220,6 +226,7 @@ export default function ProjectDetailPage() {
       setStep("clips", "running", `${done}/${jobs.length} clips listos…`);
       if (collectData.all_done) {
         setStep("clips", "done", `${done}/${jobs.length} clips animados`);
+        toast("🎬 Clips animados correctamente", "success");
         return;
       }
       jobs = jobs.filter((j) => {
@@ -228,6 +235,7 @@ export default function ProjectDetailPage() {
       });
     }
     setStep("clips", "error", "Tiempo agotado — intenta de nuevo");
+    toast("Clips: tiempo agotado, intenta de nuevo", "error");
     throw new Error("clips timeout");
   }
 
@@ -258,10 +266,12 @@ export default function ProjectDetailPage() {
       if (checkData.status === "done" && checkData.url) {
         setStep("final", "done", "¡Video listo!");
         setFinalVideoUrl(checkData.url);
+        toast("⚡ ¡Video final listo! Puedes descargarlo ahora", "success");
         return;
       }
       if (checkData.status === "failed") {
         setStep("final", "error", checkData.error ?? "Render fallido");
+        toast(checkData.error ?? "Error al ensamblar el video", "error");
         throw new Error("final render failed");
       }
       setStep("final", "running", `Ensamblando… (${checkData.status})`);
