@@ -69,10 +69,11 @@ function buildTimeline(params: {
       transition: timeOffset > 0 ? { in: "fade" } : undefined,
     });
 
-    // Audio
+    // Audio — fix .mpeg extension (fal.ai storage returns .mpeg but Shotstack needs .mp3)
     if (scene.audioUrl) {
+      const audioSrc = scene.audioUrl.replace(/\.mpeg(\?|$)/, ".mp3$1");
       audioClips.push({
-        asset: { type: "audio", src: scene.audioUrl, volume: 1 },
+        asset: { type: "audio", src: audioSrc, volume: 1 },
         start: timeOffset,
         length: dur,
       });
