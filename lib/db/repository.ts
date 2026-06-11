@@ -253,6 +253,10 @@ export interface DbProject {
   scene_count?: number;
   thumbnail_url?: string | null;
   final_video_url?: string | null;
+  has_voice?: number;
+  has_images?: number;
+  has_clips?: number;
+  has_final?: number;
 }
 
 export async function createProject(params: {
@@ -299,9 +303,10 @@ export async function getProjectsByUser(userId: string): Promise<DbProject[]> {
             (SELECT a.public_url FROM assets a
              WHERE a.project_id = p.id AND a.asset_type = 'image'
              ORDER BY a.scene_number ASC LIMIT 1) as thumbnail_url,
-            (SELECT a.public_url FROM assets a
-             WHERE a.project_id = p.id AND a.asset_type = 'final_video'
-             LIMIT 1) as final_video_url
+            (SELECT COUNT(*) FROM assets a WHERE a.project_id = p.id AND a.asset_type = 'audio')  as has_voice,
+            (SELECT COUNT(*) FROM assets a WHERE a.project_id = p.id AND a.asset_type = 'image')  as has_images,
+            (SELECT COUNT(*) FROM assets a WHERE a.project_id = p.id AND a.asset_type = 'video')  as has_clips,
+            (SELECT COUNT(*) FROM assets a WHERE a.project_id = p.id AND a.asset_type = 'final_video') as has_final
           FROM projects p
           LEFT JOIN scenes s ON s.project_id = p.id
           WHERE p.user_id = ?

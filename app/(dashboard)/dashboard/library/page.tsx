@@ -10,27 +10,37 @@ import type { DbProject } from "@/lib/db/repository";
 
 type ViewMode = "grid" | "list";
 
-const STATUS_PROGRESS: Record<string, number> = {
-  draft: 0, generating: 10, story_done: 20,
-  voice_pending: 30, voice_done: 40,
-  images_done: 60, videos_done: 80, ready: 100,
-};
-
-function ProgressPips({ status }: { status: string }) {
+function ProjectProgress({ p }: { p: DbProject }) {
   const steps = [
-    { key: "story",  label: "Historia", done: ["story_done","voice_pending","voice_done","images_done","videos_done","ready"].includes(status) },
-    { key: "voice",  label: "Voz",      done: ["voice_done","images_done","videos_done","ready"].includes(status) },
-    { key: "images", label: "Imágenes", done: ["images_done","videos_done","ready"].includes(status) },
-    { key: "video",  label: "Video",    done: ["ready"].includes(status) },
+    { label: "Voz",      done: (p.has_voice  ?? 0) > 0, icon: "🎤" },
+    { label: "Imágenes", done: (p.has_images ?? 0) > 0, icon: "🖼" },
+    { label: "Clips",    done: (p.has_clips  ?? 0) > 0, icon: "🎬" },
+    { label: "Video",    done: (p.has_final  ?? 0) > 0, icon: "⚡" },
   ];
+  const doneCount = steps.filter((s) => s.done).length;
+
   return (
-    <div className="flex items-center gap-1">
-      {steps.map((s, i) => (
-        <div key={s.key} className="flex items-center gap-1">
-          <div className={`w-1.5 h-1.5 rounded-full ${s.done ? "bg-emerald-400" : "bg-zinc-700"}`} />
-          {i < steps.length - 1 && <div className={`w-3 h-px ${s.done ? "bg-emerald-700" : "bg-zinc-800"}`} />}
-        </div>
-      ))}
+    <div className="space-y-1.5">
+      {/* Mini bar */}
+      <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-500"
+          style={{ width: `${(doneCount / steps.length) * 100}%` }}
+        />
+      </div>
+      {/* Step labels */}
+      <div className="flex items-center gap-2">
+        {steps.map((s) => (
+          <span
+            key={s.label}
+            className={`text-[10px] flex items-center gap-0.5 font-medium ${
+              s.done ? "text-emerald-400" : "text-zinc-600"
+            }`}
+          >
+            {s.done ? "✓" : "○"} {s.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -146,17 +156,10 @@ export default function LibraryPage() {
                       <StatusBadge status={p.status} />
                     </div>
 
-                    {/* Overlay bottom: progress pips */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-3">
-                      <ProgressPips status={p.status} />
+                    {/* Overlay bottom: progress */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent px-3 pt-6 pb-3">
+                      <ProjectProgress p={p} />
                     </div>
-
-                    {/* Final video indicator */}
-                    {p.final_video_url && (
-                      <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-pink-600/90 flex items-center justify-center">
-                        <Zap className="w-3 h-3 text-white" />
-                      </div>
-                    )}
                   </div>
 
                   {/* Info */}
@@ -201,7 +204,7 @@ export default function LibraryPage() {
                       {p.niche} · {p.duration_target} · {(p.scene_count ?? 0)} escenas · {formatDate(p.created_at)}
                     </p>
                     <div className="mt-1.5">
-                      <ProgressPips status={p.status} />
+                      <ProjectProgress p={p} />
                     </div>
                   </div>
 
