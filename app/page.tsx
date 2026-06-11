@@ -2,16 +2,16 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "SAGAIA — Crea microdramas virales con IA en minutos",
+  title: "SAGAIA — Crea microseries virales con IA en minutos",
   description:
-    "SAGAIA convierte tu idea en un microdrama completo: voz profesional, imágenes generadas, clips animados y video final MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos.",
+    "SAGAIA convierte tu idea en un microserie completo: voz profesional, imágenes generadas, clips animados y video final MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos.",
   keywords: [
-    "microdrama IA", "crear videos con inteligencia artificial", "generador de videos cortos",
+    "microserie IA", "crear videos con inteligencia artificial", "generador de videos cortos",
     "TikTok automatizado", "Reels IA", "YouTube Shorts IA", "storytelling automatizado",
     "producción de contenido IA", "SAGAIA"
   ],
   openGraph: {
-    title: "SAGAIA — Microdramas IA listos para publicar",
+    title: "SAGAIA — Microseries IA listos para publicar",
     description: "De idea a video viral en 7 minutos. Voz · Imágenes · Clips · Video MP4.",
     url: "https://sagaia.vercel.app",
     siteName: "SAGAIA Studio",
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SAGAIA — Microdramas IA en minutos",
-    description: "Crea microdramas completos con IA: voz, imágenes, clips y video final.",
+    title: "SAGAIA — Microseries IA en minutos",
+    description: "Crea microseries completos con IA: voz, imágenes, clips y video final.",
     images: ["/og-image.png"],
   },
   alternates: { canonical: "https://sagaia.vercel.app" },
@@ -51,7 +51,7 @@ const NICHES = ["💔 Dramas de pareja", "👻 Terror psicológico", "💼 Negoc
 
 const STATS = [
   { value: "7 min", label: "Tiempo promedio de producción" },
-  { value: "1 crédito", label: "Por microdrama completo" },
+  { value: "1 crédito", label: "Por microserie completo" },
   { value: "9:16", label: "Formato vertical optimizado" },
   { value: "3 plataformas", label: "TikTok · Reels · Shorts" },
 ];
@@ -98,7 +98,7 @@ export default function HomePage() {
           <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight">
             De idea a{" "}
             <span className="bg-gradient-to-r from-violet-400 via-pink-400 to-orange-400 bg-clip-text text-transparent">
-              microdrama viral
+              microserie viral
             </span>
             {" "}en 7 minutos
           </h1>
@@ -113,7 +113,7 @@ export default function HomePage() {
               href="/register"
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold px-8 py-4 rounded-xl text-base transition-all shadow-xl shadow-violet-900/30"
             >
-              ⚡ Crear mi primer microdrama gratis
+              ⚡ Crear mi primer microserie gratis
             </Link>
             <Link
               href="/login"
@@ -184,7 +184,7 @@ export default function HomePage() {
           <h2 className="text-4xl font-extrabold mb-4 leading-tight">
             Empieza a producir hoy
           </h2>
-          <p className="text-zinc-400 mb-8">5 microdramas gratis. Sin tarjeta de crédito.</p>
+          <p className="text-zinc-400 mb-8">5 microseries gratis. Sin tarjeta de crédito.</p>
           <Link
             href="/register"
             className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold px-10 py-4 rounded-xl text-base transition-all shadow-xl shadow-violet-900/30"

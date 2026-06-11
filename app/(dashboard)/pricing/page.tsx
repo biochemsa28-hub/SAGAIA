@@ -65,7 +65,7 @@ export default function PricingPage() {
             <span className="text-xs text-violet-300 font-medium">Recarga de créditos</span>
           </div>
           <h1 className="text-4xl font-bold mb-4">
-            Un crédito = un microdrama completo
+            Un crédito = un microserie completo
           </h1>
           <p className="text-zinc-400 text-lg max-w-xl mx-auto">
             Voz, imágenes, clips animados y video final MP4 — todo incluido en cada crédito.

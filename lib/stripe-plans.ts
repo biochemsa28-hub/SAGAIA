@@ -18,7 +18,7 @@ export const PLANS: Plan[] = [
     price: 900,
     credits: 10,
     features: [
-      "10 microdramas completos",
+      "10 microseries completos",
       "Voz IA (ElevenLabs)",
       "Imágenes Flux Schnell",
       "Clips animados Kling",
@@ -34,7 +34,7 @@ export const PLANS: Plan[] = [
     credits: 40,
     popular: true,
     features: [
-      "40 microdramas completos",
+      "40 microseries completos",
       "Todo lo de Starter",
       "Prioridad en generación",
       "Soporte por email",
@@ -47,7 +47,7 @@ export const PLANS: Plan[] = [
     price: 7900,
     credits: 120,
     features: [
-      "120 microdramas completos",
+      "120 microseries completos",
       "Todo lo de Pro",
       "Acceso anticipado a nuevas funciones",
       "Soporte prioritario",

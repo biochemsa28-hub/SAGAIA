@@ -83,7 +83,7 @@ export default function BatchPage() {
 
   return (
     <>
-      <TopBar title="Producción en lote" subtitle="Genera múltiples microdramas a la vez" />
+      <TopBar title="Producción en lote" subtitle="Genera múltiples microseries a la vez" />
       <div className="p-6 max-w-3xl mx-auto space-y-6">
 
         {/* Header info */}
