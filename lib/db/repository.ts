@@ -251,6 +251,8 @@ export interface DbProject {
   updated_at: string;
   // joined fields
   scene_count?: number;
+  thumbnail_url?: string | null;
+  final_video_url?: string | null;
 }
 
 export async function createProject(params: {
@@ -292,7 +294,14 @@ export async function updateProjectStatus(id: string, status: string, errorMessa
 export async function getProjectsByUser(userId: string): Promise<DbProject[]> {
   const db = getDb();
   const result = await db.execute({
-    sql: `SELECT p.*, COUNT(s.id) as scene_count
+    sql: `SELECT p.*,
+            COUNT(s.id) as scene_count,
+            (SELECT a.public_url FROM assets a
+             WHERE a.project_id = p.id AND a.asset_type = 'image'
+             ORDER BY a.scene_number ASC LIMIT 1) as thumbnail_url,
+            (SELECT a.public_url FROM assets a
+             WHERE a.project_id = p.id AND a.asset_type = 'final_video'
+             LIMIT 1) as final_video_url
           FROM projects p
           LEFT JOIN scenes s ON s.project_id = p.id
           WHERE p.user_id = ?
