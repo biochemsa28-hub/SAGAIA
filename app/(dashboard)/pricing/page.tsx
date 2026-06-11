@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, Zap, Loader2, ArrowLeft } from "lucide-react";
-import { PLANS } from "@/lib/stripe";
+import { PLANS } from "@/lib/stripe-plans";
 
 function CancelledBanner() {
   const params = useSearchParams();
