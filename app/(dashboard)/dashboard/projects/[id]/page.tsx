@@ -72,6 +72,7 @@ export default function ProjectDetailPage() {
   const [producing, setProducing] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -158,6 +159,28 @@ export default function ProjectDetailPage() {
     setStep("final", "error"); throw new Error("final timeout");
   }
 
+  async function regenerateWithVoice() {
+    setRegenerating(true);
+    setFinalVideoUrl(null);
+    setStep("voice", "pending");
+    setStep("final", "pending");
+    setHasError(false);
+    setErrorDetail(null);
+    try {
+      await runVoice();
+      await runFinal();
+      toast("🎉 ¡Video regenerado con voz!", "success");
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      setHasError(true);
+      setErrorDetail(msg);
+      toast("Error al regenerar. Ve el detalle.", "error");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
   async function produceAll() {
     track("production_started", { project_id: id });
     setProducing(true);
@@ -202,6 +225,7 @@ export default function ProjectDetailPage() {
   const platform = (((project as unknown) as Record<string, unknown>).target_platform as string | undefined) ?? "tiktok";
   const platformTip = (PLATFORM_TIPS[platform] ?? PLATFORM_TIPS.tiktok)!;
 
+  const hasAudio = detail?.assets?.some((a) => a.asset_type === "audio") ?? false;
   const allDone = STEP_IDS.every((s) => stepStatus[s] === "done");
   const doneCount = STEP_IDS.filter((s) => stepStatus[s] === "done").length;
   const progress = Math.round((doneCount / STEP_IDS.length) * 100);
@@ -380,6 +404,18 @@ export default function ProjectDetailPage() {
                 copyKey="thumbnail"
                 icon={Lightbulb}
               />
+            )}
+
+            {/* Regenerar con voz si no tiene audio */}
+            {!hasAudio && (
+              <button
+                onClick={regenerateWithVoice}
+                disabled={regenerating}
+                className="w-full flex items-center justify-center gap-2 border border-amber-700/50 hover:border-amber-500 bg-amber-950/20 text-amber-400 hover:text-amber-300 font-medium py-3.5 rounded-xl transition-all text-sm"
+              >
+                {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>🎤</span>}
+                {regenerating ? "Regenerando voz y video…" : "Regenerar con voz (sin audio detectado)"}
+              </button>
             )}
 
             {/* Crear otro */}

@@ -55,10 +55,15 @@ async function callFlux(prompt: string): Promise<string | null> {
     const data = (obj?.["data"] ?? obj) as Record<string, unknown>;
     const images = data?.["images"] as Array<Record<string, unknown>> | undefined;
     const url = (images?.[0]?.["url"] as string) ?? null;
+    console.log("[fal.ai] raw keys:", Object.keys(obj));
+    console.log("[fal.ai] images count:", images?.length ?? 0);
     console.log("[fal.ai] extracted url:", url ?? "null");
     return url;
   } catch (e) {
-    console.error("[fal.ai callFlux error]", e instanceof Error ? e.message : String(e));
+    const msg = e instanceof Error ? e.message : String(e);
+    const body = (e as Record<string, unknown>)?.["body"];
+    const status = (e as Record<string, unknown>)?.["status"];
+    console.error("[fal.ai callFlux error]", { status, msg, body: JSON.stringify(body).slice(0, 300) });
     return null;
   }
 }
