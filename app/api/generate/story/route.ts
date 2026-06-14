@@ -8,6 +8,8 @@ import {
 } from "@/lib/db/repository";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
+import { captureServer } from "@/lib/analytics/posthog";
+import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -26,6 +28,16 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // 20 story generations per user/IP per hour
+  const ip = getClientIp(req);
+  const rl = rateLimit(`generate:${ip}`, { limit: 20, windowSecs: 3600 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Límite de generaciones alcanzado. Espera antes de continuar." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    );
+  }
+
   const t0 = Date.now();
   try {
     const session = await getServerSession(authOptions);
@@ -119,6 +131,17 @@ export async function POST(req: NextRequest) {
         costUsd: result.costUsd,
         durationMs,
         statusCode: 200,
+      });
+    }
+
+    if (userId) {
+      captureServer(userId, "story_generated", {
+        niche: parsed.data.niche,
+        tone: parsed.data.tone,
+        duration: parsed.data.duration_target,
+        provider: result.provider,
+        duration_ms: durationMs,
+        project_id: projectId,
       });
     }
 

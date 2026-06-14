@@ -2,29 +2,29 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "SAGAIA — Crea microseries virales con IA en minutos",
+  title: "VYNAVO — Crea microseries virales con IA en minutos",
   description:
-    "SAGAIA convierte tu idea en una microserie completo: voz profesional, imágenes generadas, clips animados y video final MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos.",
+    "VYNAVO convierte tu idea en una microserie completo: voz profesional, imágenes generadas, clips animados y video final MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos.",
   keywords: [
     "microserie IA", "crear microseries con IA", "generador de videos cortos IA",
     "TikTok automatizado", "Reels IA", "YouTube Shorts IA", "storytelling automatizado",
-    "producción de contenido IA", "SAGAIA"
+    "producción de contenido IA", "VYNAVO"
   ],
   openGraph: {
-    title: "SAGAIA — Microseries IA listos para publicar",
+    title: "VYNAVO — Microseries IA listos para publicar",
     description: "De idea a video viral en 7 minutos. Voz · Imágenes · Clips · Video MP4.",
-    url: "https://sagaia.vercel.app",
-    siteName: "SAGAIA Studio",
+    url: "https://vynavo.vercel.app",
+    siteName: "VYNAVO Studio",
     type: "website",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SAGAIA — Microseries IA en minutos",
+    title: "VYNAVO — Microseries IA en minutos",
     description: "Crea microseries completos con IA: voz, imágenes, clips y video final.",
     images: ["/og-image.png"],
   },
-  alternates: { canonical: "https://sagaia.vercel.app" },
+  alternates: { canonical: "https://vynavo.vercel.app" },
   robots: { index: true, follow: true },
 };
 
@@ -67,7 +67,7 @@ export default function HomePage() {
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center text-sm">
               ✦
             </div>
-            <span className="font-bold text-white text-lg">SAGAIA</span>
+            <span className="font-bold text-white text-lg">VYNAVO</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
@@ -104,7 +104,7 @@ export default function HomePage() {
           </h1>
 
           <p className="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            SAGAIA produce todo automáticamente — voz, imágenes, clips animados y video MP4 final
+            VYNAVO produce todo automáticamente — voz, imágenes, clips animados y video MP4 final
             listo para publicar en TikTok, Reels y YouTube Shorts.
           </p>
 
@@ -167,7 +167,7 @@ export default function HomePage() {
       <section className="py-16 px-4 bg-zinc-900/30">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-2">Para cualquier nicho de contenido</h2>
-          <p className="text-zinc-500 text-sm mb-8">Elige tu género y SAGAIA adapta todo — tono, imágenes, narrativa</p>
+          <p className="text-zinc-500 text-sm mb-8">Elige tu género y VYNAVO adapta todo — tono, imágenes, narrativa</p>
           <div className="flex flex-wrap justify-center gap-3">
             {NICHES.map((n) => (
               <span key={n} className="px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-sm text-zinc-300">
@@ -198,13 +198,13 @@ export default function HomePage() {
       <footer className="border-t border-zinc-800/50 py-8 px-4">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white">SAGAIA</span>
+            <span className="font-bold text-white">VYNAVO</span>
             <span className="text-zinc-600 text-sm">· Studio AI</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-zinc-600">
             <Link href="/pricing" className="hover:text-zinc-400 transition-colors">Precios</Link>
             <Link href="/login" className="hover:text-zinc-400 transition-colors">Login</Link>
-            <span>© 2026 SAGAIA. Todos los derechos reservados.</span>
+            <span>© 2026 VYNAVO. Todos los derechos reservados.</span>
           </div>
         </div>
       </footer>

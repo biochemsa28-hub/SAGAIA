@@ -64,11 +64,13 @@ export async function POST(req: NextRequest) {
       console.error(`[images] Scene ${r.sceneNumber} failed:`, r.error);
     });
 
+    const firstError = results.find(r => !r.success)?.error;
     return NextResponse.json({
-      success: true,
+      success: succeeded > 0,
       total: results.length,
       succeeded,
       failed,
+      error: succeeded === 0 ? (firstError ?? "Todas las imágenes fallaron") : undefined,
       mock: results[0]?.mock ?? false,
       errors: results.filter(r => !r.success).map(r => ({ scene: r.sceneNumber, error: r.error })),
       scenes: results.map((r) => ({

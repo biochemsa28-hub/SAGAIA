@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { getUserByEmail, createUser } from "@/lib/db/repository";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
+import { captureServer } from "@/lib/analytics/posthog";
+import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -13,6 +15,16 @@ const RegisterSchema = z.object({
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  // 5 registration attempts per IP per hour
+  const ip = getClientIp(req);
+  const rl = rateLimit(`register:${ip}`, { limit: 5, windowSecs: 3600 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Demasiados intentos. Espera antes de intentarlo de nuevo." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    );
+  }
+
   try {
     const body: unknown = await req.json();
     const parsed = RegisterSchema.safeParse(body);
@@ -33,10 +45,14 @@ export async function POST(req: NextRequest) {
       passwordHash,
     });
 
+    captureServer(user.id, "user_registered", { email: user.email, name: user.name });
     return NextResponse.json({ id: user.id, email: user.email, name: user.name }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[API /auth/register]", message);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    const stack = err instanceof Error ? err.stack : "";
+    console.error("[API /auth/register] ERROR:", message);
+    console.error("[API /auth/register] STACK:", stack);
+    console.error("[register] internal error:", message);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }

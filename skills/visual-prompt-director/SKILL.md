@@ -13,7 +13,7 @@ Genera prompts de imagen profesionales y altamente específicos para cada escena
 Optimizados para Midjourney v6, SDXL, y Stable Diffusion. Mantiene consistencia visual en todo el proyecto.
 
 ## Cuándo Usarla
-- Después de que `SAGAIA-scriptwriter` genera las escenas
+- Después de que `VYNAVO-scriptwriter` genera las escenas
 - Regeneración de prompt de imagen individual
 - Usuario solicita "mejorar prompts de imagen" o "crear prompts para Midjourney"
 

@@ -173,7 +173,7 @@ function buildSceneTxt(scene: StoryOutput["scenes"][number]): string {
 
 function buildReadme(s: StoryOutput, projectName: string): string {
   return [
-    `SAGAIA — Paquete de producción`,
+    `VYNAVO — Paquete de producción`,
     `Proyecto: ${projectName}`,
     `Generado: ${new Date().toISOString()}`,
     "",

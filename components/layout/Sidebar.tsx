@@ -47,7 +47,7 @@ export function Sidebar() {
             <Sparkles className="logo-sparkle w-4 h-4 text-white relative z-10" />
           </div>
           <div>
-            <p className="text-white text-sm font-bold leading-tight">SAGAIA</p>
+            <p className="text-white text-sm font-bold leading-tight">VYNAVO</p>
             <p className="text-violet-400 text-xs leading-tight">Studio AI</p>
           </div>
         </div>

@@ -1,15 +1,15 @@
 ﻿---
-name: SAGAIA-scriptwriter
+name: VYNAVO-scriptwriter
 version: 1.0.0
 category: content-generation
 trigger: "cuando el usuario quiere generar un guion, historia, microhistoria o narrativa para video"
 model_recommendation: gpt-4o | claude-sonnet-4-6
 ---
 
-# Skill: SAGAIA Scriptwriter
+# Skill: VYNAVO Scriptwriter
 
 ## Descripción
-Genera guiones narrativos completos para SAGAIAs virales en formato video corto y largo.
+Genera guiones narrativos completos para VYNAVOs virales en formato video corto y largo.
 Produce historia, gancho, estructura de escenas y narración optimizada para voz en off.
 
 ## Cuándo Usarla

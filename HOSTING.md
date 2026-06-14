@@ -1,4 +1,4 @@
-# SAGAIA — Guía de Hosting para Producción en Masa
+# VYNAVO — Guía de Hosting para Producción en Masa
 
 ## Resumen de costos por etapa
 
@@ -54,10 +54,10 @@ curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
 
 Abre http://TU_IP:8000 en el navegador → crea tu cuenta admin.
 
-### 3. Conectar GitHub y desplegar SAGAIA
+### 3. Conectar GitHub y desplegar VYNAVO
 
 1. En Coolify → Sources → Add GitHub App
-2. New Resource → Application → tu repo SAGAIA
+2. New Resource → Application → tu repo VYNAVO
 3. Build Pack: Nixpacks (detecta Next.js automáticamente)
 4. Variables de entorno → agrega todas las del .env.local
 5. Deploy → Coolify construye y despliega con SSL automático
@@ -71,7 +71,7 @@ En Coolify → New Resource → Database → Redis
 ### 5. Correr el worker de producción
 
 En Coolify → New Resource → Application
-- Repo: el mismo de SAGAIA
+- Repo: el mismo de VYNAVO
 - Start command: `npx tsx workers/production-worker.ts`
 - Este proceso corre 24/7 y procesa los jobs de video
 

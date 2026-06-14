@@ -3,9 +3,9 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypt
 const ALGO = "aes-256-gcm";
 
 function getKey(): Buffer {
-  const secret = process.env.NEXTAUTH_SECRET ?? "SAGAIA-dev-secret-key-32chars";
+  const secret = process.env.NEXTAUTH_SECRET ?? "VYNAVO-dev-secret-key-32chars";
   // Derive a 32-byte key from the secret
-  return scryptSync(secret, "SAGAIA-salt", 32);
+  return scryptSync(secret, "VYNAVO-salt", 32);
 }
 
 export function encrypt(plaintext: string): string {

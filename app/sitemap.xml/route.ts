@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export function GET() {
-  const base = "https://sagaia.vercel.app";
+  const base = "https://vynavo.vercel.app";
   const pages = [
     { url: base, priority: "1.0", changefreq: "weekly" },
     { url: `${base}/pricing`, priority: "0.9", changefreq: "monthly" },

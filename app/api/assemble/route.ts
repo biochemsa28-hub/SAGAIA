@@ -5,6 +5,8 @@ import { getProjectDetail, updateProjectStatus, upsertAsset } from "@/lib/db/rep
 import { submitAssembly, checkAssembly } from "@/services/shotstack/assembler";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
+import { sendVideoReadyEmail } from "@/lib/email/resend";
+import { captureServer } from "@/lib/analytics/posthog";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -39,6 +41,20 @@ export async function POST(req: NextRequest) {
           mimeType: "video/mp4",
         });
         await updateProjectStatus(parsed.data.project_id, "ready");
+
+        captureServer(session.user.id, "video_ready", { project_id: parsed.data.project_id });
+
+        // Send "video ready" email — fire and forget, never block the response
+        const detail = await getProjectDetail(parsed.data.project_id, session.user.id).catch(() => null);
+        if (detail && session.user.email) {
+          sendVideoReadyEmail({
+            to: session.user.email,
+            userName: session.user.name ?? "Creador",
+            projectTitle: detail.project.title,
+            projectId: parsed.data.project_id,
+            videoUrl: status.url,
+          }).catch((err) => console.error("[email] video-ready failed:", err));
+        }
       }
 
       return NextResponse.json({ success: true, ...status });

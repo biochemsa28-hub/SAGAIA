@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const zipBuffer = await buildProjectZip(parsed.data, projectId);
-    const filename = `sagaia_${Date.now()}.zip`;
+    const filename = `vynavo_${Date.now()}.zip`;
 
     return new NextResponse(new Uint8Array(zipBuffer), {
       status: 200,

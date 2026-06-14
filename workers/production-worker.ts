@@ -1,5 +1,5 @@
 /**
- * SAGAIA Production Worker
+ * VYNAVO Production Worker
  * Ejecuta en un proceso Node.js separado (no serverless)
  * Procesa jobs de producción de video sin límite de tiempo
  *
@@ -18,7 +18,7 @@ const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 
 console.log(`
 ╔══════════════════════════════════════╗
-║  SAGAIA Production Worker v1.0       ║
+║  VYNAVO Production Worker v1.0       ║
 ║  Redis: ${REDIS_URL.slice(0, 30).padEnd(30)} ║
 ╚══════════════════════════════════════╝
 `);
@@ -26,7 +26,7 @@ console.log(`
 // ── Cuando tengas Redis, descomenta esto: ──────────────────────────────────
 /*
 const worker = new Worker(
-  "sagaia-production",
+  "vynavo-production",
   async (job) => {
     const { project_id, user_id, steps } = job.data;
     console.log(`[Worker] Procesando proyecto ${project_id}`);
@@ -118,7 +118,7 @@ worker.on("failed", (job, err) => {
   console.error(`[Worker] Job ${job?.id} falló:`, err.message);
 });
 
-console.log("Worker escuchando jobs en cola 'sagaia-production'...");
+console.log("Worker escuchando jobs en cola 'vynavo-production'...");
 */
 
 // ── Versión simple sin Redis (polling manual) ──────────────────────────────

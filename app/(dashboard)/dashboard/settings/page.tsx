@@ -7,10 +7,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Eye, EyeOff, CheckCircle, AlertCircle, Loader2,
-  User, Shield, Zap, LogOut,
+  User, Shield, Zap, LogOut, CreditCard, ExternalLink, RefreshCw,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import type { SubscriptionInfo } from "@/app/api/subscription/route";
 
 interface Settings {
   name: string | null;
@@ -29,22 +30,48 @@ function FieldMsg({ msg }: { msg: { type: "success" | "error"; text: string } | 
   );
 }
 
-const PLAN_LABELS: Record<string, { label: string; color: string }> = {
-  free:    { label: "Gratuito",  color: "text-zinc-400 bg-zinc-800 border-zinc-700"           },
-  starter: { label: "Starter",   color: "text-blue-400 bg-blue-600/10 border-blue-700/30"      },
-  pro:     { label: "Pro",       color: "text-violet-400 bg-violet-600/10 border-violet-700/30" },
-  studio:  { label: "Studio",    color: "text-pink-400 bg-pink-600/10 border-pink-700/30"       },
+const PLAN_META: Record<string, { label: string; color: string; navos: number; accent: string }> = {
+  free:    { label: "Gratuito",  color: "text-zinc-400 bg-zinc-800 border-zinc-700",            navos: 5,   accent: "#71717a" },
+  starter: { label: "Starter",   color: "text-blue-400 bg-blue-600/10 border-blue-700/30",      navos: 30,  accent: "#60a5fa" },
+  creator: { label: "Creador",   color: "text-amber-400 bg-amber-600/10 border-amber-700/30",   navos: 70,  accent: "#fbbf24" },
+  pro:     { label: "Pro",       color: "text-violet-400 bg-violet-600/10 border-violet-700/30", navos: 200, accent: "#a78bfa" },
+  studio:  { label: "Studio",    color: "text-pink-400 bg-pink-600/10 border-pink-700/30",       navos: 500, accent: "#f472b6" },
 };
+
+function formatDate(unix: number): string {
+  return new Date(unix * 1000).toLocaleDateString("es-ES", {
+    day: "numeric", month: "long", year: "numeric",
+  });
+}
 
 export default function SettingsPage() {
   const { data: session, update: updateSession } = useSession();
-  const router = useRouter();
+  useRouter();
 
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+  const [subLoading, setSubLoading] = useState(true);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then((d: Settings) => setSettings(d)).catch(() => null);
+    fetch("/api/subscription")
+      .then(r => r.json())
+      .then((d: SubscriptionInfo) => setSub(d))
+      .catch(() => null)
+      .finally(() => setSubLoading(false));
   }, []);
+
+  async function openPortal() {
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const d = await res.json() as { url?: string; error?: string };
+      if (d.url) window.location.href = d.url;
+    } finally {
+      setPortalLoading(false);
+    }
+  }
 
   // ── Profile ──────────────────────────────────────────────────────────────────
   const [name, setName] = useState<string | null>(null);
@@ -94,17 +121,21 @@ export default function SettingsPage() {
     } finally { setSavingPwd(false); }
   }
 
-  const planInfo = PLAN_LABELS[settings?.plan ?? "free"] ?? PLAN_LABELS.free!;
+  const planMeta = PLAN_META[settings?.plan ?? "free"] ?? PLAN_META.free!;
+  const navosUsed = (planMeta.navos) - (settings?.credits ?? 0);
+  const navosTotal = planMeta.navos;
+  const navosPercent = navosTotal > 0 ? Math.min(100, Math.max(0, (navosUsed / navosTotal) * 100)) : 0;
+
+  const hasPaidSub = sub && sub.status === "active" && sub.plan_id;
 
   return (
     <>
-      <TopBar title="Mi cuenta" subtitle="Perfil y seguridad" />
+      <TopBar title="Mi cuenta" subtitle="Perfil y suscripción" />
       <div className="max-w-xl mx-auto p-6 space-y-5">
 
-        {/* ── Plan & credits ───────────────────────────────────────────────────── */}
+        {/* ── Avatar + Plan badge ──────────────────────────────────────────────── */}
         <Card className="p-0 overflow-hidden">
           <div className="flex items-center gap-4 p-5">
-            {/* Avatar */}
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shrink-0 shadow-lg shadow-violet-900/30">
               <span className="text-lg font-bold text-white">
                 {displayName.slice(0, 2).toUpperCase() || (session?.user?.name ?? "U").slice(0, 2).toUpperCase()}
@@ -118,18 +149,18 @@ export default function SettingsPage() {
                 {settings?.email ?? session?.user?.email}
               </p>
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${planInfo.color}`}>
-                  {planInfo.label}
+                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${planMeta.color}`}>
+                  {planMeta.label}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-zinc-400">
                   <Zap className="w-3 h-3 text-violet-400" />
-                  {settings?.credits ?? 0} crédito{(settings?.credits ?? 0) !== 1 ? "s" : ""}
+                  {settings?.credits ?? 0} NAVOS
                 </span>
               </div>
             </div>
           </div>
           <div className="border-t border-zinc-800 px-5 py-3 bg-zinc-900/40 flex items-center justify-between">
-            <p className="text-xs text-zinc-500">¿Necesitas más créditos?</p>
+            <p className="text-xs text-zinc-500">¿Necesitas más NAVOS?</p>
             <Link
               href="/pricing"
               className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1"
@@ -137,6 +168,103 @@ export default function SettingsPage() {
               <Zap className="w-3 h-3" /> Ver planes →
             </Link>
           </div>
+        </Card>
+
+        {/* ── Suscripción ─────────────────────────────────────────────────────── */}
+        <Card className="p-0 overflow-hidden">
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <CreditCard className="w-4 h-4 text-violet-400" />
+              <h3 className="text-sm font-semibold text-white">Mi suscripción</h3>
+            </div>
+
+            {subLoading ? (
+              <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Cargando...
+              </div>
+            ) : hasPaidSub ? (
+              <div className="space-y-4">
+                {/* Plan + estado */}
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-0.5">Plan activo</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${planMeta.color.split(" ")[0]}`}>
+                        VYNAVO {planMeta.label}
+                      </span>
+                      <span className="text-xs text-zinc-500">
+                        · {sub.billing === "annual" ? "anual" : "mensual"}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    sub.cancel_at_period_end
+                      ? "text-amber-400 bg-amber-500/10 border border-amber-500/30"
+                      : "text-emerald-400 bg-emerald-500/10 border border-emerald-500/30"
+                  }`}>
+                    {sub.cancel_at_period_end ? "Cancela al vencer" : "Activo"}
+                  </span>
+                </div>
+
+                {/* Renovación */}
+                {sub.current_period_end && (
+                  <div className="flex items-center gap-2 text-xs text-zinc-400">
+                    <RefreshCw className="w-3 h-3 text-zinc-500" />
+                    {sub.cancel_at_period_end
+                      ? `Acceso hasta el ${formatDate(sub.current_period_end)}`
+                      : `Próxima renovación: ${formatDate(sub.current_period_end)}`}
+                  </div>
+                )}
+
+                {/* NAVOS bar */}
+                <div>
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-zinc-400">NAVOS este mes</span>
+                    <span className="font-medium" style={{ color: planMeta.accent }}>
+                      {settings?.credits ?? 0} / {navosTotal} disponibles
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${navosPercent}%`,
+                        background: `linear-gradient(90deg, ${planMeta.accent}88, ${planMeta.accent})`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-600 mt-1">{navosUsed} usados · {settings?.credits ?? 0} restantes</p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-sm text-zinc-400 mb-1">No tienes una suscripción activa</p>
+                <p className="text-xs text-zinc-600 mb-3">Elige un plan para crear más microseries</p>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  <Zap className="w-3 h-3" /> Ver planes disponibles →
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {hasPaidSub && (
+            <div className="border-t border-zinc-800 px-5 py-3 bg-zinc-900/40">
+              <button
+                onClick={openPortal}
+                disabled={portalLoading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-medium text-white transition-all disabled:opacity-60"
+              >
+                {portalLoading
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <ExternalLink className="w-4 h-4 text-zinc-400" />}
+                Gestionar suscripción · Cancelar o cambiar plan
+              </button>
+            </div>
+          )}
         </Card>
 
         {/* ── Nombre ──────────────────────────────────────────────────────────── */}

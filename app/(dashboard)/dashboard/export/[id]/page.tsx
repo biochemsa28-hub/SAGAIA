@@ -51,7 +51,7 @@ export default function ExportPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `sagaia_${Date.now()}.zip`;
+      a.download = `vynavo_${Date.now()}.zip`;
       a.click();
       URL.revokeObjectURL(url);
       setDownloaded(true);

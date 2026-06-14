@@ -1,5 +1,5 @@
 ﻿-- ============================================================
--- SAGAIA — Initial Database Schema
+-- VYNAVO — Initial Database Schema
 -- Compatible with: SQLite (Phase 1) + Cloudflare D1 (Phase 2)
 -- ============================================================
 
@@ -36,6 +36,10 @@ CREATE TABLE IF NOT EXISTS projects (
   ai_provider TEXT NOT NULL DEFAULT 'openai', -- openai|claude|mock
   generation_model TEXT,
   error_message TEXT,
+  has_voice   INTEGER NOT NULL DEFAULT 0,
+  has_images  INTEGER NOT NULL DEFAULT 0,
+  has_clips   INTEGER NOT NULL DEFAULT 0,
+  has_final   INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );

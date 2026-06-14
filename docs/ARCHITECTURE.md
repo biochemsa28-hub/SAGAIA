@@ -1,4 +1,4 @@
-﻿# SAGAIA — Technical Architecture
+﻿# VYNAVO — Technical Architecture
 
 **Version:** 1.0.0
 
@@ -71,7 +71,7 @@ class MockAdapter implements AIAdapter { ... }     // always available
 ### File Structure
 
 ```
-SAGAIA-studio/
+VYNAVO-studio/
 ├── app/                          # Next.js App Router
 │   ├── (auth)/                   # Auth pages (no sidebar)
 │   ├── (dashboard)/              # App pages (with sidebar)

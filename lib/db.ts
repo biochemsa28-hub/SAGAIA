@@ -1,7 +1,11 @@
 import { createClient, type Client } from "@libsql/client";
 import { readFileSync } from "fs";
-import { isAbsolute, resolve, join } from "path";
+import { isAbsolute, resolve, join, dirname } from "path";
 import { mkdirSync } from "fs";
+import { fileURLToPath } from "url";
+
+// Project root resolved from import.meta.url (works in Turbopack/ESM)
+const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 let _client: Client | null = null;
 
@@ -17,8 +21,8 @@ export function getDb(): Client {
   }
 
   // ── Local SQLite (development) ────────────────────────────────────────────
-  const rawPath = process.env.DATABASE_PATH ?? "./db/SAGAIA.db";
-  const absPath = isAbsolute(rawPath) ? rawPath : resolve(process.cwd(), rawPath);
+  const rawPath = process.env.DATABASE_PATH ?? "./db/VYNAVO.db";
+  const absPath = isAbsolute(rawPath) ? rawPath : resolve(PROJECT_ROOT, rawPath);
 
   const sep = absPath.includes("/") ? "/" : "\\";
   const dir = absPath.substring(0, absPath.lastIndexOf(sep));
@@ -35,18 +39,8 @@ export function getDb(): Client {
 export async function initDb(): Promise<void> {
   const db = getDb();
 
-  // Read schema — works both locally and on Vercel (bundled at build time)
-  let schema: string;
-  try {
-    // Local: derive path from DATABASE_PATH
-    const rawPath = process.env.DATABASE_PATH ?? "./db/SAGAIA.db";
-    const absDbPath = isAbsolute(rawPath) ? rawPath : resolve(process.cwd(), rawPath);
-    const projectRoot = resolve(absDbPath, "../../");
-    schema = readFileSync(join(projectRoot, "db/schema/001_initial.sql"), "utf-8");
-  } catch {
-    // Vercel/production: schema next to this file (copied via vercel.json)
-    schema = readFileSync(join(process.cwd(), "db/schema/001_initial.sql"), "utf-8");
-  }
+  // Read schema — always relative to project root (derived from __dirname)
+  const schema = readFileSync(join(PROJECT_ROOT, "db/schema/001_initial.sql"), "utf-8");
 
   const statements = schema
     .split(";")

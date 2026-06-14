@@ -30,14 +30,17 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
       .catch(() => null);
   }, [session]);
 
+  const low = credits !== null && credits <= 10;
+  const empty = credits === 0;
+
   const creditColor =
     credits === null ? "text-violet-300" :
-    credits === 0    ? "text-red-400"    :
-    credits <= 2     ? "text-amber-400"  : "text-violet-300";
+    empty            ? "text-red-400"    :
+    low              ? "text-amber-400"  : "text-violet-300";
 
   const barBg =
-    credits === 0    ? "border-red-700/40 bg-red-600/10 hover:bg-red-600/20"    :
-    credits !== null && credits <= 2 ? "border-amber-700/40 bg-amber-600/10 hover:bg-amber-600/20" :
+    empty ? "border-red-700/40 bg-red-600/10 hover:bg-red-600/20 animate-pulse" :
+    low   ? "border-amber-700/40 bg-amber-600/10 hover:bg-amber-600/20" :
     "border-violet-700/30 bg-violet-600/10 hover:bg-violet-600/20";
 
   return (
@@ -55,13 +58,14 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
         {/* Credits chip — click → pricing */}
         <button
           onClick={() => router.push("/pricing")}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors border ${barBg}`}
-          title={credits === 0 ? "Sin créditos — Recargar" : "Recargar créditos"}
+          className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all border ${barBg}`}
+          title={empty ? "Sin NAVOS — Recarga ahora" : low ? "Pocos NAVOS — Recarga antes de quedarte sin" : "Mis NAVOS"}
         >
           <Zap className={`w-3.5 h-3.5 ${creditColor}`} />
-          <span className={`text-xs font-semibold ${creditColor}`}>
+          <span className={`text-xs font-bold ${creditColor}`}>
             {credits === null ? "…" : credits}
           </span>
+          <span className={`text-[10px] font-semibold ${creditColor} opacity-80`}>NAVOS</span>
           <Plus className={`w-3 h-3 ${creditColor} opacity-60`} />
         </button>
 

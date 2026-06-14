@@ -48,7 +48,7 @@ export default function RegisterPage() {
         <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center">
           <Clapperboard className="w-5 h-5 text-white" />
         </div>
-        <span className="text-white font-bold text-xl">SAGAIA</span>
+        <span className="text-white font-bold text-xl">VYNAVO</span>
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
@@ -103,6 +103,13 @@ export default function RegisterPage() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Crear cuenta gratis"}
           </Button>
+
+          <p className="text-center text-[11px] text-zinc-600 leading-relaxed">
+            Al registrarte aceptas nuestros{" "}
+            <Link href="/terms" className="text-zinc-500 hover:text-zinc-300 underline underline-offset-2">Términos y Condiciones</Link>
+            {" "}y nuestra{" "}
+            <Link href="/privacy" className="text-zinc-500 hover:text-zinc-300 underline underline-offset-2">Política de Privacidad</Link>
+          </p>
         </form>
 
         <p className="text-center text-xs text-zinc-500 mt-6">

@@ -3,900 +3,1215 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SAGAIA — Crea Microseries Virales con IA en 7 Minutos</title>
-  <meta name="description" content="SAGAIA convierte cualquier idea en una microserie completa con voz profesional, imágenes cinematográficas, clips animados y video MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos." />
-  <meta name="keywords" content="microserie IA, crear videos con inteligencia artificial, generador videos TikTok, Reels automatizados, YouTube Shorts IA, SAGAIA" />
-  <link rel="canonical" href="https://sagaia.vercel.app" />
 
-  <!-- OG -->
-  <meta property="og:title" content="SAGAIA — De idea a video viral en 7 minutos" />
-  <meta property="og:description" content="Voz · Imágenes · Clips · Video MP4. Todo automático con IA." />
+  <!-- ══ SEO primario ══════════════════════════════════════════════════════ -->
+  <title>VYNAVO — Crea Microseries Virales con IA en 7 Minutos</title>
+  <meta name="description" content="VYNAVO convierte cualquier idea en una microserie completa: voz IA, imágenes cinematográficas, clips animados y video MP4 9:16 listo para TikTok, Reels y YouTube Shorts. Sin edición. Sin equipos. En minutos." />
+  <meta name="keywords" content="microserie IA, crear videos inteligencia artificial, generador videos TikTok, Reels automatizados, YouTube Shorts IA, producción video IA, VYNAVO, microseries virales, video vertical IA" />
+  <meta name="author" content="VYNAVO" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://vynavo.vercel.app" />
+
+  <!-- ══ Open Graph / Facebook ═════════════════════════════════════════════ -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://sagaia.vercel.app" />
-  <meta property="og:image" content="https://sagaia.vercel.app/og-image.png" />
+  <meta property="og:site_name" content="VYNAVO" />
+  <meta property="og:title" content="VYNAVO — De idea a microserie viral en 7 minutos" />
+  <meta property="og:description" content="Voz IA · Imágenes cinematográficas · Clips animados · Video MP4 1080×1920. Todo automático. Sin edición." />
+  <meta property="og:url" content="https://vynavo.vercel.app" />
+  <meta property="og:image" content="https://vynavo.vercel.app/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="es_ES" />
 
-  <!-- Twitter -->
+  <!-- ══ Twitter Card ══════════════════════════════════════════════════════ -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="SAGAIA — Microseries IA en minutos" />
-  <meta name="twitter:description" content="Crea microseries virales con IA: voz, imágenes, clips y video final MP4." />
+  <meta name="twitter:site" content="@vynavo_ai" />
+  <meta name="twitter:title" content="VYNAVO — Microseries con IA en minutos" />
+  <meta name="twitter:description" content="Crea microseries virales: voz, imágenes, clips animados y video MP4 listo para publicar." />
+  <meta name="twitter:image" content="https://vynavo.vercel.app/og-image.png" />
+
+  <!-- ══ Schema.org structured data (SEM) ════════════════════════════════ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "VYNAVO",
+    "url": "https://vynavo.vercel.app",
+    "description": "Plataforma SaaS de producción de microseries con inteligencia artificial. Genera voz, imágenes, clips animados y video MP4 9:16 de forma automática.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Web",
+    "offers": [
+      {"@type":"Offer","name":"Starter","price":"9","priceCurrency":"USD"},
+      {"@type":"Offer","name":"Pro","price":"29","priceCurrency":"USD"},
+      {"@type":"Offer","name":"Studio","price":"79","priceCurrency":"USD"}
+    ]
+  }
+  </script>
+
+  <!-- ══ Fonts ═════════════════════════════════════════════════════════════ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <style>
-    /* ── Reset & base ── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ══ TOKENS ═══════════════════════════════════════════════════════════ */
     :root {
-      --bg:       #09090b;
-      --bg2:      #18181b;
-      --border:   #27272a;
-      --zinc400:  #a1a1aa;
-      --zinc500:  #71717a;
-      --zinc600:  #52525b;
-      --violet:   #7c3aed;
-      --violet2:  #6d28d9;
-      --pink:     #db2777;
-      --emerald:  #059669;
-      --blue:     #2563eb;
-      --purple:   #7c3aed;
+      --bg:         #04040a;
+      --bg2:        #0a0a14;
+      --bg3:        #0f0f1e;
+      --card:       #0d0d1a;
+      --border:     rgba(110,80,255,.18);
+      --border2:    rgba(110,80,255,.35);
+      --violet:     #7c3aed;
+      --violet2:    #6d28d9;
+      --cyan:       #06b6d4;
+      --pink:       #ec4899;
+      --white:      #f4f4ff;
+      --muted:      rgba(244,244,255,.5);
+      --muted2:     rgba(244,244,255,.28);
+      --glow:       0 0 40px rgba(124,58,237,.35);
+      --glow-sm:    0 0 18px rgba(124,58,237,.25);
+      --r:          12px;
+      --r2:         20px;
     }
+
+    /* ══ RESET ════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: 'Inter', sans-serif;
       background: var(--bg);
-      color: #fff;
+      color: var(--white);
       line-height: 1.6;
       overflow-x: hidden;
     }
     a { color: inherit; text-decoration: none; }
-    img { max-width: 100%; display: block; }
+    img { max-width: 100%; }
 
-    /* ── Utilities ── */
-    .grad-text {
-      background: linear-gradient(135deg, #a78bfa, #f472b6, #fb923c);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .grad-btn {
-      background: linear-gradient(135deg, #7c3aed, #db2777);
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      transition: opacity .2s, transform .15s;
-    }
-    .grad-btn:hover { opacity: .9; transform: translateY(-1px); }
-    .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+    /* ══ SCROLLBAR ════════════════════════════════════════════════════════ */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--violet); border-radius: 4px; }
 
-    /* ── Nav ── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      background: rgba(9,9,11,.85);
-      backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-inner {
-      max-width: 1100px; margin: 0 auto; padding: 0 20px;
-      height: 64px; display: flex; align-items: center; justify-content: space-between;
-    }
-    .logo { display: flex; align-items: center; gap: 10px; }
-    .logo-icon {
-      width: 32px; height: 32px; border-radius: 8px;
-      background: linear-gradient(135deg, #7c3aed, #6d28d9);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px; font-weight: bold;
-    }
-    .logo-name { font-size: 18px; font-weight: 800; letter-spacing: -.5px; }
-    .nav-links { display: flex; align-items: center; gap: 12px; }
-    .btn-login {
-      font-size: 14px; color: var(--zinc400);
-      padding: 8px 16px; border-radius: 8px;
-      transition: color .2s;
-    }
-    .btn-login:hover { color: #fff; }
-    .btn-cta {
-      font-size: 14px; font-weight: 600;
-      padding: 9px 20px; border-radius: 10px;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-
-    /* ── Hero ── */
-    .hero {
-      padding: 140px 20px 80px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
-    .hero-glow {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -60%);
-      width: 700px; height: 500px;
-      border-radius: 50%;
-      background: radial-gradient(ellipse, rgba(124,58,237,.15) 0%, transparent 70%);
+    /* ══ GRID NOISE BACKGROUND ════════════════════════════════════════════ */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(124,58,237,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,58,237,.04) 1px, transparent 1px);
+      background-size: 44px 44px;
       pointer-events: none;
     }
-    .badge {
+
+    /* ══ GLOW ORBS ════════════════════════════════════════════════════════ */
+    .orb {
+      position: fixed; border-radius: 50%; filter: blur(80px);
+      pointer-events: none; z-index: 0;
+    }
+    .orb-1 { width: 500px; height: 500px; background: rgba(124,58,237,.12); top: -100px; left: -100px; }
+    .orb-2 { width: 400px; height: 400px; background: rgba(6,182,212,.08); top: 40vh; right: -100px; }
+    .orb-3 { width: 350px; height: 350px; background: rgba(236,72,153,.07); bottom: 10vh; left: 20%; }
+
+    /* ══ UTILS ════════════════════════════════════════════════════════════ */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+    .gradient-text {
+      background: linear-gradient(135deg, #a78bfa 0%, #06b6d4 50%, #ec4899 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+      color: #a78bfa; background: rgba(124,58,237,.12);
+      border: 1px solid rgba(124,58,237,.25);
+      padding: 5px 14px; border-radius: 100px;
+    }
+    .tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+    .btn {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(124,58,237,.1);
-      border: 1px solid rgba(124,58,237,.3);
-      border-radius: 100px;
-      padding: 6px 16px;
-      font-size: 12px; color: #c4b5fd;
-      font-weight: 500; margin-bottom: 28px;
-    }
-    .hero h1 {
-      font-size: clamp(2.4rem, 6vw, 4.2rem);
-      font-weight: 900;
-      line-height: 1.1;
-      letter-spacing: -.03em;
-      margin-bottom: 20px;
-    }
-    .hero p {
-      font-size: clamp(1rem, 2.5vw, 1.2rem);
-      color: var(--zinc400);
-      max-width: 600px; margin: 0 auto 40px;
-      line-height: 1.7;
-    }
-    .hero-btns {
-      display: flex; flex-wrap: wrap;
-      align-items: center; justify-content: center; gap: 14px;
-      margin-bottom: 16px;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 15px;
+      padding: 13px 28px; border-radius: var(--r); border: none; cursor: pointer;
+      transition: all .2s;
     }
     .btn-primary {
-      font-size: 16px; font-weight: 700;
-      padding: 16px 36px; border-radius: 14px;
-      display: inline-flex; align-items: center; gap: 8px;
-      box-shadow: 0 20px 60px rgba(124,58,237,.35);
+      background: linear-gradient(135deg, var(--violet), #5b21b6);
+      color: #fff; box-shadow: var(--glow-sm);
     }
-    .btn-secondary {
-      font-size: 14px; color: var(--zinc400);
-      transition: color .2s;
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--glow); }
+    .btn-outline {
+      background: transparent; color: var(--white);
+      border: 1px solid var(--border2);
     }
-    .btn-secondary:hover { color: #fff; }
-    .hero-note { font-size: 12px; color: var(--zinc600); }
+    .btn-outline:hover { background: rgba(124,58,237,.1); border-color: #a78bfa; }
+    .btn-lg { padding: 16px 36px; font-size: 16px; }
 
-    /* ── Stats ── */
-    .stats {
-      border-top: 1px solid var(--border);
+    /* ══ SECTION COMMON ═══════════════════════════════════════════════════ */
+    section { padding: 96px 0; position: relative; z-index: 1; }
+    .section-header { text-align: center; margin-bottom: 64px; }
+    .section-header h2 {
+      font-family: 'Space Grotesk', sans-serif; font-size: clamp(28px, 4vw, 44px);
+      font-weight: 700; line-height: 1.2; margin: 16px 0 16px;
+    }
+    .section-header p { font-size: 17px; color: var(--muted); max-width: 540px; margin: 0 auto; }
+
+    /* ══ NAV ══════════════════════════════════════════════════════════════ */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(4,4,10,.8); backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
-      padding: 40px 20px;
+      padding: 0 24px;
     }
-    .stats-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: 24px; max-width: 800px; margin: 0 auto; text-align: center;
+    .nav-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
     }
-    @media(min-width: 640px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
-    .stat-value { font-size: 1.9rem; font-weight: 800; color: #fff; }
-    .stat-label { font-size: 12px; color: var(--zinc500); margin-top: 4px; }
+    .logo {
+      font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #a78bfa, #06b6d4);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-links a { font-size: 14px; color: var(--muted); transition: color .2s; }
+    .nav-links a:hover { color: var(--white); }
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
+    .nav-login {
+      font-size: 14px; color: var(--muted); padding: 8px 16px;
+      border-radius: var(--r); border: 1px solid var(--border); cursor: pointer;
+      transition: all .2s; background: transparent;
+    }
+    .nav-login:hover { color: var(--white); border-color: var(--border2); }
+    .nav-cta {
+      font-size: 14px; font-weight: 600; padding: 9px 20px;
+      border-radius: var(--r); border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--violet), #5b21b6);
+      color: #fff; transition: all .2s;
+    }
+    .nav-cta:hover { transform: translateY(-1px); box-shadow: var(--glow-sm); }
+    @media(max-width:768px){ .nav-links{display:none} }
 
-    /* ── How it works ── */
-    .section { padding: 80px 20px; }
-    .section-title { text-align: center; margin-bottom: 12px; }
-    .section-title h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; }
-    .section-sub { text-align: center; color: var(--zinc400); font-size: 15px; margin-bottom: 52px; }
+    /* ══ HERO ═════════════════════════════════════════════════════════════ */
+    #hero {
+      min-height: 100vh; display: flex; align-items: center;
+      padding: 120px 0 80px;
+    }
+    .hero-inner {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
+    }
+    @media(max-width:900px){ .hero-inner{grid-template-columns:1fr; text-align:center} }
+    .hero-eyebrow { margin-bottom: 24px; }
+    .hero-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(36px, 5vw, 62px);
+      font-weight: 700; line-height: 1.1; letter-spacing: -1.5px;
+      margin-bottom: 24px;
+    }
+    .hero-sub { font-size: 18px; color: var(--muted); line-height: 1.7; margin-bottom: 36px; max-width: 480px; }
+    @media(max-width:900px){ .hero-sub{margin:0 auto 36px} }
+    .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+    @media(max-width:900px){ .hero-ctas{justify-content:center} }
+    .hero-trust { margin-top: 28px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    @media(max-width:900px){ .hero-trust{justify-content:center} }
+    .trust-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted2); }
+    .trust-dot { width: 5px; height: 5px; border-radius: 50%; background: #a78bfa; }
 
-    .steps { display: grid; gap: 16px; max-width: 800px; margin: 0 auto; }
-    @media(min-width: 720px) { .steps { grid-template-columns: repeat(4, 1fr); } }
-    .step {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px 20px;
-      text-align: center;
-      position: relative;
-      transition: border-color .2s;
+    /* Phone mockup */
+    .phone-wrap { position: relative; display: flex; justify-content: center; }
+    .phone-glow {
+      position: absolute; inset: -30px;
+      background: radial-gradient(ellipse at center, rgba(124,58,237,.2) 0%, transparent 70%);
+      border-radius: 50%;
     }
-    .step:hover { border-color: rgba(124,58,237,.4); }
-    .step-num {
-      width: 32px; height: 32px; border-radius: 50%;
-      background: rgba(124,58,237,.15);
-      border: 1px solid rgba(124,58,237,.3);
-      color: #c4b5fd; font-size: 13px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 14px;
+    .phone {
+      width: 220px; height: 440px;
+      background: var(--card); border-radius: 32px;
+      border: 1px solid var(--border2);
+      overflow: hidden; position: relative;
+      box-shadow: var(--glow), 0 40px 80px rgba(0,0,0,.6);
     }
-    .step-emoji { font-size: 2rem; margin-bottom: 10px; }
-    .step h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-    .step p { font-size: 13px; color: var(--zinc400); line-height: 1.5; }
-    .step-arrow {
-      display: none; position: absolute; right: -18px; top: 50%;
-      transform: translateY(-50%); color: var(--zinc600); font-size: 20px;
+    .phone-screen {
+      width: 100%; height: 100%;
+      background: linear-gradient(170deg, #1a0a3e 0%, #0a0420 40%, #0d0520 100%);
+      display: flex; flex-direction: column; justify-content: flex-end; padding: 20px 16px;
     }
-    @media(min-width: 720px) { .step-arrow { display: block; } }
-
-    /* ── Pipeline ── */
-    .pipeline { max-width: 800px; margin: 0 auto; }
-    .pipe-row {
-      display: flex; align-items: flex-start; gap: 16px;
-      padding: 20px;
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 16px; margin-bottom: 10px;
-      transition: border-color .2s;
+    .phone-ep-badge {
+      display: inline-block; font-size: 9px; font-weight: 600; letter-spacing: .1em;
+      background: rgba(124,58,237,.4); border: 1px solid rgba(167,139,250,.3);
+      color: #a78bfa; padding: 3px 8px; border-radius: 20px; margin-bottom: 8px;
     }
-    .pipe-row:hover { border-color: rgba(124,58,237,.35); }
-    .pipe-icon { font-size: 2rem; flex-shrink: 0; width: 44px; text-align: center; margin-top: 2px; }
-    .pipe-label {
-      font-size: 11px; font-weight: 600; letter-spacing: .08em;
-      text-transform: uppercase; margin-bottom: 4px;
-    }
-    .pipe-label.emerald { color: #34d399; }
-    .pipe-label.blue    { color: #60a5fa; }
-    .pipe-label.purple  { color: #a78bfa; }
-    .pipe-label.pink    { color: #f472b6; }
-    .pipe-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
-    .pipe-desc  { font-size: 13px; color: var(--zinc400); }
-    .pipe-time {
-      margin-left: auto; flex-shrink: 0;
-      font-size: 12px; color: var(--zinc600);
-      background: rgba(255,255,255,.04);
-      border: 1px solid var(--border);
-      padding: 4px 10px; border-radius: 100px;
-      white-space: nowrap;
-    }
-
-    /* ── Niches ── */
-    .niches-bg { background: rgba(24,24,27,.6); }
-    .niches-grid {
-      display: flex; flex-wrap: wrap;
-      justify-content: center; gap: 10px;
-      max-width: 700px; margin: 0 auto;
-    }
-    .niche-pill {
-      padding: 10px 20px; border-radius: 100px;
-      background: var(--bg2); border: 1px solid var(--border);
-      font-size: 14px; color: #d4d4d8;
-      cursor: pointer;
-      transition: border-color .2s, color .2s;
-    }
-    .niche-pill:hover { border-color: rgba(124,58,237,.5); color: #c4b5fd; }
-
-    /* ── Pricing ── */
-    .pricing-grid {
-      display: grid; gap: 20px; max-width: 920px; margin: 0 auto;
-    }
-    @media(min-width: 720px) { .pricing-grid { grid-template-columns: repeat(3, 1fr); } }
-    .plan-card {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 20px; padding: 28px 24px;
-      display: flex; flex-direction: column;
-      position: relative; transition: border-color .2s, transform .2s;
-    }
-    .plan-card:hover { border-color: rgba(124,58,237,.4); transform: translateY(-3px); }
-    .plan-card.popular {
-      border-color: rgba(124,58,237,.6);
-      background: rgba(124,58,237,.06);
-      box-shadow: 0 0 40px rgba(124,58,237,.12);
-    }
-    .popular-tag {
-      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
-      background: linear-gradient(135deg, #7c3aed, #db2777);
-      color: #fff; font-size: 11px; font-weight: 700;
-      padding: 4px 14px; border-radius: 100px;
-      letter-spacing: .05em;
-    }
-    .plan-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
-    .plan-desc { font-size: 13px; color: var(--zinc500); margin-bottom: 20px; }
-    .plan-price { display: flex; align-items: flex-end; gap: 4px; margin-bottom: 6px; }
-    .plan-amount { font-size: 3rem; font-weight: 900; line-height: 1; }
-    .plan-currency { font-size: 14px; color: var(--zinc500); margin-bottom: 8px; }
-    .plan-credits { font-size: 14px; color: #a78bfa; font-weight: 600; margin-bottom: 24px; }
-    .plan-features { list-style: none; flex: 1; margin-bottom: 24px; }
-    .plan-features li {
-      display: flex; align-items: flex-start; gap: 8px;
-      font-size: 13px; color: #d4d4d8;
-      padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.04);
-    }
-    .plan-features li:last-child { border-bottom: none; }
-    .check { color: #34d399; flex-shrink: 0; margin-top: 2px; }
-    .plan-btn {
-      width: 100%; padding: 14px;
-      border-radius: 12px; font-size: 14px; font-weight: 700;
-      cursor: pointer; border: none; transition: all .2s;
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-    }
-    .plan-btn.default {
-      background: #27272a; color: #fff;
-      border: 1px solid #3f3f46;
-    }
-    .plan-btn.default:hover { background: #3f3f46; }
-
-    /* ── Social proof ── */
-    .testimonials {
-      display: grid; gap: 16px; max-width: 900px; margin: 0 auto;
-    }
-    @media(min-width: 640px) { .testimonials { grid-template-columns: repeat(3, 1fr); } }
-    .testimonial {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 16px; padding: 20px;
-    }
-    .t-stars { color: #facc15; font-size: 14px; margin-bottom: 10px; }
-    .t-text  { font-size: 14px; color: #d4d4d8; line-height: 1.6; margin-bottom: 14px; }
-    .t-author { display: flex; align-items: center; gap: 10px; }
-    .t-avatar {
+    .phone-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; line-height: 1.3; }
+    .phone-desc { font-size: 10px; color: rgba(255,255,255,.5); margin-bottom: 14px; }
+    .phone-progress { margin-bottom: 10px; }
+    .phone-prog-label { font-size: 9px; color: rgba(255,255,255,.4); margin-bottom: 5px; display: flex; justify-content: space-between; }
+    .phone-bar { height: 3px; background: rgba(255,255,255,.1); border-radius: 2px; margin-bottom: 5px; overflow: hidden; }
+    .phone-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #7c3aed, #06b6d4); }
+    .phone-controls { display: flex; justify-content: space-between; align-items: center; }
+    .phone-play {
       width: 36px; height: 36px; border-radius: 50%;
-      background: linear-gradient(135deg, #7c3aed, #db2777);
+      background: linear-gradient(135deg, #7c3aed, #5b21b6);
       display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 14px;
+      font-size: 14px; color: white;
     }
-    .t-name  { font-size: 13px; font-weight: 600; }
-    .t-role  { font-size: 12px; color: var(--zinc500); }
+    .phone-time { font-size: 10px; color: rgba(255,255,255,.4); }
+    .phone-scenes {
+      position: absolute; top: 20px; right: 10px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .phone-scene-thumb {
+      width: 44px; height: 60px; border-radius: 8px;
+      background: rgba(124,58,237,.25); border: 1px solid rgba(167,139,250,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .phone-scene-thumb.active { border-color: #a78bfa; background: rgba(124,58,237,.4); }
+    /* floating badges */
+    .phone-badge {
+      position: absolute;
+      background: rgba(13,13,26,.9); border: 1px solid var(--border2);
+      border-radius: var(--r); padding: 8px 12px;
+      font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+      backdrop-filter: blur(10px);
+    }
+    .pb-voice  { top: 30px; left: -60px; color: #a78bfa; }
+    .pb-img    { top: 120px; left: -70px; color: var(--cyan); }
+    .pb-clip   { top: 210px; left: -75px; color: var(--pink); }
+    .pb-video  { bottom: 60px; left: -80px; color: #86efac; }
+    .pb-dot { width: 7px; height: 7px; border-radius: 50%; }
+    @media(max-width:900px){ .phone-badge{display:none} }
 
-    /* ── FAQ ── */
-    .faq { max-width: 700px; margin: 0 auto; }
-    .faq-item {
-      border-bottom: 1px solid var(--border);
-      padding: 18px 0;
+    /* ══ STATS BAR ════════════════════════════════════════════════════════ */
+    .stats-bar {
+      position: relative; z-index: 1;
+      background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
     }
-    .faq-q {
-      font-size: 15px; font-weight: 600; cursor: pointer;
-      display: flex; justify-content: space-between; align-items: center;
-      user-select: none;
+    .stats-inner {
+      max-width: 1100px; margin: 0 auto; padding: 0 24px;
+      display: grid; grid-template-columns: repeat(4, 1fr);
     }
-    .faq-q .arrow { transition: transform .25s; color: var(--zinc500); font-size: 18px; }
-    .faq-item.open .faq-q .arrow { transform: rotate(180deg); }
-    .faq-a {
-      font-size: 14px; color: var(--zinc400); line-height: 1.7;
-      max-height: 0; overflow: hidden;
-      transition: max-height .3s ease, padding .3s;
+    @media(max-width:600px){ .stats-inner{grid-template-columns:repeat(2,1fr)} }
+    .stat {
+      padding: 28px 24px; text-align: center;
+      border-right: 1px solid var(--border);
     }
-    .faq-item.open .faq-a { max-height: 300px; padding-top: 10px; }
+    .stat:last-child { border-right: none; }
+    .stat-num {
+      font-family: 'Space Grotesk', sans-serif; font-size: 36px; font-weight: 700;
+      background: linear-gradient(135deg, #a78bfa, #06b6d4);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
-    /* ── CTA Final ── */
-    .cta-final {
-      text-align: center; padding: 100px 20px;
+    /* ══ HOW IT WORKS ═════════════════════════════════════════════════════ */
+    #how { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .steps-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;
+    }
+    @media(max-width:900px){ .steps-grid{grid-template-columns:1fr 1fr} }
+    @media(max-width:500px){ .steps-grid{grid-template-columns:1fr} }
+    .step-card {
+      background: var(--card); padding: 32px 24px;
+      border: 1px solid var(--border); position: relative; overflow: hidden;
+      transition: border-color .3s;
+    }
+    .step-card:hover { border-color: var(--border2); }
+    .step-card::before {
+      content: attr(data-n);
+      position: absolute; top: -10px; right: 16px;
+      font-family: 'Space Grotesk', sans-serif; font-size: 80px; font-weight: 900;
+      color: rgba(124,58,237,.06); line-height: 1;
+    }
+    .step-icon {
+      width: 48px; height: 48px; border-radius: var(--r);
+      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 20px;
+    }
+    .step-title { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 10px; }
+    .step-desc { font-size: 14px; color: var(--muted); line-height: 1.7; }
+    .step-detail {
+      margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+      font-size: 12px; color: var(--muted2); display: flex; flex-direction: column; gap: 5px;
+    }
+    .step-detail span { display: flex; align-items: center; gap: 6px; }
+    .step-detail span::before { content:'›'; color: #a78bfa; font-weight: 700; }
+
+    /* ══ PIPELINE ═════════════════════════════════════════════════════════ */
+    .pipeline {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      position: relative;
+    }
+    @media(max-width:900px){ .pipeline{grid-template-columns:1fr 1fr} }
+    @media(max-width:500px){ .pipeline{grid-template-columns:1fr} }
+    .pipeline::before {
+      content:''; position:absolute; top:36px; left:15%; right:15%; height:1px;
+      background: linear-gradient(90deg, transparent, rgba(167,139,250,.4), transparent);
+    }
+    @media(max-width:900px){ .pipeline::before{display:none} }
+    .pipe-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r2); padding: 28px 20px; text-align: center;
+      transition: all .3s; position: relative;
+    }
+    .pipe-card:hover {
+      border-color: var(--border2); transform: translateY(-4px);
+      box-shadow: var(--glow-sm);
+    }
+    .pipe-icon {
+      width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 16px;
+      display: flex; align-items: center; justify-content: center; font-size: 28px;
+    }
+    .pipe-1 .pipe-icon { background: rgba(167,139,250,.15); border: 1px solid rgba(167,139,250,.3); }
+    .pipe-2 .pipe-icon { background: rgba(6,182,212,.12); border: 1px solid rgba(6,182,212,.3); }
+    .pipe-3 .pipe-icon { background: rgba(236,72,153,.12); border: 1px solid rgba(236,72,153,.3); }
+    .pipe-4 .pipe-icon { background: rgba(134,239,172,.12); border: 1px solid rgba(134,239,172,.3); }
+    .pipe-name { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .pipe-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .pipe-badge {
+      display: inline-block; margin-top: 12px;
+      font-size: 10px; font-weight: 600; letter-spacing: .06em;
+      padding: 3px 10px; border-radius: 20px;
+    }
+    .pipe-1 .pipe-badge { background: rgba(167,139,250,.15); color: #a78bfa; }
+    .pipe-2 .pipe-badge { background: rgba(6,182,212,.12); color: var(--cyan); }
+    .pipe-3 .pipe-badge { background: rgba(236,72,153,.12); color: var(--pink); }
+    .pipe-4 .pipe-badge { background: rgba(134,239,172,.12); color: #86efac; }
+
+    /* ══ FEATURES ═════════════════════════════════════════════════════════ */
+    #features { background: var(--bg); }
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    }
+    @media(max-width:900px){ .features-grid{grid-template-columns:1fr 1fr} }
+    @media(max-width:500px){ .features-grid{grid-template-columns:1fr} }
+    .feat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r2); padding: 28px 24px; transition: all .3s;
       position: relative; overflow: hidden;
     }
-    .cta-glow {
-      position: absolute; bottom: 0; left: 50%;
-      transform: translateX(-50%);
-      width: 600px; height: 300px;
-      border-radius: 50%;
-      background: radial-gradient(ellipse, rgba(124,58,237,.2) 0%, transparent 70%);
+    .feat-card::after {
+      content: ''; position: absolute; inset: 0; border-radius: var(--r2);
+      background: linear-gradient(135deg, rgba(124,58,237,.05) 0%, transparent 60%);
       pointer-events: none;
     }
-    .cta-final h2 {
-      font-size: clamp(2rem, 5vw, 3.2rem);
-      font-weight: 900; letter-spacing: -.03em;
-      margin-bottom: 16px;
+    .feat-card:hover { border-color: var(--border2); transform: translateY(-3px); box-shadow: var(--glow-sm); }
+    .feat-icon {
+      font-size: 28px; margin-bottom: 16px; display: block;
     }
-    .cta-final p { font-size: 16px; color: var(--zinc400); margin-bottom: 36px; }
+    .feat-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .feat-desc { font-size: 14px; color: var(--muted); line-height: 1.7; }
+    .feat-tag {
+      display: inline-block; margin-top: 14px; font-size: 11px; font-weight: 600;
+      padding: 3px 10px; border-radius: 20px;
+      background: rgba(124,58,237,.12); color: #a78bfa;
+      border: 1px solid rgba(124,58,237,.2);
+    }
+    .feat-card.highlight { border-color: rgba(124,58,237,.4); }
+    .feat-card.highlight::after { background: linear-gradient(135deg, rgba(124,58,237,.1) 0%, transparent 60%); }
 
-    /* ── Footer ── */
-    footer {
+    /* ══ NICHES ═══════════════════════════════════════════════════════════ */
+    #niches { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .niches-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    }
+    @media(max-width:900px){ .niches-grid{grid-template-columns:1fr 1fr} }
+    .niche-card {
+      border-radius: var(--r2); padding: 28px 20px; text-align: center;
+      border: 1px solid var(--border); transition: all .3s; cursor: default;
+      position: relative; overflow: hidden;
+    }
+    .niche-card::before {
+      content:''; position:absolute; inset:0; opacity:0; transition:opacity .3s;
+      background: linear-gradient(135deg, rgba(124,58,237,.12), transparent);
+    }
+    .niche-card:hover { border-color: var(--border2); transform: translateY(-3px); }
+    .niche-card:hover::before { opacity:1; }
+    .niche-emoji { font-size: 36px; display: block; margin-bottom: 12px; }
+    .niche-name { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .niche-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    /* ══ BATCH ════════════════════════════════════════════════════════════ */
+    #batch { background: var(--bg); }
+    .batch-inner {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
+    }
+    @media(max-width:900px){ .batch-inner{grid-template-columns:1fr; text-align:center} }
+    .batch-title { font-family: 'Space Grotesk', sans-serif; font-size: clamp(26px,3.5vw,40px); font-weight: 700; line-height: 1.2; margin-bottom: 16px; }
+    .batch-sub { font-size: 16px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; }
+    .batch-points { display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px; }
+    @media(max-width:900px){ .batch-points{text-align:left; max-width:400px; margin:0 auto 32px} }
+    .batch-point { display: flex; align-items: flex-start; gap: 12px; }
+    .batch-point-icon {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      background: rgba(124,58,237,.2); border: 1px solid rgba(124,58,237,.3);
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
+    }
+    .batch-point-text { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .batch-point-text strong { color: var(--white); font-weight: 600; }
+    .batch-ui {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r2); overflow: hidden;
+      box-shadow: var(--glow-sm);
+    }
+    .batch-ui-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .batch-ui-title { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 600; }
+    .batch-ui-badge {
+      font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+      background: rgba(124,58,237,.2); color: #a78bfa;
+    }
+    .batch-rows { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+    .batch-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg3); border-radius: var(--r); padding: 10px 12px;
+      border: 1px solid var(--border);
+    }
+    .batch-row-num { font-size: 11px; color: var(--muted2); width: 18px; text-align: right; flex-shrink: 0; }
+    .batch-row-text { font-size: 12px; color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .batch-status {
+      font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; flex-shrink: 0;
+    }
+    .bs-done { background: rgba(134,239,172,.12); color: #86efac; }
+    .bs-prog { background: rgba(124,58,237,.15); color: #a78bfa; }
+    .bs-wait { background: rgba(255,255,255,.06); color: var(--muted2); }
+    .batch-footer {
+      padding: 14px 20px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .batch-prog-bar { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; margin: 0 16px; overflow: hidden; }
+    .batch-prog-fill { height: 100%; width: 60%; background: linear-gradient(90deg, #7c3aed, #06b6d4); border-radius: 2px; animation: progAnim 2s ease-in-out infinite alternate; }
+    @keyframes progAnim { from{width:55%} to{width:75%} }
+    .batch-count { font-size: 12px; color: var(--muted2); }
+
+    /* ══ PRICING ══════════════════════════════════════════════════════════ */
+    #pricing { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .plans-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    }
+    @media(max-width:900px){ .plans-grid{grid-template-columns:1fr; max-width:380px; margin:0 auto} }
+    .plan-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r2); padding: 32px 28px; position: relative;
+      transition: all .3s;
+    }
+    .plan-card:hover { transform: translateY(-4px); box-shadow: var(--glow-sm); }
+    .plan-card.popular {
+      border-color: rgba(124,58,237,.5);
+      box-shadow: var(--glow-sm);
+    }
+    .plan-popular-badge {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      padding: 4px 16px; border-radius: 20px;
+      background: linear-gradient(135deg, #7c3aed, #5b21b6);
+      color: white; white-space: nowrap;
+    }
+    .plan-name { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+    .plan-price {
+      font-family: 'Space Grotesk', sans-serif; font-size: 48px; font-weight: 700;
+      line-height: 1; margin-bottom: 4px;
+    }
+    .plan-price span { font-size: 16px; font-weight: 400; color: var(--muted); }
+    .plan-credits {
+      font-size: 14px; font-weight: 600; color: #a78bfa; margin-bottom: 24px;
+    }
+    .plan-divider { height: 1px; background: var(--border); margin-bottom: 24px; }
+    .plan-features { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .plan-feat { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--muted); }
+    .plan-feat-check { color: #a78bfa; font-size: 16px; flex-shrink: 0; line-height: 1.4; }
+    .plan-btn {
+      width: 100%; padding: 13px; border-radius: var(--r); font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: all .2s;
+    }
+    .plan-card:not(.popular) .plan-btn {
+      background: transparent; color: var(--white);
+      border: 1px solid var(--border2);
+    }
+    .plan-card:not(.popular) .plan-btn:hover { background: rgba(124,58,237,.1); }
+    .plan-card.popular .plan-btn {
+      background: linear-gradient(135deg, #7c3aed, #5b21b6);
+      color: white; border: none; box-shadow: var(--glow-sm);
+    }
+    .plan-card.popular .plan-btn:hover { transform: translateY(-1px); box-shadow: var(--glow); }
+
+    /* ══ FAQ ══════════════════════════════════════════════════════════════ */
+    #faq { background: var(--bg); }
+    .faq-list { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+    .faq-item {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r2); overflow: hidden;
+    }
+    .faq-q {
+      width: 100%; display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 24px; background: transparent; border: none; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 500; color: var(--white);
+      text-align: left; gap: 16px; transition: background .2s;
+    }
+    .faq-q:hover { background: rgba(124,58,237,.05); }
+    .faq-icon { color: #a78bfa; font-size: 18px; flex-shrink: 0; transition: transform .3s; }
+    .faq-a {
+      display: none; padding: 0 24px 20px;
+      font-size: 14px; color: var(--muted); line-height: 1.8;
       border-top: 1px solid var(--border);
-      padding: 32px 20px;
+    }
+    .faq-item.open .faq-a { display: block; }
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+    .faq-item.open { border-color: var(--border2); }
+
+    /* ══ CTA FINAL ════════════════════════════════════════════════════════ */
+    #cta {
+      background: var(--bg2); border-top: 1px solid var(--border);
+      text-align: center; padding: 120px 24px;
+    }
+    .cta-title {
+      font-family: 'Space Grotesk', sans-serif; font-size: clamp(32px,5vw,56px);
+      font-weight: 700; line-height: 1.15; margin-bottom: 20px; letter-spacing: -1px;
+    }
+    .cta-sub { font-size: 18px; color: var(--muted); margin-bottom: 40px; }
+    .cta-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .cta-note { margin-top: 20px; font-size: 13px; color: var(--muted2); }
+
+    /* ══ FOOTER ═══════════════════════════════════════════════════════════ */
+    footer {
+      background: var(--bg); border-top: 1px solid var(--border);
+      padding: 40px 24px;
     }
     .footer-inner {
       max-width: 1100px; margin: 0 auto;
-      display: flex; flex-wrap: wrap;
-      align-items: center; justify-content: space-between; gap: 16px;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;
     }
-    .footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
-    .footer-links a { font-size: 13px; color: var(--zinc600); transition: color .2s; }
-    .footer-links a:hover { color: var(--zinc400); }
-    .footer-copy { font-size: 12px; color: var(--zinc600); }
+    .footer-logo {
+      font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700;
+      background: linear-gradient(135deg, #a78bfa, #06b6d4);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 13px; color: var(--muted); transition: color .2s; }
+    .footer-links a:hover { color: var(--white); }
+    .footer-copy { font-size: 12px; color: var(--muted2); }
 
-    /* ── Floating CTA (mobile) ── */
-    .floating-cta {
-      display: none;
-      position: fixed; bottom: 16px; left: 16px; right: 16px; z-index: 90;
+    /* ══ FLOATING CTA MOBILE ══════════════════════════════════════════════ */
+    .float-cta {
+      display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 99; width: calc(100% - 48px);
     }
-    @media(max-width: 640px) { .floating-cta { display: block; } }
-    .floating-cta a {
-      width: 100%; padding: 16px;
-      border-radius: 14px; font-size: 15px; font-weight: 700;
-      text-align: center; display: block;
-      box-shadow: 0 8px 32px rgba(124,58,237,.5);
+    @media(max-width:768px){ .float-cta{display:block} }
+    .float-cta a {
+      display: block; text-align: center; padding: 15px;
+      background: linear-gradient(135deg, #7c3aed, #5b21b6);
+      border-radius: var(--r2); color: white; font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px; font-weight: 700;
+      box-shadow: 0 8px 32px rgba(124,58,237,.4);
     }
 
-    /* ── Animations ── */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(28px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .fade-up { animation: fadeUp .7s ease both; }
-    .delay-1 { animation-delay: .1s; }
-    .delay-2 { animation-delay: .2s; }
-    .delay-3 { animation-delay: .3s; }
-    .delay-4 { animation-delay: .45s; }
-
-    /* ── Video mockup ── */
-    .video-mockup {
-      max-width: 340px; margin: 48px auto 0;
-      background: #000; border-radius: 24px;
-      border: 2px solid var(--border);
-      overflow: hidden;
-      box-shadow: 0 40px 100px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
-      aspect-ratio: 9/16;
-      position: relative;
-    }
-    .mockup-overlay {
-      position: absolute; inset: 0;
-      background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.8) 100%);
-      display: flex; flex-direction: column;
-      justify-content: flex-end; padding: 20px;
-    }
-    .mockup-tag {
-      display: inline-block; background: rgba(124,58,237,.8);
-      font-size: 11px; font-weight: 700; padding: 3px 10px;
-      border-radius: 100px; margin-bottom: 8px; width: fit-content;
-    }
-    .mockup-title { font-size: 15px; font-weight: 700; line-height: 1.3; margin-bottom: 6px; }
-    .mockup-icons { display: flex; gap: 16px; font-size: 12px; color: rgba(255,255,255,.6); }
-
-    /* ── Number ticker ── */
-    .ticker {
-      display: inline-block;
-      background: linear-gradient(135deg, #7c3aed22, #db277722);
-      border: 1px solid rgba(124,58,237,.3);
-      border-radius: 12px; padding: 8px 20px;
-      font-size: 13px; color: #c4b5fd;
-      margin-bottom: 40px;
-    }
+    /* ══ REVEAL ANIMATION ═════════════════════════════════════════════════ */
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
   </style>
 </head>
+
 <body>
 
-  <!-- ── Nav ── -->
-  <nav>
-    <div class="nav-inner">
-      <a href="/" class="logo">
-        <div class="logo-icon">✦</div>
-        <span class="logo-name">SAGAIA</span>
-      </a>
-      <div class="nav-links">
-        <a href="#precios" class="btn-login">Precios</a>
-        <a href="https://sagaia.vercel.app/login" class="btn-login">Iniciar sesión</a>
-        <a href="https://sagaia.vercel.app/register" class="btn-cta grad-btn" style="border-radius:10px;padding:9px 18px;font-size:14px;font-weight:700;">
-          ⚡ Empezar gratis
-        </a>
-      </div>
+<!-- Orbs de fondo -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ══ NAV ══════════════════════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo">VYNAVO</div>
+    <div class="nav-links">
+      <a href="#how">Cómo funciona</a>
+      <a href="#features">Funciones</a>
+      <a href="#pricing">Precios</a>
+      <a href="#faq">FAQ</a>
     </div>
-  </nav>
-
-  <!-- ── Hero ── -->
-  <section class="hero">
-    <div class="hero-glow"></div>
-    <div class="container">
-
-      <div class="badge fade-up">
-        ✦ &nbsp;Producción IA completa · Sin experiencia requerida
-      </div>
-
-      <h1 class="fade-up delay-1">
-        De idea a<br>
-        <span class="grad-text">microserie viral</span><br>
-        en 7 minutos
-      </h1>
-
-      <p class="fade-up delay-2">
-        SAGAIA produce todo automáticamente — voz profesional, imágenes
-        cinematográficas, clips animados y video MP4 listo para publicar
-        en TikTok, Reels y YouTube Shorts.
-      </p>
-
-      <div class="hero-btns fade-up delay-3">
-        <a href="https://sagaia.vercel.app/register" class="btn-primary grad-btn">
-          ⚡ Crear mi primer microserie gratis
-        </a>
-        <a href="https://sagaia.vercel.app/login" class="btn-secondary">
-          Ya tengo cuenta →
-        </a>
-      </div>
-
-      <p class="hero-note fade-up delay-4">
-        5 créditos gratis al registrarte · Sin tarjeta de crédito
-      </p>
-
-      <!-- Mockup de teléfono -->
-      <div class="video-mockup fade-up delay-4">
-        <div style="width:100%;height:100%;background:linear-gradient(180deg,#1a0533 0%,#0d0d1a 100%);display:flex;align-items:center;justify-content:center;">
-          <div style="text-align:center;">
-            <div style="font-size:3rem;margin-bottom:12px;">🎬</div>
-            <div style="font-size:13px;color:rgba(255,255,255,.5);">Tu video aparecerá aquí</div>
-          </div>
-        </div>
-        <div class="mockup-overlay">
-          <span class="mockup-tag">SAGAIA IA</span>
-          <p class="mockup-title">El secreto que nadie te contó sobre el éxito</p>
-          <div class="mockup-icons">
-            <span>❤️ 48.2K</span>
-            <span>💬 1.2K</span>
-            <span>↗ Compartir</span>
-          </div>
-        </div>
-      </div>
-
+    <div class="nav-actions">
+      <a href="https://vynavo.vercel.app/login"><button class="nav-login">Iniciar sesión</button></a>
+      <a href="https://vynavo.vercel.app/register"><button class="nav-cta">Empezar gratis →</button></a>
     </div>
-  </section>
-
-  <!-- ── Stats ── -->
-  <section class="stats">
-    <div class="stats-grid">
-      <div>
-        <div class="stat-value grad-text">7 min</div>
-        <div class="stat-label">Producción completa</div>
-      </div>
-      <div>
-        <div class="stat-value grad-text">1 clic</div>
-        <div class="stat-label">Para generar todo</div>
-      </div>
-      <div>
-        <div class="stat-value grad-text">9:16</div>
-        <div class="stat-label">Formato viral nativo</div>
-      </div>
-      <div>
-        <div class="stat-value grad-text">3 redes</div>
-        <div class="stat-label">TikTok · Reels · Shorts</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── Cómo funciona ── -->
-  <section class="section">
-    <div class="container">
-      <div class="section-title">
-        <h2>Cómo funciona</h2>
-      </div>
-      <p class="section-sub">Escribe tu idea. SAGAIA hace el resto en 4 pasos automáticos.</p>
-
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-emoji">💡</div>
-          <h3>Elige tu idea</h3>
-          <p>Selecciona un nicho, tono y escribe una línea de tu historia.</p>
-          <span class="step-arrow">›</span>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-emoji">📖</div>
-          <h3>IA escribe el guión</h3>
-          <p>GPT-4 crea un microserie profesional con hook, drama y CTA.</p>
-          <span class="step-arrow">›</span>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-emoji">🏭</div>
-          <h3>Producción automática</h3>
-          <p>Voz, imágenes y clips se generan solos en paralelo.</p>
-          <span class="step-arrow">›</span>
-        </div>
-        <div class="step">
-          <div class="step-num">4</div>
-          <div class="step-emoji">📱</div>
-          <h3>Descarga y publica</h3>
-          <p>MP4 1080×1920 con subtítulos listo para subir a tus redes.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── Pipeline ── -->
-  <section class="section" style="padding-top:0;">
-    <div class="container">
-      <div class="section-title">
-        <h2>El pipeline de producción</h2>
-      </div>
-      <p class="section-sub">4 IAs trabajando en secuencia por ti</p>
-
-      <div class="pipeline">
-        <div class="pipe-row">
-          <div class="pipe-icon">🎤</div>
-          <div style="flex:1;">
-            <div class="pipe-label emerald">Paso 1</div>
-            <div class="pipe-title">Voz profesional</div>
-            <div class="pipe-desc">ElevenLabs genera narración natural en español o inglés con emoción real.</div>
-          </div>
-          <span class="pipe-time">~30 seg</span>
-        </div>
-        <div class="pipe-row">
-          <div class="pipe-icon">🖼️</div>
-          <div style="flex:1;">
-            <div class="pipe-label blue">Paso 2</div>
-            <div class="pipe-title">Imágenes cinematográficas</div>
-            <div class="pipe-desc">Flux Schnell crea imágenes 9:16 ultra-realistas por escena.</div>
-          </div>
-          <span class="pipe-time">~1 min</span>
-        </div>
-        <div class="pipe-row">
-          <div class="pipe-icon">🎬</div>
-          <div style="flex:1;">
-            <div class="pipe-label purple">Paso 3</div>
-            <div class="pipe-title">Clips animados</div>
-            <div class="pipe-desc">Kling v1.6 anima cada imagen con movimiento de cámara profesional.</div>
-          </div>
-          <span class="pipe-time">~3 min</span>
-        </div>
-        <div class="pipe-row">
-          <div class="pipe-icon">⚡</div>
-          <div style="flex:1;">
-            <div class="pipe-label pink">Paso 4</div>
-            <div class="pipe-title">Video final MP4</div>
-            <div class="pipe-desc">Shotstack ensambla todo: audio, subtítulos, transiciones y video 1080×1920.</div>
-          </div>
-          <span class="pipe-time">~2 min</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── Nichos ── -->
-  <section class="section niches-bg">
-    <div class="container">
-      <div class="section-title">
-        <h2>Para cualquier nicho de contenido</h2>
-      </div>
-      <p class="section-sub">Elige tu género — SAGAIA adapta tono, imágenes y narrativa automáticamente</p>
-
-      <div class="niches-grid">
-        <span class="niche-pill">💔 Drama de pareja</span>
-        <span class="niche-pill">👻 Terror psicológico</span>
-        <span class="niche-pill">💼 Negocios & éxito</span>
-        <span class="niche-pill">🌍 Historia real</span>
-        <span class="niche-pill">🧠 Motivación</span>
-        <span class="niche-pill">💋 Romance</span>
-        <span class="niche-pill">🔮 Misterio</span>
-        <span class="niche-pill">🏆 Superación</span>
-        <span class="niche-pill">💰 Dinero & finanzas</span>
-        <span class="niche-pill">🎭 Comedia</span>
-        <span class="niche-pill">🕵️ Suspense</span>
-        <span class="niche-pill">⚡ Ciencia ficción</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── Testimonios ── -->
-  <section class="section">
-    <div class="container">
-      <div class="section-title">
-        <h2>Creadores que ya lo usan</h2>
-      </div>
-      <p class="section-sub">Resultados reales de quienes producen en serie con SAGAIA</p>
-
-      <div class="testimonials">
-        <div class="testimonial">
-          <div class="t-stars">★★★★★</div>
-          <p class="t-text">"Produzco 10 microseries por semana en lugar de 1. Mi cuenta pasó de 0 a 85K seguidores en 2 meses."</p>
-          <div class="t-author">
-            <div class="t-avatar">M</div>
-            <div>
-              <div class="t-name">Mariana R.</div>
-              <div class="t-role">Creadora de contenido · 85K seguidores</div>
-            </div>
-          </div>
-        </div>
-        <div class="testimonial">
-          <div class="t-stars">★★★★★</div>
-          <p class="t-text">"Manejo 3 cuentas de diferentes nichos. SAGAIA me ahorra 40 horas semanales. ROI inmediato."</p>
-          <div class="t-author">
-            <div class="t-avatar">C</div>
-            <div>
-              <div class="t-name">Carlos V.</div>
-              <div class="t-role">Gestor de contenido · 3 cuentas activas</div>
-            </div>
-          </div>
-        </div>
-        <div class="testimonial">
-          <div class="t-stars">★★★★★</div>
-          <p class="t-text">"Los videos salen profesionales. Mis clientes no pueden creer que se generaron con IA en minutos."</p>
-          <div class="t-author">
-            <div class="t-avatar">A</div>
-            <div>
-              <div class="t-name">Andrea L.</div>
-              <div class="t-role">Agencia de marketing · CDMX</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── Precios ── -->
-  <section class="section niches-bg" id="precios">
-    <div class="container">
-      <div class="section-title">
-        <h2>Un crédito = una microserie completa</h2>
-      </div>
-      <p class="section-sub">Pago único · Sin suscripción · Los créditos no expiran · Procesado por Stripe</p>
-
-      <div class="pricing-grid">
-
-        <div class="plan-card">
-          <div class="plan-name">Starter</div>
-          <div class="plan-desc">Para empezar a crear</div>
-          <div class="plan-price">
-            <span class="plan-amount">$9</span>
-            <span class="plan-currency">USD</span>
-          </div>
-          <div class="plan-credits">10 créditos · $0.90 c/u</div>
-          <ul class="plan-features">
-            <li><span class="check">✓</span> 10 microseries completos</li>
-            <li><span class="check">✓</span> Voz ElevenLabs</li>
-            <li><span class="check">✓</span> Imágenes Flux Schnell</li>
-            <li><span class="check">✓</span> Clips Kling v1.6</li>
-            <li><span class="check">✓</span> Video MP4 1080×1920</li>
-            <li><span class="check">✓</span> Subtítulos incluidos</li>
-          </ul>
-          <a href="https://sagaia.vercel.app/pricing" class="plan-btn default">Comprar 10 créditos</a>
-        </div>
-
-        <div class="plan-card popular">
-          <div class="popular-tag">MÁS POPULAR</div>
-          <div class="plan-name">Pro</div>
-          <div class="plan-desc">Para creadores activos</div>
-          <div class="plan-price">
-            <span class="plan-amount grad-text">$29</span>
-            <span class="plan-currency">USD</span>
-          </div>
-          <div class="plan-credits">40 créditos · $0.73 c/u</div>
-          <ul class="plan-features">
-            <li><span class="check">✓</span> 40 microseries completos</li>
-            <li><span class="check">✓</span> Todo lo del plan Starter</li>
-            <li><span class="check">✓</span> Exportación ZIP de assets</li>
-            <li><span class="check">✓</span> Pack SEO completo</li>
-            <li><span class="check">✓</span> Hashtags y títulos IA</li>
-            <li><span class="check">✓</span> Soporte prioritario</li>
-          </ul>
-          <a href="https://sagaia.vercel.app/pricing" class="plan-btn grad-btn">⚡ Comprar 40 créditos</a>
-        </div>
-
-        <div class="plan-card">
-          <div class="plan-name">Studio</div>
-          <div class="plan-desc">Para producción en serie</div>
-          <div class="plan-price">
-            <span class="plan-amount">$79</span>
-            <span class="plan-currency">USD</span>
-          </div>
-          <div class="plan-credits">120 créditos · $0.66 c/u</div>
-          <ul class="plan-features">
-            <li><span class="check">✓</span> 120 microseries completos</li>
-            <li><span class="check">✓</span> Todo lo del plan Pro</li>
-            <li><span class="check">✓</span> Producción en lote (batch)</li>
-            <li><span class="check">✓</span> Acceso API</li>
-            <li><span class="check">✓</span> 10 nichos simultáneos</li>
-            <li><span class="check">✓</span> Soporte dedicado</li>
-          </ul>
-          <a href="https://sagaia.vercel.app/pricing" class="plan-btn default">Comprar 120 créditos</a>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ── FAQ ── -->
-  <section class="section">
-    <div class="container">
-      <div class="section-title">
-        <h2>Preguntas frecuentes</h2>
-      </div>
-      <p class="section-sub" style="margin-bottom:36px;">Todo lo que necesitas saber antes de empezar</p>
-
-      <div class="faq">
-        <div class="faq-item">
-          <div class="faq-q" onclick="toggleFaq(this)">
-            ¿Cuánto tarda en generar un microserie?
-            <span class="arrow">▾</span>
-          </div>
-          <div class="faq-a">En promedio 7 minutos para el pipeline completo: 30 segundos para la voz, 1 minuto para imágenes, 3 minutos para animar clips con Kling, y 2 minutos para ensamblar el video final con Shotstack.</div>
-        </div>
-        <div class="faq-item">
-          <div class="faq-q" onclick="toggleFaq(this)">
-            ¿Los créditos tienen fecha de vencimiento?
-            <span class="arrow">▾</span>
-          </div>
-          <div class="faq-a">No. Los créditos que compras son permanentes y no expiran. Puedes usarlos a tu ritmo.</div>
-        </div>
-        <div class="faq-item">
-          <div class="faq-q" onclick="toggleFaq(this)">
-            ¿En qué idiomas puedo generar los microseries?
-            <span class="arrow">▾</span>
-          </div>
-          <div class="faq-a">Español e inglés están completamente soportados. El guión, voz y subtítulos se generan en el idioma que elijas al crear tu proyecto.</div>
-        </div>
-        <div class="faq-item">
-          <div class="faq-q" onclick="toggleFaq(this)">
-            ¿Puedo usar los videos para monetización?
-            <span class="arrow">▾</span>
-          </div>
-          <div class="faq-a">Sí. Los videos generados son 100% tuyo. Puedes publicarlos, monetizarlos y usarlos para clientes. SAGAIA no reclama derechos sobre el contenido que produces.</div>
-        </div>
-        <div class="faq-item">
-          <div class="faq-q" onclick="toggleFaq(this)">
-            ¿Necesito experiencia en edición de video?
-            <span class="arrow">▾</span>
-          </div>
-          <div class="faq-a">Cero. SAGAIA hace todo automáticamente: escribe el guión, genera las imágenes, anima los clips, agrega voz y subtítulos, y entrega el MP4 final. Solo necesitas una idea.</div>
-        </div>
-        <div class="faq-item">
-          <div class="faq-q" onclick="toggleFaq(this)">
-            ¿Qué formato tiene el video final?
-            <span class="arrow">▾</span>
-          </div>
-          <div class="faq-a">MP4 en resolución 1080×1920 (formato 9:16 vertical), optimizado para TikTok, Instagram Reels y YouTube Shorts. Incluye subtítulos quemados y audio sincronizado.</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── CTA Final ── -->
-  <section class="cta-final">
-    <div class="cta-glow"></div>
-    <div class="container" style="position:relative;z-index:1;">
-      <div class="ticker">
-        🔥 &nbsp;Registros activos esta semana
-      </div>
-      <h2>Empieza a producir hoy</h2>
-      <p>5 microseries gratis. Sin tarjeta de crédito. Sin límite de ideas.</p>
-      <a href="https://sagaia.vercel.app/register" class="btn-primary grad-btn" style="display:inline-flex;font-size:16px;padding:18px 42px;border-radius:16px;box-shadow:0 20px 60px rgba(124,58,237,.4);">
-        ⚡ Crear mi cuenta gratis
-      </a>
-      <p style="font-size:12px;color:var(--zinc600);margin-top:16px;">
-        Pago único cuando necesites más créditos · Cancela cuando quieras
-      </p>
-    </div>
-  </section>
-
-  <!-- ── Footer ── -->
-  <footer>
-    <div class="footer-inner">
-      <div class="logo">
-        <div class="logo-icon" style="width:26px;height:26px;font-size:13px;">✦</div>
-        <span style="font-weight:800;">SAGAIA</span>
-        <span style="color:var(--zinc600);font-size:13px;">· Studio AI</span>
-      </div>
-      <div class="footer-links">
-        <a href="#precios">Precios</a>
-        <a href="https://sagaia.vercel.app/login">Iniciar sesión</a>
-        <a href="https://sagaia.vercel.app/register">Registrarse</a>
-        <a href="mailto:hola@sagaia.app">Contacto</a>
-      </div>
-      <p class="footer-copy">© 2026 SAGAIA. Todos los derechos reservados.</p>
-    </div>
-  </footer>
-
-  <!-- ── Floating CTA mobile ── -->
-  <div class="floating-cta">
-    <a href="https://sagaia.vercel.app/register" class="grad-btn">
-      ⚡ Empezar gratis — 5 créditos incluidos
-    </a>
   </div>
+</nav>
 
-  <script>
-    // FAQ toggle
-    function toggleFaq(el) {
-      const item = el.parentElement;
+<!-- ══ HERO ══════════════════════════════════════════════════════════════ -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-inner">
+
+      <div>
+        <div class="hero-eyebrow">
+          <span class="tag">IA generativa · video 9:16</span>
+        </div>
+        <h1 class="hero-title">
+          Tu idea.<br>
+          <span class="gradient-text">Una microserie viral.</span><br>
+          En 7 minutos.
+        </h1>
+        <p class="hero-sub">
+          VYNAVO convierte cualquier concepto en una microserie completa con voz profesional, imágenes cinematográficas, clips animados y video MP4 — lista para TikTok, Reels y YouTube Shorts. Sin edición. Sin equipos.
+        </p>
+        <div class="hero-ctas">
+          <a href="https://vynavo.vercel.app/register">
+            <button class="btn btn-primary btn-lg">Crear mi microserie gratis →</button>
+          </a>
+          <a href="#how">
+            <button class="btn btn-outline btn-lg">Ver cómo funciona</button>
+          </a>
+        </div>
+        <div class="hero-trust">
+          <div class="trust-item"><div class="trust-dot"></div>Sin tarjeta de crédito</div>
+          <div class="trust-item"><div class="trust-dot"></div>Primera microserie gratis</div>
+          <div class="trust-item"><div class="trust-dot"></div>Video en minutos</div>
+        </div>
+      </div>
+
+      <div class="phone-wrap">
+        <div class="phone-glow"></div>
+
+        <!-- Floating badges -->
+        <div class="phone-badge pb-voice">
+          <div class="pb-dot" style="background:#a78bfa"></div>
+          Narración IA activa
+        </div>
+        <div class="phone-badge pb-img">
+          <div class="pb-dot" style="background:#06b6d4"></div>
+          Imágenes generadas
+        </div>
+        <div class="phone-badge pb-clip">
+          <div class="pb-dot" style="background:#ec4899"></div>
+          Clips animados
+        </div>
+        <div class="phone-badge pb-video">
+          <div class="pb-dot" style="background:#86efac"></div>
+          ⚡ Video listo
+        </div>
+
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-scenes">
+              <div class="phone-scene-thumb active">🌆</div>
+              <div class="phone-scene-thumb">💔</div>
+              <div class="phone-scene-thumb">✨</div>
+            </div>
+            <div class="phone-ep-badge">EP 1 · ROMANCE · 45s</div>
+            <div class="phone-title">El café que lo cambió todo</div>
+            <div class="phone-desc">Una historia de segundas oportunidades</div>
+            <div class="phone-progress">
+              <div class="phone-prog-label"><span>Progreso</span><span>0:38 / 0:45</span></div>
+              <div class="phone-bar"><div class="phone-bar-fill" style="width:84%"></div></div>
+            </div>
+            <div class="phone-controls">
+              <div class="phone-play">▶</div>
+              <div class="phone-time">1080×1920 · MP4</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ STATS ════════════════════════════════════════════════════════════ -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat reveal">
+      <div class="stat-num">7 min</div>
+      <div class="stat-label">De idea a video listo</div>
+    </div>
+    <div class="stat reveal">
+      <div class="stat-num">9:16</div>
+      <div class="stat-label">Formato vertical viral</div>
+    </div>
+    <div class="stat reveal">
+      <div class="stat-num">1 clic</div>
+      <div class="stat-label">Todo automático</div>
+    </div>
+    <div class="stat reveal">
+      <div class="stat-num">3 redes</div>
+      <div class="stat-label">TikTok · Reels · Shorts</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HOW IT WORKS ════════════════════════════════════════════════════ -->
+<section id="how">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="tag">Proceso</span>
+      <h2>De idea a microserie en <span class="gradient-text">4 pasos</span></h2>
+      <p>Un flujo completamente automatizado. Tú solo describes — VYNAVO produce.</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card reveal" data-n="01">
+        <div class="step-icon">💡</div>
+        <div class="step-title">Describe tu historia</div>
+        <div class="step-desc">Escribe tu idea, elige el nicho y el tono. Romance, terror, motivación, finanzas — cualquier tema funciona.</div>
+        <div class="step-detail">
+          <span>Más de 12 nichos disponibles</span>
+          <span>Español e inglés</span>
+          <span>Tono: dramático, humorístico, épico…</span>
+        </div>
+      </div>
+      <div class="step-card reveal" data-n="02">
+        <div class="step-icon">🤖</div>
+        <div class="step-title">IA genera el guion</div>
+        <div class="step-desc">Guion profesional con escenas, diálogos, subtítulos y prompts visuales optimizados para enganchar en los primeros 3 segundos.</div>
+        <div class="step-detail">
+          <span>Estructura narrativa viral</span>
+          <span>Subtítulos sincronizados</span>
+          <span>Prompts cinematográficos</span>
+        </div>
+      </div>
+      <div class="step-card reveal" data-n="03">
+        <div class="step-icon">⚡</div>
+        <div class="step-title">Producción automática</div>
+        <div class="step-desc">Cuatro IAs trabajan en paralelo: voz profesional, imágenes cinematográficas, clips con movimiento de cámara y ensamblaje del video final.</div>
+        <div class="step-detail">
+          <span>Narración IA sincronizada</span>
+          <span>Imágenes IA por escena</span>
+          <span>Clips animados con movimiento</span>
+        </div>
+      </div>
+      <div class="step-card reveal" data-n="04">
+        <div class="step-icon">🚀</div>
+        <div class="step-title">Descarga y publica</div>
+        <div class="step-desc">Video MP4 1080×1920 con subtítulos, más título SEO, hashtags y descripción optimizados para cada plataforma.</div>
+        <div class="step-detail">
+          <span>Exportación ZIP con assets</span>
+          <span>Hashtags y título generados</span>
+          <span>Listo para subir directo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PIPELINE ════════════════════════════════════════════════════════ -->
+<section style="background:var(--bg); padding:80px 0;">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="tag">Motor IA</span>
+      <h2>4 inteligencias artificiales <span class="gradient-text">trabajando por ti</span></h2>
+      <p>Cada etapa de la producción usa la IA más avanzada de su categoría, completamente integrada.</p>
+    </div>
+    <div class="pipeline">
+      <div class="pipe-card pipe-1 reveal">
+        <div class="pipe-icon">🎤</div>
+        <div class="pipe-name">Narración IA</div>
+        <div class="pipe-desc">Voz en off profesional en español e inglés, natural y expresiva, sincronizada con cada escena.</div>
+        <div class="pipe-badge">Voz profesional</div>
+      </div>
+      <div class="pipe-card pipe-2 reveal">
+        <div class="pipe-icon">🖼️</div>
+        <div class="pipe-name">Imágenes IA</div>
+        <div class="pipe-desc">Escenas cinematográficas de alta definición generadas específicamente para cada momento del guion.</div>
+        <div class="pipe-badge">Alta definición</div>
+      </div>
+      <div class="pipe-card pipe-3 reveal">
+        <div class="pipe-icon">🎬</div>
+        <div class="pipe-name">Clips Animados</div>
+        <div class="pipe-desc">Movimiento de cámara, zoom y panorámicas que generan tensión y enganchan al espectador desde el primer frame.</div>
+        <div class="pipe-badge">Movimiento real</div>
+      </div>
+      <div class="pipe-card pipe-4 reveal">
+        <div class="pipe-icon">🎞️</div>
+        <div class="pipe-name">Ensamblaje Final</div>
+        <div class="pipe-desc">Video MP4 1080×1920 con audio, subtítulos sincronizados y transiciones en menos de 2 minutos.</div>
+        <div class="pipe-badge">MP4 listo</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FEATURES ════════════════════════════════════════════════════════ -->
+<section id="features">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="tag">Funcionalidades</span>
+      <h2>Todo lo que necesitas para <span class="gradient-text">producir en serie</span></h2>
+      <p>VYNAVO es la plataforma completa de producción de contenido vertical con IA.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card highlight reveal">
+        <span class="feat-icon">🎯</span>
+        <div class="feat-title">Generación completa en 1 clic</div>
+        <div class="feat-desc">Desde el texto inicial hasta el video MP4 final — todo en un solo botón. Sin configuraciones, sin exportaciones manuales.</div>
+        <span class="feat-tag">Core</span>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">📱</span>
+        <div class="feat-title">Formato 9:16 nativo</div>
+        <div class="feat-desc">1080×1920px optimizado para TikTok, Instagram Reels y YouTube Shorts. Subtítulos posicionados para máximo engagement.</div>
+        <span class="feat-tag">Video</span>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">🔁</span>
+        <div class="feat-title">Producción en lote</div>
+        <div class="feat-desc">Genera hasta 10 microseries simultáneamente. Ideal para agencias, creadores masivos y estrategias de contenido multi-nicho.</div>
+        <span class="feat-tag">Pro · Studio</span>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">🔍</span>
+        <div class="feat-title">SEO por plataforma</div>
+        <div class="feat-desc">Títulos, descripciones y hashtags optimizados automáticamente para cada red social. Maximiza el alcance orgánico desde el primer día.</div>
+        <span class="feat-tag">SEO/SEM</span>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">📦</span>
+        <div class="feat-title">Exportación ZIP completa</div>
+        <div class="feat-desc">Descarga todos los assets: video, imágenes por escena, audio, guion y metadatos — en un solo archivo listo para tu flujo de trabajo.</div>
+        <span class="feat-tag">Pro · Studio</span>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">📚</span>
+        <div class="feat-title">Biblioteca de proyectos</div>
+        <div class="feat-desc">Accede a todas tus microseries, revisa el progreso de producción y descarga en cualquier momento desde tu dashboard personal.</div>
+        <span class="feat-tag">Dashboard</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ NICHES ══════════════════════════════════════════════════════════ -->
+<section id="niches">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="tag">Nichos</span>
+      <h2>Cualquier tema, <span class="gradient-text">cualquier audiencia</span></h2>
+      <p>VYNAVO domina los 12 nichos con mayor tasa de viralización en redes sociales.</p>
+    </div>
+    <div class="niches-grid">
+      <div class="niche-card reveal">
+        <span class="niche-emoji">💔</span>
+        <div class="niche-name">Romance</div>
+        <div class="niche-desc">Historias de amor, desamor y segundas oportunidades que generan millones de vistas.</div>
+      </div>
+      <div class="niche-card reveal">
+        <span class="niche-emoji">👻</span>
+        <div class="niche-name">Terror</div>
+        <div class="niche-desc">Suspenso y horror psicológico. El nicho con mayor retención en TikTok.</div>
+      </div>
+      <div class="niche-card reveal">
+        <span class="niche-emoji">💪</span>
+        <div class="niche-name">Motivación</div>
+        <div class="niche-desc">Historias inspiradoras que se comparten masivamente y construyen comunidad.</div>
+      </div>
+      <div class="niche-card reveal">
+        <span class="niche-emoji">💰</span>
+        <div class="niche-name">Finanzas</div>
+        <div class="niche-desc">Educación financiera dramatizada. Alto CPC para monetización con anuncios.</div>
+      </div>
+      <div class="niche-card reveal">
+        <span class="niche-emoji">🔮</span>
+        <div class="niche-name">Misterio</div>
+        <div class="niche-desc">Conspiraciones, fenómenos inexplicables y giros de trama que mantienen al espectador enganchado.</div>
+      </div>
+      <div class="niche-card reveal">
+        <span class="niche-emoji">⚔️</span>
+        <div class="niche-name">Fantasía</div>
+        <div class="niche-desc">Mundos mágicos e historias épicas para audiencias que consumen contenido en series.</div>
+      </div>
+      <div class="niche-card reveal">
+        <span class="niche-emoji">🌍</span>
+        <div class="niche-name">Historia</div>
+        <div class="niche-desc">Hechos históricos dramatizados. Educar entreteniendo genera shares orgánicos masivos.</div>
+      </div>
+      <div class="niche-card reveal">
+        <span class="niche-emoji">🚀</span>
+        <div class="niche-name">Ciencia Ficción</div>
+        <div class="niche-desc">Futuros posibles y tecnología avanzada. Nicho en crecimiento explosivo en YouTube Shorts.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ BATCH MODE ══════════════════════════════════════════════════════ -->
+<section id="batch">
+  <div class="container">
+    <div class="batch-inner">
+      <div class="reveal">
+        <span class="tag">Producción masiva</span>
+        <h2 class="batch-title">
+          Produce <span class="gradient-text">10 microseries</span> a la vez
+        </h2>
+        <p class="batch-sub">El modo En Serie de VYNAVO es para creadores serios. Lanza campañas enteras de contenido con una sola acción.</p>
+        <div class="batch-points">
+          <div class="batch-point">
+            <div class="batch-point-icon">⚡</div>
+            <div class="batch-point-text"><strong>10 microseries simultáneas</strong> — Configura temas, nichos y tonos distintos en cada slot.</div>
+          </div>
+          <div class="batch-point">
+            <div class="batch-point-icon">🎯</div>
+            <div class="batch-point-text"><strong>Multi-nicho en paralelo</strong> — Cubre romance, terror y motivación en la misma sesión de producción.</div>
+          </div>
+          <div class="batch-point">
+            <div class="batch-point-icon">📊</div>
+            <div class="batch-point-text"><strong>Control de créditos en tiempo real</strong> — Sabes exactamente cuántos créditos usa cada lote antes de lanzar.</div>
+          </div>
+        </div>
+        <a href="https://vynavo.vercel.app/register">
+          <button class="btn btn-primary">Probar modo En Serie →</button>
+        </a>
+      </div>
+
+      <div class="batch-ui reveal">
+        <div class="batch-ui-header">
+          <div class="batch-ui-title">Producción en lote · 6 en proceso</div>
+          <div class="batch-ui-badge">En serie</div>
+        </div>
+        <div class="batch-rows">
+          <div class="batch-row">
+            <div class="batch-row-num">1</div>
+            <div class="batch-row-text">El café que lo cambió todo · Romance</div>
+            <div class="batch-status bs-done">✓ Listo</div>
+          </div>
+          <div class="batch-row">
+            <div class="batch-row-num">2</div>
+            <div class="batch-row-text">La deuda del millonario · Finanzas</div>
+            <div class="batch-status bs-done">✓ Listo</div>
+          </div>
+          <div class="batch-row">
+            <div class="batch-row-num">3</div>
+            <div class="batch-row-text">El último tren de medianoche · Terror</div>
+            <div class="batch-status bs-prog">● Generando…</div>
+          </div>
+          <div class="batch-row">
+            <div class="batch-row-num">4</div>
+            <div class="batch-row-text">Levántate y conquista · Motivación</div>
+            <div class="batch-status bs-prog">● Generando…</div>
+          </div>
+          <div class="batch-row">
+            <div class="batch-row-num">5</div>
+            <div class="batch-row-text">El portal de los elegidos · Fantasía</div>
+            <div class="batch-status bs-wait">En cola</div>
+          </div>
+          <div class="batch-row">
+            <div class="batch-row-num">6</div>
+            <div class="batch-row-text">1929: la caída · Historia</div>
+            <div class="batch-status bs-wait">En cola</div>
+          </div>
+        </div>
+        <div class="batch-footer">
+          <div class="batch-count">2 / 6 listos</div>
+          <div class="batch-prog-bar"><div class="batch-prog-fill"></div></div>
+          <div class="batch-count">~14 min restantes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PRICING ════════════════════════════════════════════════════════ -->
+<section id="pricing">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="tag">Precios</span>
+      <h2>Sin suscripción. <span class="gradient-text">Solo resultados.</span></h2>
+      <p>Compra créditos cuando los necesites. Sin cargos recurrentes. Sin sorpresas.</p>
+    </div>
+    <div class="plans-grid">
+
+      <div class="plan-card reveal">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">$9<span> / pago</span></div>
+        <div class="plan-credits">10 microseries completas</div>
+        <div class="plan-divider"></div>
+        <div class="plan-features">
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Video MP4 1080×1920</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Narración IA profesional</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Imágenes cinematográficas</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Clips animados con movimiento</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Subtítulos sincronizados</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>SEO incluido</div>
+        </div>
+        <a href="https://vynavo.vercel.app/pricing">
+          <button class="plan-btn">Empezar con Starter</button>
+        </a>
+      </div>
+
+      <div class="plan-card popular reveal">
+        <div class="plan-popular-badge">⚡ Más popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$29<span> / pago</span></div>
+        <div class="plan-credits">40 microseries completas</div>
+        <div class="plan-divider"></div>
+        <div class="plan-features">
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Todo lo del Starter</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Producción en lote (10 a la vez)</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Exportación ZIP completa</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Hashtags y título optimizados</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Soporte por email</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Acceso anticipado a novedades</div>
+        </div>
+        <a href="https://vynavo.vercel.app/pricing">
+          <button class="plan-btn">Elegir Pro</button>
+        </a>
+      </div>
+
+      <div class="plan-card reveal">
+        <div class="plan-name">Studio</div>
+        <div class="plan-price">$79<span> / pago</span></div>
+        <div class="plan-credits">120 microseries completas</div>
+        <div class="plan-divider"></div>
+        <div class="plan-features">
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Todo lo del Pro</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Mayor velocidad de producción</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Ideal para agencias</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Soporte prioritario</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Primero en nuevas funciones</div>
+          <div class="plan-feat"><span class="plan-feat-check">✦</span>Uso multi-cuenta</div>
+        </div>
+        <a href="https://vynavo.vercel.app/pricing">
+          <button class="plan-btn">Elegir Studio</button>
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ FAQ ════════════════════════════════════════════════════════════ -->
+<section id="faq">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="tag">FAQ</span>
+      <h2>Preguntas <span class="gradient-text">frecuentes</span></h2>
+    </div>
+    <div class="faq-list">
+
+      <div class="faq-item reveal">
+        <button class="faq-q">
+          ¿Qué es exactamente una microserie?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-a">Una microserie es una historia en video vertical (9:16) de entre 30 y 90 segundos, diseñada para redes sociales como TikTok, Instagram Reels y YouTube Shorts. VYNAVO genera guion, voz, imágenes, clips animados y video final — todo automáticamente.</div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-q">
+          ¿Necesito saber de edición de video o diseño?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-a">No. VYNAVO está diseñado para que cualquier persona — sin experiencia técnica — pueda producir contenido de calidad profesional. Solo escribes tu idea y el sistema hace todo lo demás.</div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-q">
+          ¿Cuánto tiempo tarda en generarse una microserie?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-a">El tiempo promedio es de 7 minutos desde que presionas "Generar" hasta que puedes descargar tu MP4. Esto incluye generación del guion, narración, imágenes, clips animados y ensamblaje final del video.</div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-q">
+          ¿Puedo producir en inglés además de español?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-a">Sí. VYNAVO soporta generación completa en español e inglés — guion, narración y subtítulos. Puedes cambiar el idioma al crear cada proyecto.</div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-q">
+          ¿Los créditos vencen?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-a">No. Los créditos que compres son tuyos para siempre — no tienen fecha de expiración. Puedes usarlos a tu ritmo, cuando quieras.</div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-q">
+          ¿Puedo usar los videos comercialmente?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-a">Sí. Todos los videos generados con VYNAVO son de tu propiedad y puedes usarlos con fines comerciales — publicarlos, monetizarlos con anuncios, venderlos a clientes o usarlos en campañas de marketing.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ CTA FINAL ═══════════════════════════════════════════════════════ -->
+<section id="cta">
+  <div class="container">
+    <div class="reveal">
+      <h2 class="cta-title">
+        Empieza a crear.<br>
+        <span class="gradient-text">Tu audiencia te está esperando.</span>
+      </h2>
+      <p class="cta-sub">Primera microserie gratis. Sin tarjeta de crédito. En 7 minutos.</p>
+      <div class="cta-btns">
+        <a href="https://vynavo.vercel.app/register">
+          <button class="btn btn-primary btn-lg">Crear mi primera microserie →</button>
+        </a>
+        <a href="https://vynavo.vercel.app/pricing">
+          <button class="btn btn-outline btn-lg">Ver planes y precios</button>
+        </a>
+      </div>
+      <p class="cta-note">✦ Sin suscripción · Créditos sin vencimiento · Soporte en español</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">VYNAVO</div>
+    <div class="footer-links">
+      <a href="https://vynavo.vercel.app/pricing">Precios</a>
+      <a href="https://vynavo.vercel.app/login">Iniciar sesión</a>
+      <a href="https://vynavo.vercel.app/register">Registrarse</a>
+    </div>
+    <div class="footer-copy">© 2026 VYNAVO · Todos los derechos reservados</div>
+  </div>
+</footer>
+
+<!-- CTA flotante mobile -->
+<div class="float-cta">
+  <a href="https://vynavo.vercel.app/register">Crear microserie gratis →</a>
+</div>
+
+<!-- ══ JS: Scroll reveal + FAQ ════════════════════════════════════════ -->
+<script>
+  // Scroll reveal
+  const revealEls = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  revealEls.forEach(el => observer.observe(el));
+
+  // FAQ toggle
+  document.querySelectorAll('.faq-q').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.faq-item');
       const isOpen = item.classList.contains('open');
-      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
       if (!isOpen) item.classList.add('open');
-    }
-
-    // Scroll reveal
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.style.opacity = '1';
-          e.target.style.transform = 'translateY(0)';
-        }
-      });
-    }, { threshold: 0.1 });
-
-    document.querySelectorAll('.step, .pipe-row, .plan-card, .testimonial, .faq-item').forEach(el => {
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(20px)';
-      el.style.transition = 'opacity .6s ease, transform .6s ease';
-      observer.observe(el);
     });
+  });
 
-    // Smooth nav link
-    document.querySelectorAll('a[href^="#"]').forEach(a => {
-      a.addEventListener('click', e => {
-        const target = document.querySelector(a.getAttribute('href'));
-        if (target) {
-          e.preventDefault();
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      });
+  // Nav active link highlight
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-links a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) current = s.id; });
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + current ? 'var(--white)' : '';
     });
-  </script>
+  }, { passive: true });
+</script>
 
 </body>
 </html>

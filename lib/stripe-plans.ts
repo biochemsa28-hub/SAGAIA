@@ -1,11 +1,13 @@
-// ─── Plans config — safe to import on client AND server ──────────────────────
+// Plans — safe to import on client AND server
 
 export interface Plan {
   id: string;
   name: string;
   description: string;
-  price: number;   // USD cents
-  credits: number;
+  priceMonthly: number;   // USD cents/month
+  priceAnnual: number;    // USD cents/month (billed annually)
+  credits: number;        // NAVOS per month
+  videos: number;
   popular?: boolean;
   features: string[];
 }
@@ -14,47 +16,67 @@ export const PLANS: Plan[] = [
   {
     id: "starter",
     name: "Starter",
-    description: "Para empezar a crear",
-    price: 900,
-    credits: 10,
+    description: "Para probar la plataforma",
+    priceMonthly: 900,
+    priceAnnual: 750,
+    credits: 30,
+    videos: 3,
     features: [
-      "10 microseries completas",
-      "Voz profesional en español e inglés",
-      "Imágenes cinematográficas 9:16",
-      "Clips animados con movimiento",
-      "Video final MP4 1080×1920",
-      "Subtítulos sincronizados",
-      "Paquete SEO incluido",
+      "30 NAVOS / mes",
+      "3 videos completos",
+      "Kit de publicación",
+      "Descarga MP4",
+    ],
+  },
+  {
+    id: "creator",
+    name: "Creador",
+    description: "Para creadores ocasionales",
+    priceMonthly: 2900,
+    priceAnnual: 2400,
+    credits: 70,
+    videos: 7,
+    features: [
+      "70 NAVOS / mes",
+      "7 videos completos",
+      "Kit de publicación",
+      "Descarga MP4",
     ],
   },
   {
     id: "pro",
     name: "Pro",
     description: "Para creadores activos",
-    price: 2900,
-    credits: 40,
+    priceMonthly: 4900,
+    priceAnnual: 3900,
+    credits: 200,
+    videos: 20,
     popular: true,
     features: [
-      "40 microseries completas",
-      "Todo lo del plan Starter",
-      "Exportación de assets en ZIP",
-      "Hashtags y títulos optimizados",
-      "Producción en lote (hasta 10 a la vez)",
-      "Soporte por email",
+      "200 NAVOS / mes",
+      "20 videos completos",
+      "Kit de publicación",
+      "Descarga MP4",
+      "Soporte prioritario",
+      "Acceso anticipado a nuevas funciones",
     ],
   },
   {
     id: "studio",
-    name: "Studio",
+    name: "Estudio",
     description: "Para agencias y equipos",
-    price: 7900,
-    credits: 120,
+    priceMonthly: 9900,
+    priceAnnual: 7900,
+    credits: 500,
+    videos: 50,
     features: [
-      "120 microseries completas",
-      "Todo lo del plan Pro",
-      "Mayor velocidad de producción",
-      "Acceso anticipado a nuevas funciones",
-      "Soporte prioritario",
+      "500 NAVOS / mes",
+      "50 videos completos",
+      "Kit de publicación",
+      "Descarga MP4",
+      "Soporte 24/7",
+      "Acceso API (próximamente)",
+      "Facturación empresarial",
     ],
   },
 ];

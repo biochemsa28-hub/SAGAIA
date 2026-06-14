@@ -302,7 +302,7 @@ export async function getProjectsByUser(userId: string): Promise<DbProject[]> {
             COUNT(s.id) as scene_count,
             (SELECT a.public_url FROM assets a
              WHERE a.project_id = p.id AND a.asset_type = 'image'
-             ORDER BY a.scene_number ASC LIMIT 1) as thumbnail_url,
+             ORDER BY a.created_at ASC LIMIT 1) as thumbnail_url,
             (SELECT COUNT(*) FROM assets a WHERE a.project_id = p.id AND a.asset_type = 'audio')  as has_voice,
             (SELECT COUNT(*) FROM assets a WHERE a.project_id = p.id AND a.asset_type = 'image')  as has_images,
             (SELECT COUNT(*) FROM assets a WHERE a.project_id = p.id AND a.asset_type = 'video')  as has_clips,

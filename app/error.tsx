@@ -11,7 +11,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[SAGAIA error]", error);
+    console.error("[VYNAVO error]", error);
   }, [error]);
 
   return (
@@ -25,7 +25,7 @@ export default function GlobalError({
 
           <h1 className="text-2xl font-bold text-white mb-2">Algo salió mal</h1>
           <p className="text-zinc-400 mb-2 text-sm">
-            Ocurrió un error inesperado en SAGAIA Studio.
+            Ocurrió un error inesperado en VYNAVO Studio.
           </p>
           {error?.message && (
             <p className="text-xs text-zinc-600 font-mono bg-zinc-900 rounded-lg px-3 py-2 mb-6 break-all">

@@ -1,4 +1,4 @@
-﻿# SAGAIA
+﻿# VYNAVO
 
 Plataforma SaaS para generar paquetes de producción completos de microhistorias
 narrativas con IA. De idea a assets listos en menos de 5 minutos.
@@ -21,7 +21,7 @@ narrativas con IA. De idea a assets listos en menos de 5 minutos.
 
 ```bash
 # 1. Navegar a la carpeta del proyecto
-cd C:\Users\DELL5430\SAGAIA-studio
+cd C:\Users\DELL5430\VYNAVO-studio
 
 # 2. Instalar dependencias
 npm install
@@ -137,33 +137,33 @@ wrangler login
 
 ### 2. Crear D1 Database
 ```bash
-wrangler d1 create SAGAIA-db
+wrangler d1 create VYNAVO-db
 # Copiar el database_id del output
 ```
 
 ### 3. Crear R2 Bucket
 ```bash
-wrangler r2 bucket create SAGAIA-assets
+wrangler r2 bucket create VYNAVO-assets
 ```
 
 ### 4. Configurar wrangler.toml
 ```toml
-name = "SAGAIA-studio-api"
+name = "VYNAVO-studio-api"
 compatibility_date = "2024-09-23"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "SAGAIA-db"
+database_name = "VYNAVO-db"
 database_id = "TU_DATABASE_ID_AQUI"
 
 [[r2_buckets]]
 binding = "ASSETS"
-bucket_name = "SAGAIA-assets"
+bucket_name = "VYNAVO-assets"
 ```
 
 ### 5. Crear D1 Schema
 ```bash
-wrangler d1 execute SAGAIA-db --file=./db/schema/001_initial.sql
+wrangler d1 execute VYNAVO-db --file=./db/schema/001_initial.sql
 ```
 
 ### 6. Configurar Secrets
@@ -186,7 +186,7 @@ wrangler deploy
 ```bash
 # Desde Cloudflare Dashboard → Pages → Connect GitHub
 # O via CLI:
-wrangler pages deploy .next --project-name=SAGAIA-studio
+wrangler pages deploy .next --project-name=VYNAVO-studio
 ```
 
 ### Desplegar en Hostinger (Phase 1)
@@ -204,7 +204,7 @@ npm run build
 ## Estructura del Proyecto
 
 ```
-SAGAIA-studio/
+VYNAVO-studio/
 ├── app/                    # Next.js App Router pages y API routes
 ├── components/             # React components
 ├── lib/                    # Core: validators, AI adapters, prompts
