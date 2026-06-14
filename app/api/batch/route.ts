@@ -7,6 +7,7 @@ import {
   createProject, saveGenerationResult, updateProjectStatus,
 } from "@/lib/db/repository";
 import { initDb } from "@/lib/db";
+import { StoryInputSchema } from "@/lib/validators/story.schema";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -59,6 +60,21 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < validItems.length; i++) {
       const item = validItems[i]!;
       try {
+        // Validate input BEFORE charging a credit — avoids losing credits on bad input
+        const inputCheck = StoryInputSchema.safeParse({
+          niche: item.niche,
+          topic: item.idea,
+          tone: item.tone,
+          language: item.language ?? "es",
+          duration_target: item.duration_target ?? "60s",
+          visual_style: item.visual_style ?? "cinematic",
+        });
+        if (!inputCheck.success) {
+          const reason = inputCheck.error.issues.map((iss) => `${iss.path.join(".")}: ${iss.message}`).join("; ");
+          results.push({ index: i, idea: item.idea, status: "error", error: `Datos inválidos — ${reason}` });
+          continue;
+        }
+
         // Deduct credit
         const { ok, remaining } = await deductCredit(session.user.id);
         if (!ok) {
@@ -73,22 +89,15 @@ export async function POST(req: NextRequest) {
           niche: item.niche,
           topic: item.idea,
           tone: item.tone,
-          durationTarget: item.duration_target ?? "60-90s",
+          durationTarget: item.duration_target ?? "60s",
           language: item.language ?? "es",
           visualStyle: item.visual_style ?? "cinematic",
           aiProvider: process.env.FORCE_MOCK_AI === "true" ? "mock" : "openai",
         });
         await updateProjectStatus(projectId, "generating");
 
-        // Generate story
-        const result = await storyGeneratorService.generate({
-          niche: item.niche,
-          topic: item.idea,
-          tone: item.tone,
-          language: item.language ?? "es",
-          duration_target: item.duration_target ?? "60-90s",
-          visual_style: item.visual_style ?? "cinematic",
-        });
+        // Generate story (uses the validated/normalized input)
+        const result = await storyGeneratorService.generate(inputCheck.data);
 
         if (!result.success || !result.data) {
           await updateProjectStatus(projectId, "failed", result.error);

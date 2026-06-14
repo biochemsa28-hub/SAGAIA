@@ -13,7 +13,7 @@ interface BatchItem {
   tone: string;
 }
 
-const EMPTY: BatchItem = { idea: "", niche: "pareja", tone: "dramatico" };
+const EMPTY: BatchItem = { idea: "", niche: "terror", tone: "horror" };
 
 type ResultItem = {
   index: number;
