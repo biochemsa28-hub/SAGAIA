@@ -55,6 +55,21 @@ const MUSIC_LIBRARY: Record<string, string> = {
   comedia:       "https://cdn.pixabay.com/audio/2022/03/15/audio_d7aacc1a84.mp3",
 };
 
+// Verify a remote asset is fetchable before handing it to Shotstack.
+// Shotstack downloads assets server-side; an unreachable URL fails the whole render.
+async function isReachable(url: string): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    // Range GET (1 byte) — more reliable than HEAD across CDNs that block HEAD
+    const res = await fetch(url, { headers: { Range: "bytes=0-0" }, signal: ctrl.signal });
+    clearTimeout(t);
+    return res.ok || res.status === 206;
+  } catch {
+    return false;
+  }
+}
+
 function getMusicUrl(niche: string, musicMood?: string | null): string | null {
   // Try exact niche match first
   const byNiche = MUSIC_LIBRARY[niche.toLowerCase()];
@@ -171,9 +186,9 @@ function buildTimeline(params: {
   title?: string;
   addSubtitles?: boolean;
   niche?: string;
-  musicMood?: string | null;
+  musicUrl?: string | null;
 }): Record<string, unknown> {
-  const { scenes, title, addSubtitles = true, niche = "", musicMood } = params;
+  const { scenes, title, addSubtitles = true, niche = "", musicUrl } = params;
 
   const videoClips: Record<string, unknown>[] = [];
   const narrationClips: Record<string, unknown>[] = [];
@@ -253,8 +268,7 @@ function buildTimeline(params: {
 
   totalDuration = timeOffset;
 
-  // Background music — low volume under narration
-  const musicUrl = getMusicUrl(niche, musicMood);
+  // Background music — low volume under narration (URL already verified reachable)
   if (musicUrl && totalDuration > 0) {
     musicClips.push({
       asset: { type: "audio", src: musicUrl, volume: 0.12, effect: "fadeOut" },
@@ -297,7 +311,19 @@ export async function submitAssembly(params: {
   const apiKey = process.env.SHOTSTACK_API_KEY;
   if (!apiKey) throw new Error("SHOTSTACK_API_KEY not set");
 
-  const body = buildTimeline(params);
+  // Resolve + verify music URL. A bad/unreachable URL must NEVER fail the render,
+  // so we drop it gracefully if Shotstack wouldn't be able to fetch it.
+  const candidate = getMusicUrl(params.niche ?? "", params.musicMood);
+  const musicUrl = candidate && (await isReachable(candidate)) ? candidate : null;
+  if (candidate && !musicUrl) console.warn("[shotstack] music URL unreachable, rendering without music:", candidate);
+
+  const body = buildTimeline({
+    scenes: params.scenes,
+    title: params.title,
+    addSubtitles: params.addSubtitles,
+    niche: params.niche,
+    musicUrl,
+  });
 
   const res = await fetch(`${API_BASE}/render`, {
     method: "POST",
