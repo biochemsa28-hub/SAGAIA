@@ -159,7 +159,7 @@ function buildCapcutSubtitles(
       length: chunkDur,
       position: "center",
       offset: { y: 0.18 }, // slightly below center — avoids covering faces/action
-      transition: { in: "fadeIn", out: "fadeOut" },
+      transition: { in: "fade", out: "fade" },
     };
   });
 }
@@ -222,13 +222,14 @@ function buildTimeline(params: {
       : dur + TRANSITION_OVERLAP;
 
     // Video clip (Kling) — muted since we use narration audio
+    // Shotstack valid transitions: "fade", "reveal", "wipeLeft", etc. — NOT "crossDissolveIn"
     videoClips.push({
       asset: { type: "video", src: scene.videoUrl, volume: 0 },
       start: clipStart,
       length: clipLength,
       transition: !isFirst
-        ? { in: "crossDissolveIn", out: isLast ? "fadeOut" : undefined }
-        : { out: isLast ? "fadeOut" : undefined },
+        ? { in: "fade", out: isLast ? "fade" : undefined }
+        : { out: isLast ? "fade" : undefined },
     });
 
     // Narration audio — no overlap, locked to scene start

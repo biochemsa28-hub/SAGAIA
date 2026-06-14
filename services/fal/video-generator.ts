@@ -39,13 +39,15 @@ function getApiKey(): string {
 // ─── Submit jobs to fal queue (returns immediately) ───────────────────────────
 
 export async function submitVideoJobs(params: {
-  scenes: Array<{ scene_number: number; animation_prompt: string; image_url: string }>;
+  scenes: Array<{ scene_number: number; animation_prompt: string; image_url: string; duration_seconds?: number }>;
 }): Promise<VideoJob[]> {
   fal.config({ credentials: getApiKey() });
 
   const jobs: VideoJob[] = [];
   for (const scene of params.scenes) {
     try {
+      // Use "10" so Kling covers scenes longer than 5s — Shotstack trims to scene length
+      const klingDuration = (scene.duration_seconds ?? 5) > 5 ? "10" : "5";
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (fal.queue.submit as any)(
         "fal-ai/kling-video/v1.6/standard/image-to-video",
@@ -53,7 +55,7 @@ export async function submitVideoJobs(params: {
           input: {
             prompt: scene.animation_prompt,
             image_url: scene.image_url,
-            duration: "5",
+            duration: klingDuration,
           },
         }
       ) as { request_id: string };

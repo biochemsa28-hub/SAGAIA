@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
           scene_number: scene.scene_number,
           animation_prompt: scene.animation_prompt ?? "cinematic camera movement, smooth motion",
           image_url: imageAssets[idx]?.public_url ?? imageAssets[0]?.public_url ?? "",
+          duration_seconds: scene.duration_seconds ?? 5,
         }))
         .filter((s) => s.image_url);
 
