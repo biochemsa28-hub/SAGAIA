@@ -12,6 +12,7 @@ export const maxDuration = 60;
 const SubmitSchema = z.object({
   project_id: z.string().uuid(),
   action: z.enum(["submit", "collect"]).default("submit"),
+  scene_number: z.number().int().positive().optional(), // regenerate a single scene
   jobs: z.array(z.object({
     scene_number: z.number(),
     request_id: z.string(),
@@ -41,13 +42,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Genera las imágenes primero" }, { status: 422 });
       }
 
-      const scenes = detail.scenes
-        .map((scene, idx) => ({
-          scene_number: scene.scene_number,
-          animation_prompt: scene.animation_prompt ?? "cinematic camera movement, smooth motion",
-          image_url: imageAssets[idx]?.public_url ?? imageAssets[0]?.public_url ?? "",
-          duration_seconds: scene.duration_seconds ?? 5,
-        }))
+      // Map scene.id -> image asset (robust) with positional fallback (legacy)
+      const imageBySceneId = new Map(
+        imageAssets.filter((a) => a.scene_id).map((a) => [a.scene_id, a])
+      );
+
+      // Single-scene regeneration: only submit the requested scene
+      const sourceScenes = parsed.data.scene_number
+        ? detail.scenes.filter((s) => s.scene_number === parsed.data.scene_number)
+        : detail.scenes;
+
+      const scenes = sourceScenes
+        .map((scene, idx) => {
+          const matched = imageBySceneId.get(scene.id)?.public_url;
+          const fallback = imageAssets[idx]?.public_url ?? imageAssets[0]?.public_url ?? "";
+          return {
+            scene_number: scene.scene_number,
+            animation_prompt: scene.animation_prompt ?? "cinematic camera movement, smooth motion",
+            image_url: matched ?? fallback,
+            duration_seconds: scene.duration_seconds ?? 5,
+          };
+        })
         .filter((s) => s.image_url);
 
       const jobs = await submitVideoJobs({ scenes });

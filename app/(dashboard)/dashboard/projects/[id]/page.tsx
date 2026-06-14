@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import confetti from "canvas-confetti";
@@ -7,7 +7,7 @@ import { track } from "@/components/providers/PostHogProvider";
 import {
   ArrowLeft, Download, Loader2, Sparkles, CheckCircle2,
   Copy, Check, PlusCircle, Clock, TrendingUp, MessageSquare,
-  Hash, Lightbulb, Target,
+  Hash, Lightbulb, Target, RefreshCw,
 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { useToast } from "@/components/ui/toast";
@@ -16,13 +16,6 @@ import type { ProjectDetail } from "@/lib/db/repository";
 
 type StepId = "voice" | "images" | "clips" | "final";
 type StepStatus = "pending" | "running" | "done" | "error";
-
-const STEP_LABELS: Record<StepId, { emoji: string; label: string; tip: string }> = {
-  voice:  { emoji: "🎤", label: "Creando la voz",       tip: "Narrando tu historia…"      },
-  images: { emoji: "🖼️", label: "Generando escenas",    tip: "Visualizando cada momento…" },
-  clips:  { emoji: "🎬", label: "Animando los clips",   tip: "Dando vida a las imágenes…" },
-  final:  { emoji: "⚡", label: "Ensamblando el video", tip: "Últimos toques de magia…"   },
-};
 
 const STEP_IDS: StepId[] = ["voice", "images", "clips", "final"];
 
@@ -34,7 +27,7 @@ const PLATFORM_TIPS: Record<string, { icon: string; times: string; tip: string }
   facebook:  { icon: "👥", times: "9 am · 1–3 pm · 7–9 pm",       tip: "Comparte en grupos de nicho para alcance orgánico extra." },
 };
 
-function CopyField({ label, value, copyKey, icon: Icon }: {
+function CopyField({ label, value, copyKey: _copyKey, icon: Icon }: {
   label: string; value: string; copyKey: string; icon: React.ElementType;
 }) {
   const [copied, setCopied] = useState(false);
@@ -72,7 +65,6 @@ export default function ProjectDetailPage() {
   const [producing, setProducing] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
-  const [regenerating, setRegenerating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -159,25 +151,60 @@ export default function ProjectDetailPage() {
     setStep("final", "error"); throw new Error("final timeout");
   }
 
-  async function regenerateWithVoice() {
-    setRegenerating(true);
+  // Regenerate a single scene: new image → new clip → re-assemble final video.
+  // Saves credits/time vs producing everything again. Progress shows the generic
+  // "Produciendo tu video…" overlay (no internal steps exposed to the user).
+  async function regenerateScene(sceneNumber: number) {
+    setProducing(true);
     setFinalVideoUrl(null);
-    setStep("voice", "pending");
-    setStep("final", "pending");
     setHasError(false);
     setErrorDetail(null);
+    setStepStatus({ voice: "done", images: "running", clips: "pending", final: "pending" });
     try {
-      await runVoice();
+      // 1. New image for this scene
+      const imgRes = await fetch("/api/images", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id, scene_number: sceneNumber }),
+      });
+      const imgData = await imgRes.json() as { success: boolean; error?: string };
+      if (!imgRes.ok || !imgData.success) throw new Error(imgData.error ?? "No se pudo regenerar la imagen");
+
+      // 2. New clip for this scene (submit + poll)
+      setStep("images", "done"); setStep("clips", "running");
+      const subRes = await fetch("/api/videos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id, action: "submit", scene_number: sceneNumber }),
+      });
+      const subData = await subRes.json() as { jobs: Array<{ scene_number: number; request_id: string; error?: string }>; error?: string };
+      const job = subData.jobs?.find((j) => j.request_id);
+      if (!job) throw new Error(subData.jobs?.[0]?.error ?? subData.error ?? "No se pudo regenerar el clip");
+
+      let done = false;
+      for (let i = 0; i < 40 && !done; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const colRes = await fetch("/api/videos", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: id, action: "collect", jobs: [{ scene_number: job.scene_number, request_id: job.request_id }] }),
+        });
+        const colData = await colRes.json() as { all_done: boolean; scenes: Array<{ scene_number: number; status: string }> };
+        if (colData.all_done) {
+          if (colData.scenes.some((s) => s.status === "failed")) throw new Error("El clip falló al regenerar");
+          done = true;
+        }
+      }
+      if (!done) throw new Error("El clip tardó demasiado, intenta de nuevo");
+
+      // 3. Re-assemble final video with the updated clip
       await runFinal();
-      toast("🎉 ¡Video regenerado con voz!", "success");
+      toast("🎉 ¡Escena regenerada!", "success");
       setTimeout(() => window.location.reload(), 2000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setHasError(true);
       setErrorDetail(msg);
-      toast("Error al regenerar. Ve el detalle.", "error");
+      toast("No se pudo regenerar la escena. Ve el detalle.", "error");
     } finally {
-      setRegenerating(false);
+      setProducing(false);
     }
   }
 
@@ -225,12 +252,13 @@ export default function ProjectDetailPage() {
   const platform = (((project as unknown) as Record<string, unknown>).target_platform as string | undefined) ?? "tiktok";
   const platformTip = (PLATFORM_TIPS[platform] ?? PLATFORM_TIPS.tiktok)!;
 
-  const hasAudio = detail?.assets?.some((a) => a.asset_type === "audio") ?? false;
-  const allDone = STEP_IDS.every((s) => stepStatus[s] === "done");
   const doneCount = STEP_IDS.filter((s) => stepStatus[s] === "done").length;
   const progress = Math.round((doneCount / STEP_IDS.length) * 100);
-  const activeStep = STEP_IDS.find((s) => stepStatus[s] === "running");
-  const activeMeta = activeStep ? STEP_LABELS[activeStep] : null;
+
+  // Map each scene to its image thumbnail (assets link by scene_id)
+  const imageBySceneId = new Map(
+    (detail.assets ?? []).filter((a) => a.asset_type === "image" && a.scene_id).map((a) => [a.scene_id, a.public_url]),
+  );
 
   // Full caption for sharing: title + description + hashtags
   const fullCaption = seo
@@ -406,16 +434,39 @@ export default function ProjectDetailPage() {
               />
             )}
 
-            {/* Regenerar con voz si no tiene audio */}
-            {!hasAudio && (
-              <button
-                onClick={regenerateWithVoice}
-                disabled={regenerating}
-                className="w-full flex items-center justify-center gap-2 border border-amber-700/50 hover:border-amber-500 bg-amber-950/20 text-amber-400 hover:text-amber-300 font-medium py-3.5 rounded-xl transition-all text-sm"
-              >
-                {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>🎤</span>}
-                {regenerating ? "Regenerando voz y video…" : "Regenerar con voz (sin audio detectado)"}
-              </button>
+            {/* ── AJUSTAR ESCENAS ───────────────────────────────────────────── */}
+            {scenes.length > 0 && (
+              <div className="space-y-2">
+                <div className="px-1">
+                  <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">¿No te gustó una escena?</h2>
+                  <p className="text-[11px] text-zinc-600 mt-0.5">Regenera solo esa escena — el resto del video se conserva</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {scenes.map((sc) => {
+                    const thumb = imageBySceneId.get(sc.id);
+                    return (
+                      <div key={sc.id} className="relative group rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900 aspect-[9/16]">
+                        {thumb ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={thumb} alt={`Escena ${sc.scene_number}`} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-zinc-700 text-xs">Escena {sc.scene_number}</div>
+                        )}
+                        <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center text-[10px] font-bold text-white">
+                          {sc.scene_number}
+                        </div>
+                        <button
+                          onClick={() => regenerateScene(sc.scene_number)}
+                          className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/0 hover:bg-black/70 opacity-0 hover:opacity-100 transition-all"
+                        >
+                          <RefreshCw className="w-5 h-5 text-white" />
+                          <span className="text-[10px] font-semibold text-white">Regenerar</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* Crear otro */}
@@ -428,7 +479,7 @@ export default function ProjectDetailPage() {
           </>
         )}
 
-        {/* ── PRODUCIENDO ───────────────────────────────────────────────────── */}
+        {/* ── PRODUCIENDO (mensaje genérico, sin exponer los pasos internos) ──── */}
         {producing && !finalVideoUrl && (
           <div className="space-y-5">
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-950/80 to-zinc-900 border border-violet-700/30 p-8 text-center">
@@ -436,9 +487,9 @@ export default function ProjectDetailPage() {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-violet-600/20 rounded-full blur-3xl animate-pulse" />
               </div>
               <div className="relative">
-                <div className="text-5xl mb-4">{activeMeta?.emoji ?? "✨"}</div>
-                <h2 className="text-lg font-bold text-white mb-1">{activeMeta?.label ?? "Preparando…"}</h2>
-                <p className="text-sm text-zinc-400">{activeMeta?.tip ?? "Esto puede tardar unos minutos"}</p>
+                <div className="text-5xl mb-4 animate-pulse">🎬</div>
+                <h2 className="text-lg font-bold text-white mb-1">Produciendo tu video…</h2>
+                <p className="text-sm text-zinc-400">Nuestra IA está creando tu microhistoria</p>
               </div>
             </div>
             <div className="space-y-2">
@@ -489,31 +540,6 @@ export default function ProjectDetailPage() {
                 </button>
                 <p className="text-xs text-zinc-600 mt-4">~7 minutos · Completamente automático</p>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {STEP_IDS.map((sid) => {
-                const meta = STEP_LABELS[sid];
-                const st = stepStatus[sid];
-                return (
-                  <div key={sid} className={`rounded-xl p-3.5 border text-center ${
-                    st === "done"    ? "bg-emerald-950/20 border-emerald-800/30" :
-                    st === "error"   ? "bg-red-950/20 border-red-800/30" :
-                    st === "running" ? "bg-violet-950/20 border-violet-700/30" :
-                    "bg-zinc-900 border-zinc-800"
-                  }`}>
-                    <div className="text-2xl mb-1.5">
-                      {st === "done" ? "✅" : st === "error" ? "❌" : st === "running" ? "⏳" : meta.emoji}
-                    </div>
-                    <p className={`text-xs font-medium ${
-                      st === "done"    ? "text-emerald-400" :
-                      st === "error"   ? "text-red-400" :
-                      st === "running" ? "text-violet-400" :
-                      "text-zinc-400"
-                    }`}>{meta.label}</p>
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}

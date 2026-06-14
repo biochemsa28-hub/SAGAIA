@@ -11,6 +11,7 @@ export const maxDuration = 120;
 
 const BodySchema = z.object({
   project_id: z.string().uuid(),
+  scene_number: z.number().int().positive().optional(), // regenerate a single scene
 });
 
 export async function POST(req: NextRequest) {
@@ -27,11 +28,17 @@ export async function POST(req: NextRequest) {
     if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     if (!detail.scenes?.length) return NextResponse.json({ error: "El proyecto no tiene escenas" }, { status: 422 });
 
+    // Single-scene regeneration: filter to just the requested scene
+    const targetScenes = parsed.data.scene_number
+      ? detail.scenes.filter((s) => s.scene_number === parsed.data.scene_number)
+      : detail.scenes;
+    if (!targetScenes.length) return NextResponse.json({ error: "Escena no encontrada" }, { status: 404 });
+
     const results = await generateProjectImages({
       projectId: parsed.data.project_id,
       niche: detail.project.niche,
       visualStyle: detail.project.visual_style,
-      scenes: detail.scenes.map((s) => ({
+      scenes: targetScenes.map((s) => ({
         scene_number: s.scene_number,
         image_prompt: s.image_prompt ?? "",
       })),
