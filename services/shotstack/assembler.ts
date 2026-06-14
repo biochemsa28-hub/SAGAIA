@@ -77,6 +77,93 @@ function getMusicUrl(niche: string, musicMood?: string | null): string | null {
   return null;
 }
 
+// ─── CapCut-style viral subtitles ────────────────────────────────────────────
+// Splits narration into 4-word chunks, large centered bold text,
+// last word of each chunk highlighted in yellow — same style as viral TikToks
+
+const WORDS_PER_CHUNK = 4;
+
+// Niche-specific highlight colors
+const NICHE_HIGHLIGHT: Record<string, string> = {
+  terror:        "#FF3B3B", // red — blood/danger
+  horror:        "#FF3B3B",
+  thriller:      "#FF6B00", // orange — urgency
+  misterio:      "#A855F7", // purple — mystery
+  mystery:       "#A855F7",
+  romance:       "#FF69B4", // pink — love
+  inspiracional: "#FFE14D", // yellow — energy
+  inspirational: "#FFE14D",
+  fantasia:      "#818CF8", // indigo — magic
+  fantasy:       "#818CF8",
+  historia:      "#F59E0B", // amber — epic
+  drama:         "#F59E0B",
+  default:       "#FFE14D", // yellow — universal
+};
+
+function buildCapcutSubtitles(
+  scene: AssemblyScene,
+  startTime: number,
+  niche: string,
+): Record<string, unknown>[] {
+  if (!scene.narrationText) return [];
+
+  const raw = scene.narrationText
+    .replace(/<break[^>]*\/>/g, " ")
+    .replace(/\[MOCK\]\s*/gi, "")
+    .trim();
+
+  const words = raw.split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  // Split into chunks
+  const chunks: string[][] = [];
+  for (let i = 0; i < words.length; i += WORDS_PER_CHUNK) {
+    chunks.push(words.slice(i, i + WORDS_PER_CHUNK));
+  }
+
+  const chunkDur = Math.max(0.4, scene.durationSeconds / chunks.length);
+  const highlight = NICHE_HIGHLIGHT[niche.toLowerCase()] ?? NICHE_HIGHLIGHT["default"]!;
+
+  return chunks.map((chunk, idx) => {
+    // Last word gets the highlight color — draws the eye
+    const html = chunk
+      .map((word, wi) => {
+        const isLast = wi === chunk.length - 1;
+        const color = isLast ? highlight : "#FFFFFF";
+        const shadow = isLast
+          ? `text-shadow: 0 0 20px ${highlight}88, 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000;`
+          : "text-shadow: 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000;";
+        return `<span style="color:${color}; ${shadow}">${word.toUpperCase()}</span>`;
+      })
+      .join(" ");
+
+    const fullHtml = `<div style="
+      font-family: 'Montserrat', 'Arial Black', Arial, sans-serif;
+      font-size: 78px;
+      font-weight: 900;
+      text-align: center;
+      line-height: 1.2;
+      letter-spacing: -1px;
+      padding: 0 30px;
+    ">${html}</div>`;
+
+    return {
+      asset: {
+        type: "html",
+        html: fullHtml,
+        width: 1000,
+        height: 260,
+        background: "transparent",
+      },
+      start: startTime + idx * chunkDur,
+      length: chunkDur,
+      position: "center",
+      offset: { y: 0.18 }, // slightly below center — avoids covering faces/action
+      transition: { in: "fadeIn", out: "fadeOut" },
+    };
+  });
+}
+
 // ─── Build Shotstack timeline ─────────────────────────────────────────────────
 
 function buildTimeline(params: {
@@ -136,25 +223,10 @@ function buildTimeline(params: {
       });
     }
 
-    // Subtitles
-    if (addSubtitles && scene.narrationText) {
-      // Clean SSML tags from subtitle text
-      const cleanText = scene.narrationText
-        .replace(/<break[^>]*\/>/g, " ")
-        .replace(/^\[MOCK\]\s*/i, "")
-        .trim();
-      subtitleClips.push({
-        asset: {
-          type: "text",
-          text: cleanText,
-          width: 900,
-          height: 200,
-        },
-        start: timeOffset,
-        length: dur,
-        position: "bottom",
-        offset: { y: 0.08 },
-      });
+    // CapCut-style viral subtitles
+    if (addSubtitles) {
+      const chunks = buildCapcutSubtitles(scene, timeOffset, niche);
+      subtitleClips.push(...chunks);
     }
 
     timeOffset += dur;
