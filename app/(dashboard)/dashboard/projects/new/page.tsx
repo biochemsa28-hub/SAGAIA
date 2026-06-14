@@ -6,9 +6,10 @@ import {
 } from "@/lib/constants/nichos";
 import {
   Sparkles, CheckCircle, AlertCircle, ArrowRight, ArrowLeft,
-  Zap, RefreshCw, Copy, TrendingUp,
+  Zap, RefreshCw, Copy, TrendingUp, Flame, Loader2,
 } from "lucide-react";
 import type { StoryOutput } from "@/lib/validators/story.schema";
+import type { HookVariant } from "@/app/api/generate/hooks/route";
 
 // ─── Per-nicho color themes ────────────────────────────────────────────────────
 const NICHO_THEME: Record<string, {
@@ -49,6 +50,13 @@ const GEN_STEPS = [
   { key: "done",    label: "¡Tu historia está lista!",               pct: 100, icon: "⚡" },
 ];
 
+// Hook type metadata for UI display
+const HOOK_META: Record<string, { icon: string; color: string; bg: string; border: string }> = {
+  question:      { icon: "❓", color: "text-blue-300",   bg: "bg-blue-950/50",   border: "border-blue-700/50" },
+  in_medias_res: { icon: "⚡", color: "text-orange-300", bg: "bg-orange-950/50", border: "border-orange-700/50" },
+  shocking_fact: { icon: "💥", color: "text-red-300",    bg: "bg-red-950/50",    border: "border-red-700/50" },
+};
+
 interface FormState {
   niche: string; sub_niche: string; topic: string; tone: string;
   duration_target: string; language: string; visual_style: string;
@@ -85,6 +93,11 @@ function NewProjectForm() {
   const [genError, setGenError] = useState<string | null>(null);
   const [result, setResult] = useState<StoryOutput | null>(null);
   const [dbProjectId, setDbProjectId] = useState<string | null>(null);
+  // Hook selection state (step 3 — between form and generation)
+  const [hookStep, setHookStep] = useState(false); // true = showing hook picker
+  const [hooks, setHooks] = useState<HookVariant[]>([]);
+  const [hooksLoading, setHooksLoading] = useState(false);
+  const [selectedHook, setSelectedHook] = useState<HookVariant | null>(null);
 
   useEffect(() => {
     fetch("/api/credits").then(r => r.json())
@@ -128,18 +141,53 @@ function NewProjectForm() {
   function goNext() { if (validateStep(step)) setStep(s => s + 1); }
   function goBack() { setStep(s => Math.max(0, s - 1)); setErrors({}); }
 
-  async function generate() {
+  async function loadHooks() {
+    if (!validateStep(1)) return;
+    setHooksLoading(true);
+    setGenError(null);
+    try {
+      const res = await fetch("/api/generate/hooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          niche: form.niche,
+          tone: form.tone,
+          topic: form.topic,
+          language: form.language,
+          duration_target: form.duration_target,
+        }),
+      });
+      if (!res.ok) throw new Error("No se pudieron generar los hooks");
+      const data = await res.json() as { hooks: HookVariant[] };
+      setHooks(data.hooks);
+      setSelectedHook(data.hooks[0] ?? null);
+      setHookStep(true);
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setHooksLoading(false);
+    }
+  }
+
+  async function generate(hookOverride?: HookVariant | null) {
     if (!validateStep(1)) { setStep(1); return; }
     setGenerating(true);
     setGenError(null);
     setGenStep(0);
+
+    // Inject chosen hook via additional_instructions
+    const hook = hookOverride !== undefined ? hookOverride : selectedHook;
+    const extraInstructions = hook
+      ? `[HOOK ELEGIDO]: ${hook.text}${form.additional_instructions ? `\n${form.additional_instructions}` : ""}`
+      : form.additional_instructions;
+
     let si = 0;
     const iv = setInterval(() => { if (si < GEN_STEPS.length - 2) { si++; setGenStep(si); } }, 1100);
     try {
       const res = await fetch("/api/generate/story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, additional_instructions: extraInstructions }),
       });
       clearInterval(iv);
       if (!res.ok) { const e = await res.json() as { error?: string }; throw new Error(e.error ?? "Error"); }
@@ -205,6 +253,108 @@ function NewProjectForm() {
           </div>
 
           <p className="text-xs text-zinc-700">💡 Los creadores que publican a diario crecen 3× más rápido</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── HOOK SELECTION ──────────────────────────────────────────────────────────
+  if (hookStep && !generating) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col">
+        {/* Header */}
+        <div className={`relative overflow-hidden border-b border-zinc-800/60`}>
+          <div className={`absolute inset-0 bg-gradient-to-r ${theme.card} opacity-80 pointer-events-none`} />
+          <div className="relative px-4 pt-4 pb-5 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-700 mb-3">
+              <Flame className="w-3.5 h-3.5 text-orange-400" />
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">El hook = el 80% de tu viral</span>
+            </div>
+            <h1 className="text-xl font-extrabold text-white">Elige tu gancho de apertura</h1>
+            <p className="text-xs text-zinc-500 mt-1">Los primeros 2 segundos deciden si te ven o te skippean</p>
+          </div>
+        </div>
+
+        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-5 space-y-4 pb-32">
+
+          {/* Hook cards */}
+          {hooks.map((hook) => {
+            const meta = HOOK_META[hook.type] ?? HOOK_META["question"]!;
+            const isSelected = selectedHook?.id === hook.id;
+            return (
+              <button
+                key={hook.id}
+                onClick={() => setSelectedHook(hook)}
+                className={`w-full text-left rounded-2xl border-2 p-5 transition-all duration-200 ${
+                  isSelected
+                    ? `${meta.bg} ${meta.border} scale-[1.01] shadow-xl`
+                    : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl">{meta.icon}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${isSelected ? meta.color : "text-zinc-500"}`}>
+                    {hook.type_label}
+                  </span>
+                  {isSelected && (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 ml-auto shrink-0" />
+                  )}
+                </div>
+
+                {/* Hook text — the star of the show */}
+                <p className={`text-base font-bold leading-snug mb-3 ${isSelected ? "text-white" : "text-zinc-200"}`}>
+                  &ldquo;{hook.text}&rdquo;
+                </p>
+
+                {/* Why it works */}
+                <div className={`flex items-start gap-1.5 px-3 py-2 rounded-lg ${isSelected ? "bg-black/30" : "bg-zinc-800/50"}`}>
+                  <span className="text-[10px] text-zinc-500 mt-0.5">💡</span>
+                  <p className={`text-[11px] leading-relaxed ${isSelected ? meta.color : "text-zinc-500"}`}>{hook.why}</p>
+                </div>
+              </button>
+            );
+          })}
+
+          {/* Skip hook */}
+          <button
+            onClick={() => void generate(null)}
+            className="w-full py-3 rounded-xl border border-zinc-800 text-zinc-600 text-xs hover:border-zinc-700 hover:text-zinc-400 transition-all"
+          >
+            Saltar — dejar que la IA elija el hook
+          </button>
+
+          {genError && (
+            <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-700/40 rounded-xl">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-300">{genError}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Fixed bottom CTA */}
+        <div className="fixed bottom-0 left-0 right-0 z-20">
+          <div className={`absolute inset-0 bg-gradient-to-t ${theme.card} opacity-30 pointer-events-none`} />
+          <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-lg mx-auto">
+            <div className="flex gap-3">
+              <button
+                onClick={() => setHookStep(false)}
+                className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm font-medium hover:border-zinc-700 transition-all shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => void generate(selectedHook)}
+                disabled={credits === 0}
+                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-extrabold text-white transition-all active:scale-[0.98] shadow-lg ${theme.glow} bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                <Sparkles className="w-5 h-5" />
+                Generar con este hook
+                <span className="text-[10px] font-normal opacity-70 ml-1">
+                  · {credits !== null ? `${credits} NAVOS` : "…"}
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -661,15 +811,20 @@ function NewProjectForm() {
               </button>
             ) : (
               <button
-                onClick={generate}
-                disabled={credits === 0}
+                onClick={() => void loadHooks()}
+                disabled={credits === 0 || hooksLoading}
                 className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-extrabold text-white transition-all active:scale-[0.98] shadow-lg ${theme.glow} bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed`}
               >
-                <Sparkles className="w-5 h-5" />
-                Generar historia con IA
-                <span className="text-[10px] font-normal opacity-70 ml-1">
-                  · {credits !== null ? `${credits} NAVOS` : "…"}
-                </span>
+                {hooksLoading ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Creando hooks…</>
+                ) : (
+                  <><Flame className="w-5 h-5" /> Elegir mi gancho viral</>
+                )}
+                {!hooksLoading && (
+                  <span className="text-[10px] font-normal opacity-70 ml-1">
+                    · {credits !== null ? `${credits} NAVOS` : "…"}
+                  </span>
+                )}
               </button>
             )}
           </div>

@@ -202,18 +202,36 @@ function buildTimeline(params: {
     });
   }
 
-  for (const scene of scenes) {
+  // Cross-dissolve overlap between clips for fluid feel — 0.7s overlap
+  const TRANSITION_OVERLAP = 0.7;
+
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i]!;
     const dur = scene.durationSeconds || 5;
+    const isFirst = i === 0;
+    const isLast = i === scenes.length - 1;
+
+    // Overlap start: each clip starts slightly before the previous ends
+    // so cross-dissolve creates a seamless blend (not a hard cut)
+    const clipStart = isFirst
+      ? 0
+      : timeOffset - TRANSITION_OVERLAP;
+
+    const clipLength = isFirst
+      ? dur
+      : dur + TRANSITION_OVERLAP;
 
     // Video clip (Kling) — muted since we use narration audio
     videoClips.push({
       asset: { type: "video", src: scene.videoUrl, volume: 0 },
-      start: timeOffset,
-      length: dur,
-      transition: timeOffset > 0 ? { in: "fade" } : undefined,
+      start: clipStart,
+      length: clipLength,
+      transition: !isFirst
+        ? { in: "crossDissolveIn", out: isLast ? "fadeOut" : undefined }
+        : { out: isLast ? "fadeOut" : undefined },
     });
 
-    // Narration audio (ElevenLabs) — full volume
+    // Narration audio — no overlap, locked to scene start
     if (scene.audioUrl) {
       const audioSrc = scene.audioUrl.replace(/\.mpeg(\?|$)/, ".mp3$1");
       narrationClips.push({
@@ -223,7 +241,7 @@ function buildTimeline(params: {
       });
     }
 
-    // CapCut-style viral subtitles
+    // CapCut-style viral subtitles — also locked to scene start (no overlap)
     if (addSubtitles) {
       const chunks = buildCapcutSubtitles(scene, timeOffset, niche);
       subtitleClips.push(...chunks);
