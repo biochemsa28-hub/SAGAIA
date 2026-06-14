@@ -61,10 +61,12 @@ const STYLE_MODIFIER: Record<string, string> = {
 };
 
 // Quality tier — controls model + step count (cost/speed vs fidelity)
-// FLUX_QUALITY: "fast" (schnell, cheapest) | "cinematic" (flux/dev, best) — default cinematic
+// FLUX_QUALITY: "fast" (schnell, cheapest) | "cinematic" (flux/dev, best) — default fast
+// Default is "fast" to keep cost low while producing volume. Set FLUX_QUALITY=cinematic
+// in Vercel when you want maximum quality (flux/dev, ~7x the credits).
 function getQualityTier(): "fast" | "cinematic" {
-  const q = (process.env.FLUX_QUALITY ?? "cinematic").toLowerCase();
-  return q === "fast" ? "fast" : "cinematic";
+  const q = (process.env.FLUX_QUALITY ?? "fast").toLowerCase();
+  return q === "cinematic" ? "cinematic" : "fast";
 }
 
 // Read opt-in LoRA from env for a given niche, e.g. FLUX_LORA_TERROR=https://...
