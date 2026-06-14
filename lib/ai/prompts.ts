@@ -100,7 +100,9 @@ Luego incluye estos elementos en CADA image_prompt para que todas las escenas se
 - Prompts de imagen: 80-150 palabras, incluye [personaje+descripción física], [paleta de color], [ambiente] y estilo "${input.visual_style}"
 - Prompts de animación: 30-60 palabras, especifica cómo el movimiento CONECTA con la escena anterior
 - SEO: título que genere curiosidad extrema, descripción con keywords naturales
-- Hashtags: 15-25 mezclando nicho específico + trending + alcance amplio
+- Hashtags: OBLIGATORIO 15-25 (nunca menos de 8) mezclando nicho + trending + alcance amplio
+- Tags: OBLIGATORIO 8-12 keywords (nunca menos de 5) relevantes al tema
+- ESCENAS: genera SIEMPRE al menos ${duration.min} (nunca menos de 3). Es un requisito estricto.
 
 ━━━ JSON REQUERIDO ━━━
 Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):

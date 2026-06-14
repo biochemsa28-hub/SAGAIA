@@ -51,14 +51,16 @@ export const SceneSchema = z.object({
 export type Scene = z.infer<typeof SceneSchema>;
 
 export const SEOSchema = z.object({
-  title: z.string().min(10).max(100),
-  description: z.string().min(50).max(500),
-  hashtags: z.array(z.string()).min(5).max(30),
-  tags: z.array(z.string()).min(5).max(20),
-  thumbnail_concept: z.string().min(20),
+  // Floors kept lenient so one short array never fails an expensive generation.
+  // The prompt still asks for ambitious counts (15-25 hashtags) for virality.
+  title: z.string().min(8).max(160),
+  description: z.string().min(20).max(600),
+  hashtags: z.array(z.string()).min(3).max(40),
+  tags: z.array(z.string()).min(3).max(30),
+  thumbnail_concept: z.string().min(10),
   thumbnail_prompt: z
     .string()
-    .min(20)
+    .min(10)
     .describe("Image generation prompt for thumbnail"),
 });
 
