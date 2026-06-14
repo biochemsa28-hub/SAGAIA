@@ -24,21 +24,78 @@ export interface AssemblyStatus {
   error?: string;
 }
 
+// ─── Background music by mood/niche ──────────────────────────────────────────
+// Royalty-free tracks from Pixabay (CC0 license, commercial use allowed)
+const MUSIC_LIBRARY: Record<string, string> = {
+  // Horror / Terror
+  terror:        "https://cdn.pixabay.com/audio/2023/03/15/audio_b8d1b1e8d4.mp3",
+  horror:        "https://cdn.pixabay.com/audio/2023/03/15/audio_b8d1b1e8d4.mp3",
+  // Thriller / Suspense
+  thriller:      "https://cdn.pixabay.com/audio/2022/10/16/audio_59a8cef8a3.mp3",
+  suspense:      "https://cdn.pixabay.com/audio/2022/10/16/audio_59a8cef8a3.mp3",
+  // Mystery
+  misterio:      "https://cdn.pixabay.com/audio/2022/11/22/audio_0e18a28831.mp3",
+  mystery:       "https://cdn.pixabay.com/audio/2022/11/22/audio_0e18a28831.mp3",
+  // Romance
+  romance:       "https://cdn.pixabay.com/audio/2023/01/25/audio_50d054ed54.mp3",
+  // Inspirational / Motivational
+  inspiracional: "https://cdn.pixabay.com/audio/2022/10/25/audio_946e3e58cc.mp3",
+  inspirational: "https://cdn.pixabay.com/audio/2022/10/25/audio_946e3e58cc.mp3",
+  // Fantasy / Adventure
+  fantasia:      "https://cdn.pixabay.com/audio/2023/02/09/audio_a0be98424b.mp3",
+  fantasy:       "https://cdn.pixabay.com/audio/2023/02/09/audio_a0be98424b.mp3",
+  // Drama / Historia
+  drama:         "https://cdn.pixabay.com/audio/2022/11/09/audio_2c4c0ee24e.mp3",
+  historia:      "https://cdn.pixabay.com/audio/2022/11/09/audio_2c4c0ee24e.mp3",
+  // Documentary
+  documentary:   "https://cdn.pixabay.com/audio/2022/08/04/audio_2dde668d05.mp3",
+  documental:    "https://cdn.pixabay.com/audio/2022/08/04/audio_2dde668d05.mp3",
+  // Comedy
+  comedy:        "https://cdn.pixabay.com/audio/2022/03/15/audio_d7aacc1a84.mp3",
+  comedia:       "https://cdn.pixabay.com/audio/2022/03/15/audio_d7aacc1a84.mp3",
+};
+
+function getMusicUrl(niche: string, musicMood?: string | null): string | null {
+  // Try exact niche match first
+  const byNiche = MUSIC_LIBRARY[niche.toLowerCase()];
+  if (byNiche) return byNiche;
+
+  // Try to match music_mood keywords
+  if (musicMood) {
+    const mood = musicMood.toLowerCase();
+    for (const [key, url] of Object.entries(MUSIC_LIBRARY)) {
+      if (mood.includes(key)) return url;
+    }
+    // keyword matches
+    if (mood.includes("dark") || mood.includes("tense") || mood.includes("scary")) return MUSIC_LIBRARY["thriller"]!;
+    if (mood.includes("romantic") || mood.includes("love") || mood.includes("soft")) return MUSIC_LIBRARY["romance"]!;
+    if (mood.includes("epic") || mood.includes("uplift") || mood.includes("motivat")) return MUSIC_LIBRARY["inspiracional"]!;
+    if (mood.includes("orchestr") || mood.includes("magic")) return MUSIC_LIBRARY["fantasia"]!;
+    if (mood.includes("sad") || mood.includes("emotional") || mood.includes("drama")) return MUSIC_LIBRARY["drama"]!;
+  }
+
+  return null;
+}
+
 // ─── Build Shotstack timeline ─────────────────────────────────────────────────
 
 function buildTimeline(params: {
   scenes: AssemblyScene[];
   title?: string;
   addSubtitles?: boolean;
+  niche?: string;
+  musicMood?: string | null;
 }): Record<string, unknown> {
-  const { scenes, title, addSubtitles = true } = params;
+  const { scenes, title, addSubtitles = true, niche = "", musicMood } = params;
 
   const videoClips: Record<string, unknown>[] = [];
-  const audioClips: Record<string, unknown>[] = [];
+  const narrationClips: Record<string, unknown>[] = [];
   const subtitleClips: Record<string, unknown>[] = [];
   const titleClips: Record<string, unknown>[] = [];
+  const musicClips: Record<string, unknown>[] = [];
 
   let timeOffset = 0;
+  let totalDuration = 0;
 
   // Optional title card
   if (title) {
@@ -61,7 +118,7 @@ function buildTimeline(params: {
   for (const scene of scenes) {
     const dur = scene.durationSeconds || 5;
 
-    // Video clip
+    // Video clip (Kling) — muted since we use narration audio
     videoClips.push({
       asset: { type: "video", src: scene.videoUrl, volume: 0 },
       start: timeOffset,
@@ -69,11 +126,11 @@ function buildTimeline(params: {
       transition: timeOffset > 0 ? { in: "fade" } : undefined,
     });
 
-    // Audio — fix .mpeg extension (fal.ai storage returns .mpeg but Shotstack needs .mp3)
+    // Narration audio (ElevenLabs) — full volume
     if (scene.audioUrl) {
       const audioSrc = scene.audioUrl.replace(/\.mpeg(\?|$)/, ".mp3$1");
-      audioClips.push({
-        asset: { type: "audio", src: audioSrc, volume: 1 },
+      narrationClips.push({
+        asset: { type: "audio", src: audioSrc, volume: 1.0 },
         start: timeOffset,
         length: dur,
       });
@@ -81,10 +138,15 @@ function buildTimeline(params: {
 
     // Subtitles
     if (addSubtitles && scene.narrationText) {
+      // Clean SSML tags from subtitle text
+      const cleanText = scene.narrationText
+        .replace(/<break[^>]*\/>/g, " ")
+        .replace(/^\[MOCK\]\s*/i, "")
+        .trim();
       subtitleClips.push({
         asset: {
           type: "text",
-          text: scene.narrationText,
+          text: cleanText,
           width: 900,
           height: 200,
         },
@@ -98,12 +160,25 @@ function buildTimeline(params: {
     timeOffset += dur;
   }
 
+  totalDuration = timeOffset;
+
+  // Background music — low volume under narration
+  const musicUrl = getMusicUrl(niche, musicMood);
+  if (musicUrl && totalDuration > 0) {
+    musicClips.push({
+      asset: { type: "audio", src: musicUrl, volume: 0.12, effect: "fadeOut" },
+      start: 0,
+      length: totalDuration,
+    });
+  }
+
   const tracks: Record<string, unknown>[] = [
     { clips: videoClips },
   ];
   if (subtitleClips.length) tracks.push({ clips: subtitleClips });
   if (titleClips.length) tracks.push({ clips: titleClips });
-  if (audioClips.length) tracks.push({ clips: audioClips });
+  if (narrationClips.length) tracks.push({ clips: narrationClips });
+  if (musicClips.length) tracks.push({ clips: musicClips });
 
   return {
     timeline: {
@@ -125,6 +200,8 @@ export async function submitAssembly(params: {
   scenes: AssemblyScene[];
   title?: string;
   addSubtitles?: boolean;
+  niche?: string;
+  musicMood?: string | null;
 }): Promise<AssemblyResult> {
   const apiKey = process.env.SHOTSTACK_API_KEY;
   if (!apiKey) throw new Error("SHOTSTACK_API_KEY not set");

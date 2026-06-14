@@ -88,6 +88,8 @@ export async function POST(req: NextRequest) {
       scenes,
       title: detail.project.title,
       addSubtitles: parsed.data.add_subtitles,
+      niche: detail.project.niche,
+      musicMood: detail.story?.music_mood ?? null,
     });
 
     return NextResponse.json({

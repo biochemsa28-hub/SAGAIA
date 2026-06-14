@@ -31,10 +31,12 @@ export async function POST(req: NextRequest) {
 
     const results = await generateProjectVoice({
       projectId: parsed.data.project_id,
+      niche: detail.project.niche,
       tone: detail.project.tone,
       scenes: detail.scenes.map((s) => ({
         scene_number: s.scene_number,
         narration_text: s.narration_text,
+        emotion: s.emotion,
       })),
     });
 
