@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
 
     const results = await generateProjectImages({
       projectId: parsed.data.project_id,
+      niche: detail.project.niche,
+      visualStyle: detail.project.visual_style,
       scenes: detail.scenes.map((s) => ({
         scene_number: s.scene_number,
         image_prompt: s.image_prompt ?? "",

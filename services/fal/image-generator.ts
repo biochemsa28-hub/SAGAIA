@@ -1,6 +1,7 @@
 import { fal } from "@fal-ai/client";
 import { writeFileSync, mkdirSync } from "fs";
 import { join, isAbsolute, resolve } from "path";
+import { getStyleConfig, type StyleConfig } from "./style-presets";
 
 export interface ImageGenerationResult {
   success: boolean;
@@ -39,23 +40,26 @@ async function generateMock(projectId: string, sceneNumber: number): Promise<Ima
   return { success: true, filePath, url: "/placeholder.png", mock: true, durationMs: 0 };
 }
 
-async function callFlux(prompt: string): Promise<string | null> {
+async function callFlux(prompt: string, style: StyleConfig): Promise<string | null> {
   try {
-    const result = await fal.subscribe("fal-ai/flux/schnell", {
-      input: {
-        prompt,
-        image_size: "portrait_16_9" as const,
-        num_inference_steps: 4,
-        num_images: 1,
-      },
-      logs: false,
-    });
+    // Build input — flux-lora endpoint accepts a `loras` array; others ignore it
+    const input: Record<string, unknown> = {
+      prompt,
+      image_size: "portrait_16_9",
+      num_inference_steps: style.numInferenceSteps,
+      guidance_scale: style.guidanceScale,
+      num_images: 1,
+      enable_safety_checker: true,
+    };
+    if (style.loras.length > 0) input["loras"] = style.loras;
+
+    const result = await fal.subscribe(style.model, { input, logs: false });
     // Navigate the response safely regardless of SDK wrapper shape
     const obj = result as Record<string, unknown>;
     const data = (obj?.["data"] ?? obj) as Record<string, unknown>;
     const images = data?.["images"] as Array<Record<string, unknown>> | undefined;
     const url = (images?.[0]?.["url"] as string) ?? null;
-    console.log("[fal.ai] raw keys:", Object.keys(obj));
+    console.log("[fal.ai] model:", style.model, "loras:", style.loras.length);
     console.log("[fal.ai] images count:", images?.length ?? 0);
     console.log("[fal.ai] extracted url:", url ?? "null");
     return url;
@@ -72,19 +76,25 @@ async function generateReal(params: {
   prompt: string;
   projectId: string;
   sceneNumber: number;
+  niche: string;
+  visualStyle: string;
 }): Promise<ImageGenerationResult> {
-  const { prompt, projectId, sceneNumber } = params;
+  const { prompt, projectId, sceneNumber, niche, visualStyle } = params;
   const apiKey = process.env.FAL_API_KEY;
   if (!apiKey) throw new Error("FAL_API_KEY not set");
 
   fal.config({ credentials: apiKey });
   const t0 = Date.now();
 
-  // Try original prompt, retry with softened if null returned
-  let imageUrl = await callFlux(prompt);
+  // Apply niche-specific cinematic style on top of the scene prompt
+  const style = getStyleConfig(niche, visualStyle);
+  const styledPrompt = `${prompt}, ${style.promptSuffix}`;
+
+  // Try styled prompt, retry with softened if null returned (content filter)
+  let imageUrl = await callFlux(styledPrompt, style);
   if (!imageUrl) {
     console.log(`[fal.ai] Retrying scene ${sceneNumber} with softened prompt`);
-    imageUrl = await callFlux(softenPrompt(prompt));
+    imageUrl = await callFlux(`${softenPrompt(prompt)}, ${style.promptSuffix}`, style);
   }
   if (!imageUrl) throw new Error("fal.ai returned no image after retry");
 
@@ -105,6 +115,8 @@ export async function generateSceneImage(params: {
   prompt: string;
   projectId: string;
   sceneNumber: number;
+  niche: string;
+  visualStyle: string;
 }): Promise<ImageGenerationResult> {
   const isMock = process.env.FORCE_MOCK_IMAGE === "true" || !process.env.FAL_API_KEY;
   if (isMock) return generateMock(params.projectId, params.sceneNumber);
@@ -120,6 +132,8 @@ export async function generateSceneImage(params: {
 
 export async function generateProjectImages(params: {
   projectId: string;
+  niche: string;
+  visualStyle: string;
   scenes: Array<{ scene_number: number; image_prompt: string }>;
 }): Promise<SceneImageResult[]> {
   const results: SceneImageResult[] = [];
@@ -128,6 +142,8 @@ export async function generateProjectImages(params: {
       prompt: scene.image_prompt,
       projectId: params.projectId,
       sceneNumber: scene.scene_number,
+      niche: params.niche,
+      visualStyle: params.visualStyle,
     });
     results.push({ ...result, sceneNumber: scene.scene_number });
     if (!result.mock) await new Promise((r) => setTimeout(r, 300));
