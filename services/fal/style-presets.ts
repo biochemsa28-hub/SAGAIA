@@ -61,12 +61,13 @@ const STYLE_MODIFIER: Record<string, string> = {
 };
 
 // Quality tier — controls model + step count (cost/speed vs fidelity)
-// FLUX_QUALITY: "fast" (schnell, cheapest) | "cinematic" (flux/dev, best) — default fast
-// Default is "fast" to keep cost low while producing volume. Set FLUX_QUALITY=cinematic
-// in Vercel when you want maximum quality (flux/dev, ~7x the credits).
+// FLUX_QUALITY: "fast" (schnell, cheapest) | "cinematic" (flux/dev, best) — default cinematic
+// Default is "cinematic" (flux/dev, 28 steps): the image IS the whole vertical frame,
+// so quality here is the single biggest driver of how the video looks. Set
+// FLUX_QUALITY=fast to drop back to schnell (4 steps) for ultra-cheap volume.
 function getQualityTier(): "fast" | "cinematic" {
-  const q = (process.env.FLUX_QUALITY ?? "fast").toLowerCase();
-  return q === "cinematic" ? "cinematic" : "fast";
+  const q = (process.env.FLUX_QUALITY ?? "cinematic").toLowerCase();
+  return q === "fast" ? "fast" : "cinematic";
 }
 
 // Read opt-in LoRA from env for a given niche, e.g. FLUX_LORA_TERROR=https://...
@@ -80,10 +81,29 @@ function getNicheLora(niche: string): Array<{ path: string; scale: number }> {
   return [{ path, scale: Number.isFinite(scale) ? scale : 0.9 }];
 }
 
+// ── Global REALISM LoRA layer ────────────────────────────────────────────────
+// A realism LoRA is a fine-tune trained on real photos that removes the plastic
+// "AI look" — natural skin, real lighting, true photographic texture. It stacks
+// on top of flux/dev for ALL photographic styles (skipped for anime/cartoon).
+//
+// Activate by setting FLUX_REALISM_LORA to a fal-reachable .safetensors URL, e.g.
+// a public Flux realism LoRA from HuggingFace. Scale via FLUX_REALISM_SCALE (0–1).
+// Left empty by default so nothing breaks until a verified URL is provided; a bad
+// URL also degrades gracefully (image-generator drops LoRAs and retries on flux/dev).
+function getRealismLora(visualStyle: string): Array<{ path: string; scale: number }> {
+  const photographic = !["anime", "cartoon"].includes(visualStyle.toLowerCase());
+  if (!photographic) return [];
+  const path = process.env.FLUX_REALISM_LORA;
+  if (!path) return [];
+  const scale = Number(process.env.FLUX_REALISM_SCALE ?? 0.8);
+  return [{ path, scale: Number.isFinite(scale) ? scale : 0.8 }];
+}
+
 export function getStyleConfig(niche: string, visualStyle: string): StyleConfig {
   const sig = NICHE_SIGNATURE[niche.toLowerCase()] ?? NICHE_SIGNATURE["default"]!;
   const mod = STYLE_MODIFIER[visualStyle.toLowerCase()] ?? STYLE_MODIFIER["default"]!;
-  const loras = getNicheLora(niche);
+  // Realism LoRA stacks on top of any niche LoRA — the "more realistic" layer.
+  const loras = [...getNicheLora(niche), ...getRealismLora(visualStyle)];
   const tier = getQualityTier();
 
   // If a LoRA is configured, we must use the flux-lora endpoint (flux-dev base).
@@ -97,9 +117,31 @@ export function getStyleConfig(niche: string, visualStyle: string): StyleConfig 
 
   const isSchnell = model === "fal-ai/flux/schnell";
 
+  // Realism layer — kills the plastic "AI look": photographic imperfections,
+  // natural skin, real-lens artifacts. Applied to photographic styles only
+  // (skipped for anime/cartoon where it would fight the aesthetic).
+  const photographic = !["anime", "cartoon"].includes(visualStyle.toLowerCase());
+  const realism = photographic
+    ? ", photographic film grain, natural skin texture with pores and subtle imperfections, realistic subsurface scattering, authentic depth of field, slight lens vignette, true-to-life color science, candid unposed expression, no plastic skin, no overly smooth render"
+    : "";
+
+  // Pro cinematography layer — the "this looks like a real film" production value
+  // that makes viewers go "wow, this was made with AI". Photographic styles only.
+  const cinematic = photographic
+    ? ", shot on professional cinema camera, 35mm anamorphic lens, cinematic color grading, soft volumetric lighting, motivated key light with gentle rim light, shallow cinematic depth of field with creamy bokeh, balanced film contrast, professional cinematography, movie still"
+    : "";
+
+  // Realism LoRA trigger word (e.g. "Super Realism" for strangerzonehf's LoRA).
+  // Only added when a realism LoRA is active AND a trigger is configured — it
+  // activates the LoRA's trained style. Placed at the FRONT for strongest effect.
+  const realismTrigger =
+    photographic && getRealismLora(visualStyle).length > 0 && process.env.FLUX_REALISM_TRIGGER
+      ? `${process.env.FLUX_REALISM_TRIGGER}, `
+      : "";
+
   return {
     model,
-    promptSuffix: `${sig}, ${mod}, masterpiece, ultra detailed, 8k, high dynamic range`,
+    promptSuffix: `${realismTrigger}${sig}, ${mod}${realism}${cinematic}, masterpiece, ultra detailed, 8k, high dynamic range`,
     loras,
     // schnell is distilled to 4 steps; dev/lora need ~28 for full quality
     numInferenceSteps: isSchnell ? 4 : 28,

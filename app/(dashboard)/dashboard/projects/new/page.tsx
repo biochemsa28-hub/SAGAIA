@@ -1,15 +1,37 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import confetti from "canvas-confetti";
 import {
   NICHOS, TONES, DURATION_OPTIONS, VISUAL_STYLES, PLATFORMS,
 } from "@/lib/constants/nichos";
 import {
   Sparkles, CheckCircle, AlertCircle, ArrowRight, ArrowLeft,
-  Zap, RefreshCw, Copy, TrendingUp, Flame, Loader2,
+  Zap, RefreshCw, TrendingUp, Flame, Loader2, Users,
 } from "lucide-react";
 import type { StoryOutput } from "@/lib/validators/story.schema";
 import type { HookVariant } from "@/app/api/generate/hooks/route";
+import { CREDIT_COST_BY_TIER } from "@/lib/config";
+
+interface CastCharacterOption {
+  name: string;
+  role: string;
+  gender: string;
+  age: string;
+  kind: string;
+  personality: string;
+  visual_description: string;
+  voice_profile: string;
+  options: string[];
+  selectedIdx: number;
+}
+
+const VOICE_PROFILE_LABELS: Record<string, string> = {
+  male_young: "Hombre joven", male_adult: "Hombre adulto", male_elderly: "Hombre mayor",
+  male_villain: "Villano", female_young: "Mujer joven", female_adult: "Mujer adulta",
+  female_elderly: "Mujer mayor", child: "Niño/a", narrator: "Narrador", creature: "Criatura",
+};
 
 // ─── Per-nicho color themes ────────────────────────────────────────────────────
 const NICHO_THEME: Record<string, {
@@ -50,6 +72,9 @@ const GEN_STEPS = [
   { key: "done",    label: "¡Tu historia está lista!",               pct: 100, icon: "⚡" },
 ];
 
+// Wizard journey — 5 steps. "Elenco" is the casting selection screen (new Phase 2).
+const WIZARD_STEPS = ["Universo", "Historia", "Visión", "Elenco", "Gancho"];
+
 // Hook type metadata for UI display
 const HOOK_META: Record<string, { icon: string; color: string; bg: string; border: string }> = {
   question:      { icon: "❓", color: "text-blue-300",   bg: "bg-blue-950/50",   border: "border-blue-700/50" },
@@ -69,6 +94,51 @@ const DEFAULTS: FormState = {
   additional_instructions: "",
 };
 
+// Recharge modal — shown when a step returns 402 (out of NAVOS). Captures the sale
+// at peak intention with a clear CTA instead of a buried error message.
+function RechargeModal({ info, onClose }: { info: { required: number; have: number }; onClose: () => void }) {
+  const missing = Math.max(0, info.required - info.have);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="vy-pop relative max-w-sm w-full rounded-3xl vy-grad-bg p-[1.5px] vy-glow" onClick={(e) => e.stopPropagation()}>
+        <div className="rounded-3xl bg-zinc-950 p-7 text-center">
+          <div className="w-16 h-16 rounded-2xl vy-grad-bg flex items-center justify-center mx-auto mb-4 vy-float2">
+            <Zap className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-xl font-extrabold vy-grad-text mb-1">¡Tu historia está lista para nacer!</h2>
+          <p className="text-sm text-zinc-400 mb-5">Solo te faltan unos NAVOS para terminarla 🎬</p>
+
+          <div className="vy-glass rounded-2xl p-4 mb-5 flex items-center justify-around">
+            <div>
+              <p className="text-lg font-extrabold text-white">{info.have.toLocaleString("es")}</p>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500">tienes</p>
+            </div>
+            <div className="text-zinc-700">→</div>
+            <div>
+              <p className="text-lg font-extrabold text-violet-300">{info.required.toLocaleString("es")}</p>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500">necesitas</p>
+            </div>
+            <div className="text-zinc-700">=</div>
+            <div>
+              <p className="text-lg font-extrabold text-pink-400">+{missing.toLocaleString("es")}</p>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500">faltan</p>
+            </div>
+          </div>
+
+          <Link href="/pricing">
+            <button className="w-full flex items-center justify-center gap-2 vy-grad-bg text-white font-extrabold py-3.5 rounded-2xl text-sm vy-press mb-2">
+              <Zap className="w-4 h-4" /> Recargar NAVOS y terminar
+            </button>
+          </Link>
+          <button onClick={onClose} className="w-full text-xs text-zinc-500 hover:text-zinc-300 py-2 transition-colors">
+            Quizás elija un tipo de video más económico
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NewProjectPage() {
   return <Suspense fallback={null}><NewProjectForm /></Suspense>;
 }
@@ -87,21 +157,53 @@ function NewProjectForm() {
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [credits, setCredits] = useState<number | null>(null);
   const [ideaIdx, setIdeaIdx] = useState(0);
-  const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
   const [genError, setGenError] = useState<string | null>(null);
   const [result, setResult] = useState<StoryOutput | null>(null);
   const [dbProjectId, setDbProjectId] = useState<string | null>(null);
-  // Hook selection state (step 3 — between form and generation)
-  const [hookStep, setHookStep] = useState(false); // true = showing hook picker
+  // Casting selection state (step 4 — "Elenco" screen before hook)
+  const [castingStep, setCastingStep] = useState(false);
+  const [castingLoading, setCastingLoading] = useState(false);
+  const [castCharacters, setCastCharacters] = useState<CastCharacterOption[]>([]);
+  const [castError, setCastError] = useState<string | null>(null);
+  // Hook selection state (step 5 — hook picker)
+  const [hookStep, setHookStep] = useState(false);
   const [hooks, setHooks] = useState<HookVariant[]>([]);
   const [hooksLoading, setHooksLoading] = useState(false);
   const [selectedHook, setSelectedHook] = useState<HookVariant | null>(null);
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [savedCharacters, setSavedCharacters] = useState<Array<{ id: string; name: string; reference_image_url: string | null }>>([]);
+  const [characterId, setCharacterId] = useState<string | null>(null);
+  const [userPlan, setUserPlan] = useState<string>("free");
+  // Single premium tier — every video is the high-end "talking" obra de arte.
+  const [tier] = useState<"kenburns" | "cinematic" | "talking">("talking");
+  // "Sin NAVOS" recharge modal — shown when any step returns 402 so we capture the
+  // sale at peak intention instead of dropping a plain error.
+  const [rechargeInfo, setRechargeInfo] = useState<{ required: number; have: number } | null>(null);
+  // Inline production — run the whole pipeline on THIS page (no redirect to the
+  // project page). The user watches the live build and the final reveal here.
+  const [prod, setProd] = useState<{
+    active: boolean;
+    phase: "voice" | "images" | "clips" | "final" | "done" | "error";
+    error: string | null;
+    videoUrl: string | null;
+    projectId: string | null;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/credits").then(r => r.json())
-      .then((d: { credits?: number }) => { if (typeof d.credits === "number") setCredits(d.credits); })
+      .then((d: { credits?: number; plan?: string }) => {
+        if (typeof d.credits === "number") setCredits(d.credits);
+        if (d.plan) setUserPlan(d.plan);
+      })
+      .catch(() => null);
+    // Load saved recurring characters so the user can reuse one in this story.
+    fetch("/api/characters").then(r => r.json())
+      .then((d: { characters?: Array<{ id: string; name: string; reference_image_url: string | null }> }) => {
+        if (Array.isArray(d.characters)) setSavedCharacters(d.characters);
+      })
       .catch(() => null);
   }, []);
 
@@ -141,6 +243,38 @@ function NewProjectForm() {
   function goNext() { if (validateStep(step)) setStep(s => s + 1); }
   function goBack() { setStep(s => Math.max(0, s - 1)); setErrors({}); }
 
+  async function loadCasting() {
+    setCastingLoading(true);
+    setCastError(null);
+    try {
+      const res = await fetch("/api/casting/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          niche: form.niche,
+          topic: form.topic,
+          tone: form.tone,
+          language: form.language,
+          visual_style: form.visual_style,
+        }),
+      });
+      if (res.status === 402) {
+        const e = await res.json() as { required?: number; credits?: number };
+        setRechargeInfo({ required: e.required ?? CREDIT_COST_BY_TIER[tier], have: e.credits ?? credits ?? 0 });
+        return;
+      }
+      if (!res.ok) throw new Error("No se pudo diseñar el elenco");
+      const data = await res.json() as { characters?: CastCharacterOption[] };
+      const chars = (data.characters ?? []).map(c => ({ ...c, selectedIdx: 0 }));
+      setCastCharacters(chars);
+      setCastingStep(true);
+    } catch (err) {
+      setCastError(err instanceof Error ? err.message : "Error generando el elenco");
+    } finally {
+      setCastingLoading(false);
+    }
+  }
+
   async function loadHooks() {
     if (!validateStep(1)) return;
     setHooksLoading(true);
@@ -175,31 +309,132 @@ function NewProjectForm() {
     setGenError(null);
     setGenStep(0);
 
-    // Inject chosen hook via additional_instructions
+    // Inject chosen hook + cast design into additional_instructions
     const hook = hookOverride !== undefined ? hookOverride : selectedHook;
+    const castContext = castCharacters.length > 0
+      ? `\n[ELENCO DISEÑADO]: ${castCharacters.map(c => `${c.name} (${c.role}, ${c.voice_profile}): ${(c.personality ?? "").slice(0, 120)}`).join(" | ")}`
+      : "";
     const extraInstructions = hook
-      ? `[HOOK ELEGIDO]: ${hook.text}${form.additional_instructions ? `\n${form.additional_instructions}` : ""}`
-      : form.additional_instructions;
+      ? `[HOOK ELEGIDO]: ${hook.text}${castContext}${form.additional_instructions ? `\n${form.additional_instructions}` : ""}`
+      : `${castContext.trimStart()}${form.additional_instructions ? (castContext ? `\n${form.additional_instructions}` : form.additional_instructions) : ""}`;
 
     let si = 0;
     const iv = setInterval(() => { if (si < GEN_STEPS.length - 2) { si++; setGenStep(si); } }, 1100);
     try {
+      // The cast the user designed/selected on the "Elenco" screen — each member
+      // carries the portrait they picked, so production can match face↔speaker.
+      const castPayload = castCharacters.length > 0
+        ? castCharacters.map((c) => ({
+            name: c.name,
+            role: c.role,
+            voice_profile: c.voice_profile,
+            reference_image_url: c.options[c.selectedIdx] || undefined,
+          }))
+        : undefined;
       const res = await fetch("/api/generate/story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, additional_instructions: extraInstructions }),
+        body: JSON.stringify({ ...form, additional_instructions: extraInstructions, character_id: characterId ?? undefined, animation_tier: tier, cast: castPayload }),
       });
       clearInterval(iv);
+      if (res.status === 402) {
+        const e = await res.json() as { required?: number; credits?: number };
+        setGenerating(false);
+        setRechargeInfo({ required: e.required ?? 0, have: e.credits ?? credits ?? 0 });
+        return;
+      }
       if (!res.ok) { const e = await res.json() as { error?: string }; throw new Error(e.error ?? "Error"); }
       const data = await res.json() as { project_id: string | null; data: StoryOutput };
       setGenStep(GEN_STEPS.length - 1);
       setResult(data.data);
       setDbProjectId(data.project_id);
+      // Produce the video RIGHT HERE — no page change. The user watches the live
+      // build and the final reveal on this same screen.
+      if (data.project_id) {
+        setGenerating(false);
+        void produceInline(data.project_id, tier);
+      }
     } catch (err) {
       clearInterval(iv);
       setGenError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  // Run the full production pipeline inline (voice + images → clips → final),
+  // updating `prod` so the live screen reflects progress. No navigation.
+  async function produceInline(projectId: string, animTier: "kenburns" | "cinematic" | "talking") {
+    const post = (url: string, body: object) =>
+      fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    try {
+      setProd({ active: true, phase: "voice", error: null, videoUrl: null, projectId });
+
+      // Voice + images in parallel
+      setProd(p => p && { ...p, phase: "voice" });
+      const [voiceRes, imgRes] = await Promise.all([
+        post("/api/voice", { project_id: projectId }),
+        post("/api/images", { project_id: projectId }),
+      ]);
+      const voiceOk = (await voiceRes.json() as { success?: boolean }).success;
+      const imgOk = (await imgRes.json() as { success?: boolean }).success;
+      if (!voiceOk || !imgOk) throw new Error("No se pudo generar la voz o las imágenes");
+      setProd(p => p && { ...p, phase: "images" });
+
+      // Poll a set of jobs until all complete; returns the completed {scene,url} list.
+      const pollStage = async (initial: Array<{ scene_number: number; request_id: string }>, stage?: "motion" | "lipsync") => {
+        let jobs = initial.filter(j => j.request_id);
+        if (!jobs.length) throw new Error("La animación no se pudo enviar");
+        const urls: Array<{ scene_number: number; video_url: string }> = [];
+        for (let i = 0; i < 150 && jobs.length; i++) {
+          await new Promise(r => setTimeout(r, 6000));
+          const col = await (await post("/api/videos", { project_id: projectId, action: "collect", stage, jobs: jobs.map(j => ({ scene_number: j.scene_number, request_id: j.request_id })) })).json() as
+            { all_done: boolean; scenes: Array<{ scene_number: number; status: string; url?: string }> };
+          for (const s of col.scenes) if (s.status === "completed" && s.url) urls.push({ scene_number: s.scene_number, video_url: s.url });
+          if (col.all_done) break;
+          jobs = jobs.filter(j => { const s = col.scenes.find(s => s.scene_number === j.scene_number); return s?.status !== "completed" && s?.status !== "failed"; });
+        }
+        if (jobs.length) throw new Error("La animación tardó demasiado. Intenta de nuevo en un momento.");
+        return urls;
+      };
+
+      // Clips (only cine/habla — kenburns skips video model)
+      if (animTier !== "kenburns") {
+        setProd(p => p && { ...p, phase: "clips" });
+        const subData = await (await post("/api/videos", { project_id: projectId, action: "submit" })).json() as
+          { action?: string; pipeline?: string; jobs?: Array<{ scene_number: number; request_id: string; error?: string }> };
+        if (subData.action !== "skipped") {
+          const motionUrls = await pollStage(subData.jobs ?? [], subData.pipeline === "pro" ? "motion" : undefined);
+          // PRO pipeline stage 2: lip-sync the moving clips.
+          if (subData.pipeline === "pro") {
+            const ls = await (await post("/api/videos", { project_id: projectId, action: "lipsync_submit", motion: motionUrls })).json() as
+              { jobs?: Array<{ scene_number: number; request_id: string }> };
+            await pollStage(ls.jobs ?? [], "lipsync");
+          }
+        }
+      }
+
+      // Final assembly (Shotstack)
+      setProd(p => p && { ...p, phase: "final" });
+      const subFinal = await (await post("/api/assemble", { project_id: projectId, action: "submit", add_subtitles: true })).json() as { render_id?: string; error?: string };
+      if (!subFinal.render_id) throw new Error(subFinal.error ?? "No se pudo iniciar el montaje");
+      let videoUrl: string | null = null;
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const chk = await (await post("/api/assemble", { project_id: projectId, action: "check", render_id: subFinal.render_id })).json() as { status: string; url?: string };
+        if (chk.status === "done" && chk.url) { videoUrl = chk.url; break; }
+        if (chk.status === "failed") throw new Error("El montaje final falló");
+      }
+      if (!videoUrl) throw new Error("El montaje final tardó demasiado. Intenta de nuevo.");
+
+      setProd(p => p && { ...p, phase: "done", videoUrl });
+      const colors = ["#7c3aed", "#ec4899", "#f59e0b", "#10b981", "#fff"];
+      confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 }, colors });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      setProd(p => p ? { ...p, phase: "error", error: msg } : p);
+      // Refund the credit since production failed (server-side guarded).
+      try { await post("/api/credits/refund", { project_id: projectId }); } catch {}
     }
   }
 
@@ -258,20 +493,137 @@ function NewProjectForm() {
     );
   }
 
+  // ── PRODUCCIÓN INLINE (sin cambiar de página) ────────────────────────────────
+  if (prod) {
+    const phases = [
+      { key: "voice",  emoji: "🎙️", label: "Dando voz a tu elenco" },
+      { key: "images", emoji: "🎨", label: "Pintando las escenas" },
+      ...(tier !== "kenburns" ? [{ key: "clips", emoji: "🎬", label: "Dando movimiento" }] : []),
+      { key: "final",  emoji: "✨", label: "Montando tu microserie" },
+    ];
+    const curIdx = Math.max(0, phases.findIndex(p => p.key === prod.phase));
+    const cur = phases[curIdx] ?? phases[phases.length - 1]!;
+    const pct = prod.phase === "done" ? 100 : Math.round(((curIdx + 0.5) / phases.length) * 100);
+
+    // ── REVEAL del video listo ──
+    if (prod.phase === "done" && prod.videoUrl) {
+      return (
+        <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4 py-10">
+          <div className="vy-pop max-w-sm w-full rounded-3xl vy-grad-bg p-[1.5px] vy-glow">
+            <div className="rounded-3xl bg-zinc-950 p-6 text-center">
+              <h2 className="text-2xl font-extrabold vy-grad-text mb-1">¡Tu microserie está lista! 🎉</h2>
+              <p className="text-sm text-zinc-400 mb-4">Descárgala y conquista el feed</p>
+              <video src={prod.videoUrl} controls playsInline className="w-40 mx-auto rounded-xl border border-zinc-700 mb-4 aspect-[9/16] object-cover bg-black" />
+              <a href={prod.videoUrl} download className="w-full flex items-center justify-center gap-2 vy-grad-bg text-white font-extrabold py-3.5 rounded-2xl text-sm vy-press mb-2">
+                Descargar MP4
+              </a>
+              <button onClick={() => { setProd(null); setResult(null); setHookStep(false); setCastingStep(false); setCastCharacters([]); setStep(0); }} className="w-full border border-violet-700/50 text-violet-300 hover:bg-violet-950/40 font-semibold py-2.5 rounded-2xl text-xs transition-all mb-2">
+                ✨ Crear otra microserie
+              </button>
+              {prod.projectId && (
+                <Link href={`/dashboard/projects/${prod.projectId}`}>
+                  <button className="w-full text-xs text-zinc-500 hover:text-zinc-300 py-1.5 transition-colors">Ver detalle y kit de publicación →</button>
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── ERROR ──
+    if (prod.phase === "error") {
+      return (
+        <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4 text-center">
+          <div className="max-w-sm w-full vy-glass rounded-3xl p-7">
+            <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+            <h2 className="text-lg font-extrabold text-white mb-1">Algo se atascó</h2>
+            <p className="text-xs text-red-300 mb-1">{prod.error}</p>
+            <p className="text-[11px] text-zinc-500 mb-5">Te devolvimos tus NAVOS. Puedes reintentar.</p>
+            <button onClick={() => prod.projectId && produceInline(prod.projectId, tier)} className="w-full vy-grad-bg text-white font-extrabold py-3 rounded-2xl text-sm vy-press mb-2">
+              Reintentar
+            </button>
+            {prod.projectId && (
+              <Link href={`/dashboard/projects/${prod.projectId}`}>
+                <button className="w-full text-xs text-zinc-500 hover:text-zinc-300 py-1.5">Abrir en el estudio →</button>
+              </Link>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ── LIVE (en producción) ──
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
+        <div className="relative max-w-sm w-full vy-glass rounded-3xl p-7 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-300 mb-3">VYNAVO está creando</p>
+          <div className="flex justify-center mb-4" style={{ perspective: "700px" }}>
+            <div className="relative w-28 h-28">
+              <div className="absolute -inset-2 rounded-full border-2 border-transparent border-t-violet-500 border-r-pink-500 vy-ring-spin" />
+              <div className="vy-flip3d w-28 h-28 rounded-2xl vy-grad-bg flex items-center justify-center text-5xl">{cur.emoji}</div>
+              <div className="absolute -bottom-1.5 -right-1.5 w-9 h-9 rounded-full bg-zinc-950 border-2 border-cyan-400 flex items-center justify-center vy-pulse-soft">
+                <span className="text-[11px] font-bold text-cyan-300">{pct}</span>
+              </div>
+            </div>
+          </div>
+          <h2 className="text-lg font-bold vy-grad-text mb-1">{cur.label}…</h2>
+          <p className="text-sm text-fuchsia-200 mb-5">✨ Tu historia cobra vida en tiempo real</p>
+          <div className="space-y-2.5 text-left">
+            {phases.map((ph, i) => (
+              <div key={ph.key} className={`flex items-center gap-2.5 text-xs ${i === curIdx ? "vy-rise" : ""}`}>
+                {i < curIdx ? <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  : i === curIdx ? <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />
+                  : <span className="w-4 h-4 rounded-full border border-zinc-700 shrink-0" />}
+                <span className={i < curIdx ? "text-emerald-300" : i === curIdx ? "text-white font-semibold" : "text-zinc-600"}>{ph.label}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-zinc-600 mt-5">No cierres esta pantalla mientras se crea tu video</p>
+        </div>
+      </div>
+    );
+  }
+
   // ── HOOK SELECTION ──────────────────────────────────────────────────────────
   if (hookStep && !generating) {
+    const hookStepIdx = WIZARD_STEPS.length - 1; // "Gancho" is the last step
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col">
+        {rechargeInfo && <RechargeModal info={rechargeInfo} onClose={() => setRechargeInfo(null)} />}
         {/* Header */}
         <div className={`relative overflow-hidden border-b border-zinc-800/60`}>
           <div className={`absolute inset-0 bg-gradient-to-r ${theme.card} opacity-80 pointer-events-none`} />
-          <div className="relative px-4 pt-4 pb-5 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-700 mb-3">
-              <Flame className="w-3.5 h-3.5 text-orange-400" />
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">El hook = el 80% de tu viral</span>
+          <div className="relative px-4 pt-4 pb-5">
+            {/* Step indicator — "Gancho" active (5/5) */}
+            <div className="flex items-center justify-center gap-1.5 mb-4">
+              {WIZARD_STEPS.map((label, i) => {
+                const active = i === hookStepIdx;
+                return (
+                  <div key={label} className="flex items-center gap-1.5">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold transition-all duration-300 ${
+                        active ? "bg-white text-zinc-900" : "bg-emerald-600 text-white"
+                      }`}>
+                        {active ? i + 1 : <CheckCircle className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className={`text-[8px] font-bold uppercase tracking-wider ${active ? "text-white" : "text-zinc-600"}`}>{label}</span>
+                    </div>
+                    {i < WIZARD_STEPS.length - 1 && (
+                      <div className={`w-6 h-0.5 mb-4 rounded-full ${theme.bar}`} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <h1 className="text-xl font-extrabold text-white">Elige tu gancho de apertura</h1>
-            <p className="text-xs text-zinc-500 mt-1">Los primeros 2 segundos deciden si te ven o te skippean</p>
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-700 mb-3">
+                <Flame className="w-3.5 h-3.5 text-orange-400" />
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Último paso · el hook = el 80% de tu viral</span>
+              </div>
+              <h1 className="text-xl font-extrabold text-white">Elige tu gancho de apertura</h1>
+              <p className="text-xs text-zinc-500 mt-1">Toca el que más te guste y genera tu video</p>
+            </div>
           </div>
         </div>
 
@@ -337,7 +689,7 @@ function NewProjectForm() {
           <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-lg mx-auto">
             <div className="flex gap-3">
               <button
-                onClick={() => setHookStep(false)}
+                onClick={() => { setHookStep(false); setCastingStep(true); }}
                 className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm font-medium hover:border-zinc-700 transition-all shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -348,7 +700,7 @@ function NewProjectForm() {
                 className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-extrabold text-white transition-all active:scale-[0.98] shadow-lg ${theme.glow} bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed`}
               >
                 <Sparkles className="w-5 h-5" />
-                Generar con este hook
+                Generar mi video
                 <span className="text-[10px] font-normal opacity-70 ml-1">
                   · {credits !== null ? `${credits} NAVOS` : "…"}
                 </span>
@@ -360,139 +712,248 @@ function NewProjectForm() {
     );
   }
 
-  // ── RESULT ──────────────────────────────────────────────────────────────────
-  if (result) {
+  // ── CASTING SELECTION ────────────────────────────────────────────────────────
+  if (castingStep && !hookStep && !generating) {
+    const castingStepIdx = 3; // "Elenco" is index 3 in WIZARD_STEPS
     return (
-      <div className="min-h-screen bg-zinc-950">
-        <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/30 to-transparent h-48 pointer-events-none" />
-          <div className="relative max-w-lg mx-auto px-4 pt-8 pb-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-900/40 border border-emerald-700/30 flex items-center justify-center mx-auto mb-3">
-              <CheckCircle className="w-8 h-8 text-emerald-400" />
+      <div className="min-h-screen bg-zinc-950 flex flex-col">
+        {rechargeInfo && <RechargeModal info={rechargeInfo} onClose={() => setRechargeInfo(null)} />}
+        {/* Header */}
+        <div className="relative overflow-hidden border-b border-zinc-800/60">
+          <div className={`absolute inset-0 bg-gradient-to-r ${theme.card} opacity-80 pointer-events-none`} />
+          <div className="relative px-4 pt-4 pb-5">
+            {/* Step indicator */}
+            <div className="flex items-center justify-center gap-1.5 mb-4">
+              {WIZARD_STEPS.map((label, i) => {
+                const active = i === castingStepIdx;
+                return (
+                  <div key={label} className="flex items-center gap-1.5">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold transition-all duration-300 ${
+                        i < castingStepIdx ? "bg-emerald-600 text-white" :
+                        active ? "bg-white text-zinc-900" :
+                        "bg-zinc-800 text-zinc-600"
+                      }`}>
+                        {i < castingStepIdx ? <CheckCircle className="w-3.5 h-3.5" /> : i + 1}
+                      </div>
+                      <span className={`text-[8px] font-bold uppercase tracking-wider ${active ? "text-white" : "text-zinc-600"}`}>{label}</span>
+                    </div>
+                    {i < WIZARD_STEPS.length - 1 && (
+                      <div className={`w-6 h-0.5 mb-4 rounded-full ${i < castingStepIdx ? theme.bar : "bg-zinc-800"}`} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <h1 className="text-2xl font-extrabold text-white mb-1">Historia creada</h1>
-            <p className="text-sm text-zinc-500">
-              {result.production_notes?.scene_count ?? result.scenes.length} escenas ·{" "}
-              {result.production_notes?.total_duration_seconds}s ·{" "}
-              <span className={theme.accent + " capitalize font-medium"}>{result.meta.tone}</span>
-            </p>
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-700 mb-3">
+                <Users className="w-3.5 h-3.5 text-violet-400" />
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Tu elenco · Elige el retrato de cada personaje</span>
+              </div>
+              <h1 className="text-xl font-extrabold text-white">Conoce a tus personajes</h1>
+              <p className="text-xs text-zinc-500 mt-1">La IA diseñó este elenco para tu historia. Elige el aspecto de cada uno.</p>
+            </div>
           </div>
         </div>
 
-        <div className="max-w-lg mx-auto px-4 pb-24 space-y-4">
-          {/* Title */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Título</p>
-            <h2 className="text-lg font-extrabold text-white leading-tight">{result.meta.title}</h2>
-          </div>
+        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-5 space-y-6 pb-32">
 
-          {/* Hook */}
-          <div className={`relative bg-gradient-to-br ${theme.card} border ${theme.border} rounded-2xl p-5`}>
-            <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${theme.accent}`}>🎣 Hook de apertura</p>
-            <p className="text-base text-white italic font-medium leading-relaxed">
-              &ldquo;{result.story.hook}&rdquo;
-            </p>
-            <button
-              onClick={() => { void navigator.clipboard.writeText(result.story.hook); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-              className="absolute top-4 right-4 p-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-700/60 transition-colors"
-            >
-              {copied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
-            </button>
-          </div>
+          {castError && (
+            <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-700/40 rounded-xl">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-300">{castError}</p>
+            </div>
+          )}
 
-          {/* Scenes preview */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3">
-            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Escenas</p>
-            {result.scenes.slice(0, 4).map((s) => (
-              <div key={s.scene_number} className="flex gap-3">
-                <div className={`w-6 h-6 rounded-full ${theme.pill} border flex items-center justify-center shrink-0 text-[10px] font-extrabold`}>
-                  {s.scene_number}
+          {castCharacters.map((char, ci) => (
+            <div key={char.name} className="space-y-3">
+              {/* Character header */}
+              <div className={`flex items-start gap-3 p-4 rounded-2xl border bg-gradient-to-br ${theme.card} ${theme.border}`}>
+                <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-lg bg-zinc-900 border ${theme.border}`}>
+                  {char.gender === "female" ? "👩" : char.gender === "male" ? "👨" : "🧑"}
                 </div>
-                <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2">{s.narration_text}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-extrabold text-white text-sm">{char.name}</p>
+                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${theme.pill}`}>{char.role}</span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed line-clamp-2">{char.personality}</p>
+                  <p className={`text-[10px] font-medium mt-1 ${theme.accent}`}>
+                    🎙 {VOICE_PROFILE_LABELS[char.voice_profile] ?? char.voice_profile}
+                  </p>
+                </div>
               </div>
-            ))}
-            {result.scenes.length > 4 && (
-              <p className="text-xs text-zinc-700 pl-9">+ {result.scenes.length - 4} escenas más…</p>
-            )}
-          </div>
 
-          {/* SEO */}
-          {result.seo && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-              <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Hashtags generados</p>
-              <div className="flex flex-wrap gap-1.5">
-                {result.seo.hashtags.slice(0, 8).map(h => (
-                  <span key={h} className="text-[10px] px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400">{h}</span>
-                ))}
-              </div>
+              {/* Portrait grid */}
+              {char.options.length > 0 ? (
+                <div>
+                  <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Elige su aspecto</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {char.options.map((url, oi) => (
+                      <button
+                        key={oi}
+                        onClick={() => setCastCharacters(prev =>
+                          prev.map((c, idx) => idx === ci ? { ...c, selectedIdx: oi } : c)
+                        )}
+                        className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all duration-200 ${
+                          char.selectedIdx === oi
+                            ? `${theme.selected} scale-[1.03] shadow-xl`
+                            : "border-zinc-800 hover:border-zinc-600"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`${char.name} opción ${oi + 1}`} className="w-full h-full object-cover" />
+                        {char.selectedIdx === oi && (
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                          <p className="text-[9px] font-bold text-zinc-300">Opción {oi + 1}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="py-3 text-center text-xs text-zinc-600 bg-zinc-900 rounded-xl border border-zinc-800">
+                  Sin opciones de retrato generadas
+                </div>
+              )}
             </div>
-          )}
+          ))}
 
-          {/* CTAs */}
+          {/* Divider + skip */}
           <button
-            onClick={() => router.push(dbProjectId ? `/dashboard/projects/${dbProjectId}` : "/dashboard")}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-extrabold py-4 rounded-2xl text-sm transition-all shadow-lg shadow-violet-900/30 active:scale-[0.98]"
+            onClick={() => void loadHooks()}
+            className="w-full py-3 rounded-xl border border-zinc-800 text-zinc-600 text-xs hover:border-zinc-700 hover:text-zinc-400 transition-all"
           >
-            <Zap className="w-5 h-5" />
-            Iniciar producción de video
-            <ArrowRight className="w-5 h-5" />
+            Saltar selección de retratos
           </button>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => { setResult(null); setDbProjectId(null); setForm(f => ({ ...DEFAULTS, niche: f.niche, tone: f.tone, duration_target: f.duration_target })); setStep(1); }}
-              className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 text-xs font-medium transition-all"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Otro del mismo nicho
-            </button>
-            <button
-              onClick={() => { setResult(null); setDbProjectId(null); setForm(DEFAULTS); setStep(0); }}
-              className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 text-xs font-medium transition-all"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Historia nueva
-            </button>
+        {/* Fixed bottom CTA */}
+        <div className="fixed bottom-0 left-0 right-0 z-20">
+          <div className={`absolute inset-0 bg-gradient-to-t ${theme.card} opacity-30 pointer-events-none`} />
+          <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-lg mx-auto">
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCastingStep(false)}
+                className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm font-medium hover:border-zinc-700 transition-all shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => void loadHooks()}
+                disabled={hooksLoading}
+                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-extrabold text-white transition-all active:scale-[0.98] shadow-lg ${theme.glow} bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 disabled:opacity-40`}
+              >
+                {hooksLoading ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Generando gancho…</>
+                ) : (
+                  <>Confirmar elenco <ArrowRight className="w-4 h-4" /></>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── RESULT — auto-redirect splash ───────────────────────────────────────────
+  if (result) {
+    const sceneCount = result.production_notes?.scene_count ?? result.scenes.length;
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4 relative overflow-hidden">
+        <div className={`absolute inset-0 bg-gradient-to-br ${theme.card} opacity-40 pointer-events-none`} />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full blur-3xl opacity-10 pointer-events-none bg-emerald-500" />
+
+        <div className="relative z-10 max-w-sm w-full text-center space-y-6">
+          {/* Success icon */}
+          <div className="relative mx-auto w-20 h-20">
+            <div className="w-20 h-20 rounded-3xl bg-emerald-900/60 border border-emerald-600/40 flex items-center justify-center shadow-2xl">
+              <CheckCircle className="w-10 h-10 text-emerald-400" />
+            </div>
+            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 animate-ping" />
           </div>
 
-          {credits !== null && credits <= 3 && credits > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-amber-950/30 border border-amber-700/30 rounded-xl">
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-              <p className="text-xs text-amber-300">
-                Te quedan <strong>{credits} NAVOS</strong>.{" "}
-                <a href="/pricing" className="underline">Recarga →</a>
-              </p>
+          <div>
+            <h2 className="text-2xl font-extrabold text-white">¡Historia lista!</h2>
+            <p className="text-sm text-zinc-400 mt-1">
+              {sceneCount} escenas · {result.production_notes?.total_duration_seconds}s ·{" "}
+              <span className={`${theme.accent} capitalize font-medium`}>{result.meta.tone}</span>
+            </p>
+          </div>
+
+          {/* Hook preview */}
+          <div className={`bg-gradient-to-br ${theme.card} border ${theme.border} rounded-2xl p-4 text-left`}>
+            <p className={`text-[10px] font-bold uppercase tracking-widest mb-1.5 ${theme.accent}`}>🎣 Tu hook</p>
+            <p className="text-sm text-white italic leading-relaxed line-clamp-3">&ldquo;{result.story.hook}&rdquo;</p>
+          </div>
+
+          {/* Countdown + status */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 text-zinc-400 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin text-violet-400" />
+              <span>
+                {redirectCountdown !== null && redirectCountdown > 0
+                  ? `Iniciando producción en ${redirectCountdown}s…`
+                  : "Iniciando producción…"}
+              </span>
             </div>
-          )}
+
+            {/* Progress bar countdown */}
+            <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-violet-600 to-pink-600 rounded-full transition-all duration-1000"
+                style={{ width: redirectCountdown === 2 ? "0%" : redirectCountdown === 1 ? "50%" : "100%" }}
+              />
+            </div>
+
+            {/* Manual override */}
+            <button
+              onClick={() => {
+                if (redirectTimer.current) clearInterval(redirectTimer.current);
+                router.push(dbProjectId ? `/dashboard/projects/${dbProjectId}?autostart=1` : "/dashboard");
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 text-white text-sm font-extrabold shadow-lg"
+            >
+              <Zap className="w-4 h-4" /> Ir ahora <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   // ── FORM WIZARD ─────────────────────────────────────────────────────────────
-  const STEPS = ["Universo", "Historia", "Visión"];
+  const STEPS = WIZARD_STEPS;
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col">
+      {rechargeInfo && <RechargeModal info={rechargeInfo} onClose={() => setRechargeInfo(null)} />}
 
       {/* ── Dynamic header with theme color ── */}
       <div className={`relative overflow-hidden border-b border-zinc-800/60 transition-all duration-500`}>
         <div className={`absolute inset-0 bg-gradient-to-r ${theme.card} opacity-80 pointer-events-none transition-all duration-500`} />
         <div className="relative px-4 pt-4 pb-5">
           {/* Step indicator */}
-          <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="flex items-center justify-center gap-1.5 mb-4">
             {STEPS.map((label, i) => (
-              <div key={label} className="flex items-center gap-2">
+              <div key={label} className="flex items-center gap-1.5">
                 <div className="flex flex-col items-center gap-1">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold transition-all duration-300 ${
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold transition-all duration-300 ${
                     i < step ? "bg-emerald-600 text-white" :
                     i === step ? "bg-white text-zinc-900" :
                     "bg-zinc-800 text-zinc-600"
                   }`}>
-                    {i < step ? <CheckCircle className="w-4 h-4" /> : i + 1}
+                    {i < step ? <CheckCircle className="w-3.5 h-3.5" /> : i + 1}
                   </div>
-                  <span className={`text-[9px] font-bold uppercase tracking-wider transition-colors ${i === step ? "text-white" : "text-zinc-600"}`}>{label}</span>
+                  <span className={`text-[8px] font-bold uppercase tracking-wider transition-colors ${i === step ? "text-white" : "text-zinc-600"}`}>{label}</span>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={`w-8 h-0.5 mb-4 rounded-full transition-all duration-500 ${i < step ? theme.bar : "bg-zinc-800"}`} />
+                  <div className={`w-6 h-0.5 mb-4 rounded-full transition-all duration-500 ${i < step ? theme.bar : "bg-zinc-800"}`} />
                 )}
               </div>
             ))}
@@ -721,6 +1182,52 @@ function NewProjectForm() {
             </div>
           </div>
 
+          {/* Calidad premium — un solo nivel, el mejor */}
+          <div className="vy-glass rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl vy-grad-bg flex items-center justify-center shrink-0 text-xl">🗣️</div>
+            <p className="flex-1 text-sm font-bold vy-grad-text">Generar video</p>
+            <span className="text-[11px] font-bold text-violet-300 shrink-0">{CREDIT_COST_BY_TIER.talking.toLocaleString("es")} NAVOS</span>
+          </div>
+
+          {/* Personaje recurrente (opcional) */}
+          {savedCharacters.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-zinc-400 mb-3">
+                Personaje <span className="text-zinc-600 font-normal">· reusa el mismo en esta historia (opcional)</span>
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <button
+                  onClick={() => setCharacterId(null)}
+                  className={`flex-shrink-0 w-20 rounded-xl border p-2 text-center transition-all ${
+                    characterId === null ? `bg-gradient-to-br ${theme.card} ${theme.border}` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                  }`}
+                >
+                  <div className="w-full aspect-square rounded-lg bg-zinc-800 grid place-items-center mb-1">
+                    <span className="text-lg">✨</span>
+                  </div>
+                  <p className="text-[10px] font-semibold text-zinc-300 truncate">Nuevo</p>
+                </button>
+                {savedCharacters.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setCharacterId(c.id)}
+                    className={`flex-shrink-0 w-20 rounded-xl border p-2 text-center transition-all ${
+                      characterId === c.id ? `bg-gradient-to-br ${theme.card} ${theme.border}` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                    }`}
+                  >
+                    <div className="w-full aspect-square rounded-lg bg-zinc-950 overflow-hidden mb-1">
+                      {c.reference_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.reference_image_url} alt={c.name} className="w-full h-full object-cover" />
+                      ) : null}
+                    </div>
+                    <p className="text-[10px] font-semibold text-white truncate">{c.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Platform + Language */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -811,19 +1318,14 @@ function NewProjectForm() {
               </button>
             ) : (
               <button
-                onClick={() => void loadHooks()}
-                disabled={credits === 0 || hooksLoading}
+                onClick={() => void loadCasting()}
+                disabled={credits === 0 || castingLoading}
                 className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-extrabold text-white transition-all active:scale-[0.98] shadow-lg ${theme.glow} bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed`}
               >
-                {hooksLoading ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Creando hooks…</>
+                {castingLoading ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Diseñando el elenco…</>
                 ) : (
-                  <><Flame className="w-5 h-5" /> Elegir mi gancho viral</>
-                )}
-                {!hooksLoading && (
-                  <span className="text-[10px] font-normal opacity-70 ml-1">
-                    · {credits !== null ? `${credits} NAVOS` : "…"}
-                  </span>
+                  <><Users className="w-4 h-4" /> Conocer mi elenco <ArrowRight className="w-4 h-4" /></>
                 )}
               </button>
             )}

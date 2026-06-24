@@ -11,53 +11,53 @@ const PLANS = [
   {
     id: "starter",
     name: "Starter",
-    navos: 30,
-    videos: 3,
+    navos: 9000,
+    videos: 1,
     monthly: 9,
     annual: 7,
-    perVideo: { monthly: "3.00", annual: "2.33" },
+    perVideo: { monthly: "9.00", annual: "7.00" },
     accent: "from-zinc-700 to-zinc-800",
     border: "border-zinc-700",
     glow: "",
     badge: null as string | null,
     badgeColor: "",
-    features: ["30 NAVOS / mes", "3 videos / mes", "Kit de publicación", "Descarga MP4"],
-    locked: ["Soporte prioritario", "Analíticas avanzadas"],
+    features: ["1 video premium / mes", "Personajes que HABLAN (lip-sync)", "Elenco IA + voz por personaje", "Subtítulos karaoke + kit de publicación"],
+    locked: ["Más volumen", "Soporte prioritario"],
     cta: "Comenzar",
     ctaStyle: "bg-zinc-700 hover:bg-zinc-600 text-white",
   },
   {
     id: "creator",
     name: "Creador",
-    navos: 70,
-    videos: 7,
+    navos: 29000,
+    videos: 3,
     monthly: 29,
     annual: 24,
-    perVideo: { monthly: "4.14", annual: "3.43" },
+    perVideo: { monthly: "9.67", annual: "8.00" },
     accent: "from-blue-900 to-blue-950",
     border: "border-blue-800/50",
     glow: "",
     badge: null as string | null,
     badgeColor: "",
-    features: ["70 NAVOS / mes", "7 videos / mes", "Kit de publicación", "Descarga MP4"],
-    locked: ["Soporte prioritario", "Analíticas avanzadas"],
+    features: ["3 videos premium / mes", "Personajes recurrentes guardados", "Sube tu producto a los anuncios", "Todo lo de Starter"],
+    locked: ["Soporte prioritario"],
     cta: "Elegir Creador",
     ctaStyle: "bg-blue-700 hover:bg-blue-600 text-white",
   },
   {
     id: "pro",
     name: "Pro",
-    navos: 200,
-    videos: 20,
+    navos: 49000,
+    videos: 5,
     monthly: 49,
     annual: 39,
-    perVideo: { monthly: "2.45", annual: "1.95" },
+    perVideo: { monthly: "9.80", annual: "7.80" },
     accent: "from-violet-900/80 to-purple-950",
     border: "border-violet-500",
     glow: "shadow-[0_0_40px_rgba(139,92,246,0.35)]",
     badge: "⚡ MÁS ELEGIDO",
     badgeColor: "bg-violet-600 text-white",
-    features: ["200 NAVOS / mes", "20 videos / mes", "Kit de publicación", "Descarga MP4", "Soporte prioritario", "Analíticas avanzadas"],
+    features: ["5 videos premium / mes", "Máxima calidad visual y de voz", "Personajes y anuncios UGC", "Soporte prioritario + acceso anticipado"],
     locked: [] as string[],
     cta: "Empezar con Pro",
     ctaStyle: "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-lg shadow-violet-900/50",
@@ -65,17 +65,17 @@ const PLANS = [
   {
     id: "studio",
     name: "Estudio",
-    navos: 500,
-    videos: 50,
+    navos: 99000,
+    videos: 11,
     monthly: 99,
     annual: 79,
-    perVideo: { monthly: "1.98", annual: "1.58" },
+    perVideo: { monthly: "9.00", annual: "7.18" },
     accent: "from-amber-900/60 to-zinc-900",
     border: "border-amber-700/50",
     glow: "",
     badge: null as string | null,
     badgeColor: "",
-    features: ["500 NAVOS / mes", "50 videos / mes", "Kit de publicación", "Descarga MP4", "Soporte 24/7", "Acceso API"],
+    features: ["11 videos premium / mes", "Máximo volumen, misma calidad", "Soporte 24/7 + facturación empresarial", "Acceso API (próximamente)"],
     locked: [] as string[],
     cta: "Elegir Estudio",
     ctaStyle: "bg-amber-700 hover:bg-amber-600 text-white",
@@ -164,7 +164,7 @@ export default function PricingPage() {
         <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-1">
           Elige tu plan — crea sin límites
         </h1>
-        <p className="text-sm text-zinc-500">Voz · Imágenes · Video MP4 listo para publicar cada mes</p>
+        <p className="text-sm text-zinc-500">Elenco IA · Voz por personaje · Lip-sync · Video MP4 listo para publicar</p>
 
         {/* Monthly / Annual toggle */}
         <div className="flex items-center justify-center gap-3 mt-5">
@@ -239,9 +239,14 @@ export default function PricingPage() {
                 {/* NAVOS pill */}
                 <div className={`flex items-center gap-1.5 rounded-xl px-3 py-2 mb-4 ${isHero ? "bg-violet-800/40 border border-violet-700/40" : "bg-zinc-800/60 border border-zinc-700/40"}`}>
                   <Zap className={`w-3.5 h-3.5 shrink-0 ${isHero ? "text-violet-400" : "text-zinc-500"}`} />
-                  <span className={`text-lg font-extrabold ${isHero ? "text-violet-200" : "text-zinc-300"}`}>{plan.navos}</span>
+                  <span className={`text-lg font-extrabold ${isHero ? "text-violet-200" : "text-zinc-300"}`}>{plan.navos.toLocaleString("es")}</span>
                   <span className={`text-[10px] font-bold ${isHero ? "text-violet-400" : "text-zinc-500"}`}>NAVOS / mes</span>
                 </div>
+
+                {/* Video count */}
+                <p className="text-[11px] text-zinc-400 mb-3 -mt-1">
+                  <span className="font-bold text-zinc-200">{plan.videos}</span> {plan.videos === 1 ? "video premium" : "videos premium"} / mes
+                </p>
 
                 {/* Features */}
                 <ul className="space-y-1.5 flex-1">
@@ -275,7 +280,7 @@ export default function PricingPage() {
 
                 {isHero && (
                   <p className="text-center text-[9px] text-violet-500 mt-1.5 font-medium">
-                    +3× videos que Creador por solo $20 más
+                    Más obras de arte al mes · el mejor costo por video
                   </p>
                 )}
               </div>
@@ -411,8 +416,8 @@ function RoiCalculator({ onSelectPlan }: { onSelectPlan: () => void }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function VsHiring() {
   const rows = [
-    { feature: "Costo por video", editor: "$200–$500", vynavo: "$2.45", win: true },
-    { feature: "Tiempo de entrega", editor: "3–7 días", vynavo: "~8 minutos", win: true },
+    { feature: "Costo por video", editor: "$200–$500", vynavo: "$9 (calidad cine)", win: true },
+    { feature: "Tiempo de entrega", editor: "3–7 días", vynavo: "~minutos", win: true },
     { feature: "Disponible 24/7", editor: "No", vynavo: "Sí", win: true },
     { feature: "Escala sin límite", editor: "No", vynavo: "Sí", win: true },
     { feature: "Kit de publicación incluido", editor: "No", vynavo: "Sí", win: true },
@@ -450,17 +455,17 @@ function VsHiring() {
 // ─────────────────────────────────────────────────────────────────────────────
 function WhatYouGet() {
   const steps = [
-    { icon: Mic, color: "bg-violet-800/40 text-violet-300", label: "Voz profesional", desc: "IA nativa en español — 8 voces según el tono de tu nicho" },
-    { icon: Image, color: "bg-blue-800/40 text-blue-300", label: "Imágenes cinematográficas", desc: "Generadas con Flux en formato 9:16 para vertical" },
-    { icon: Film, color: "bg-pink-800/40 text-pink-300", label: "Video animado", desc: "Movimiento fluido en cada escena — listo para TikTok, Reels y Shorts" },
-    { icon: Video, color: "bg-emerald-800/40 text-emerald-300", label: "Kit de publicación", desc: "Caption, hook, CTA, hashtags y estrategia de plataforma" },
+    { icon: Mic, color: "bg-violet-800/40 text-violet-300", label: "Elenco con voz propia", desc: "La IA diseña tus personajes y cada uno actúa con su propia voz (10 arquetipos)" },
+    { icon: Image, color: "bg-blue-800/40 text-blue-300", label: "Misma cara en todo", desc: "Imágenes de cine con realismo y el mismo personaje en cada escena" },
+    { icon: Film, color: "bg-pink-800/40 text-pink-300", label: "Personajes que hablan", desc: "Lip-sync de alta calidad: la boca se mueve con la voz — listo para TikTok/Reels/Shorts" },
+    { icon: Video, color: "bg-emerald-800/40 text-emerald-300", label: "Kit de publicación", desc: "Subtítulos karaoke, caption, hook, CTA, hashtags y estrategia" },
   ];
 
   return (
     <section className="max-w-3xl mx-auto px-5 pb-12">
       <div className="text-center mb-6">
         <span className="text-xs font-bold text-pink-400 uppercase tracking-widest">Todo incluido</span>
-        <h2 className="text-xl font-extrabold text-white mt-1">Lo que produces con cada NAVO</h2>
+        <h2 className="text-xl font-extrabold text-white mt-1">Lo que incluye cada microserie</h2>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {steps.map(({ icon: Icon, color, label, desc }) => (
@@ -531,9 +536,9 @@ function Faq() {
     { q: "¿Puedo cancelar cuando quiera?", a: "Sí, sin penalización y sin preguntas. Si cancelas antes de tu siguiente ciclo, conservas tus NAVOS hasta que se agoten. No hay contratos mínimos ni letra pequeña." },
     { q: "¿Qué pasa si se me acaban los NAVOS antes de fin de mes?", a: "Puedes upgradearte a un plan superior en cualquier momento y los NAVOS nuevos se acreditan de inmediato. También puedes comprar un paquete adicional si prefieres no cambiar de plan." },
     { q: "¿El video es realmente mío para monetizar?", a: "100%. Descargas el archivo MP4 y puedes publicarlo en TikTok, Instagram, YouTube o cualquier plataforma, monetizarlo con ads, incluirlo en cursos o venderlo a clientes. Sin restricciones de licencia." },
-    { q: "¿Necesito saber editar video o tener equipo?", a: "No. Solo necesitas una idea o un tema. La IA genera el guión, la voz, las imágenes y el video completo. Solo escribes y descargas. Cero habilidades técnicas requeridas." },
-    { q: "¿Funciona para cualquier nicho o idioma?", a: "Sí en ambos casos. Actualmente está optimizado para español con 8 voces profesionales. Los nichos disponibles incluyen terror, romance, misterio, inspiracional, thriller, comedia, documental y fantasía." },
-    { q: "¿Qué diferencia hay entre el plan Pro y el Estudio?", a: "El plan Estudio está pensado para agencias o creadores con alto volumen: 500 NAVOS al mes (50 videos), soporte 24/7 y acceso anticipado a la API para integraciones. Si creas más de 20 videos al mes, Estudio te da mejor costo por video." },
+    { q: "¿Necesito saber editar video o tener equipo?", a: "No. Solo necesitas una idea o un tema. La IA diseña el elenco, escribe el guion actuado, le da voz a cada personaje, genera las imágenes y arma el video completo. Solo escribes y descargas. Cero habilidades técnicas." },
+    { q: "¿Funciona para cualquier nicho o idioma?", a: "Sí en ambos casos. Optimizado para español con 10 arquetipos de voz por personaje. Los nichos incluyen terror, romance, misterio, inspiracional, thriller, comedia, documental y fantasía." },
+    { q: "¿Qué diferencia hay entre el plan Pro y el Estudio?", a: "Todos los planes producen la misma calidad premium (personajes que hablan, calidad obra de arte). Se diferencian por volumen: Pro rinde 5 videos al mes con soporte prioritario; Estudio rinde 11 videos al mes con soporte 24/7 y facturación empresarial." },
   ];
 
   return (

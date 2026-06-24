@@ -67,4 +67,70 @@ export async function initDb(): Promise<void> {
       throw err;
     }
   }
+
+  // ── Idempotent migrations (safe to run every boot) ──────────────────────────
+  // Track whether the credit spent on a project was already refunded after a
+  // failed production, so we never double-refund.
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN credit_refunded INTEGER NOT NULL DEFAULT 0");
+
+  // Recurring characters — the moat. A saved character locks in a reference image
+  // (the face/look) that future stories reuse, so the same character persists
+  // across many videos. projects.character_id links a project to a saved character.
+  await runMigration(db, "ALTER TABLE characters ADD COLUMN reference_image_url TEXT");
+  await runMigration(db, "ALTER TABLE characters ADD COLUMN niche TEXT");
+  await runMigration(db, "ALTER TABLE characters ADD COLUMN updated_at TEXT");
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN character_id TEXT");
+
+  // Per-project animation tier (kenburns|cinematic|talking) — chosen at creation,
+  // gated by the user's plan. Null falls back to the global ANIMATION_TIER default.
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN animation_tier TEXT");
+
+  // Per-scene speaker attribution — WHO speaks the narration and their voice
+  // archetype, so each character gets their own ElevenLabs voice (Phase 3).
+  await runMigration(db, "ALTER TABLE scenes ADD COLUMN speaker TEXT");
+  await runMigration(db, "ALTER TABLE scenes ADD COLUMN voice_profile TEXT");
+
+  // How many NAVOS this project actually cost (varies by animation tier). Lets the
+  // refund give back the exact amount spent, not a hardcoded 1.
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN credits_spent INTEGER NOT NULL DEFAULT 1");
+
+  // A user-uploaded reference image (their real product / creative asset) so the
+  // generated scenes feature it — the "made with AI but looks real" moment.
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN reference_image_url TEXT");
+
+  // The CAST chosen for a project (Phase 4): maps a character name → its selected
+  // portrait (reference_image_url) + voice archetype. Lets production resolve each
+  // scene's speaker to the right face (per-scene image reference) and voice.
+  await runMigration(db, `CREATE TABLE IF NOT EXISTS project_cast (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT,
+    voice_profile TEXT,
+    reference_image_url TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+
+  // ── One-time credit devaluation (NAVOS ×1000) ──────────────────────────────
+  // We moved from "1 credit = 1 video" to a devalued economy where each video
+  // costs THOUSANDS of NAVOS (see lib/config). Scale every existing balance ×1000
+  // ONCE so pre-existing users keep the same purchasing power. Guarded by app_meta
+  // so it can never run twice (which would over-inflate balances).
+  await runMigration(db, `CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)`);
+  const already = await db.execute({ sql: "SELECT 1 FROM app_meta WHERE key = ? LIMIT 1", args: ["credit_scale_v2"] });
+  if (already.rows.length === 0) {
+    await db.execute("UPDATE users SET credits = credits * 1000");
+    await db.execute({ sql: "INSERT INTO app_meta (key, value) VALUES (?, datetime('now'))", args: ["credit_scale_v2"] });
+  }
+}
+
+// Run a migration that may already have been applied; ignore "duplicate"/"exists" errors.
+async function runMigration(db: Client, sql: string): Promise<void> {
+  try {
+    await db.execute(sql);
+  } catch (err) {
+    const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+    if (msg.includes("duplicate column") || msg.includes("already exists")) return;
+    throw err;
+  }
 }

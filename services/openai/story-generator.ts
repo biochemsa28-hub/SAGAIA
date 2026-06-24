@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { StoryInputSchema, type StoryInput, type StoryOutput } from "@/lib/validators/story.schema";
 import { createAIAdapter, type AIAdapterResult } from "@/lib/ai/adapter";
-import { buildSystemPrompt, buildUserPrompt } from "@/lib/ai/prompts";
+import { buildSystemPrompt, buildUserPrompt, buildAdSystemPrompt, buildAdUserPrompt } from "@/lib/ai/prompts";
 import { validateStoryOutput } from "@/lib/validators/story.schema";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -60,9 +60,10 @@ export class StoryGeneratorService {
     }
     const input: StoryInput = inputParse.data;
 
-    // 2. Build prompts
-    const systemPrompt = buildSystemPrompt();
-    const userPrompt = buildUserPrompt(input);
+    // 2. Build prompts — ad format uses the UGC ad brain, else the drama brain.
+    const isAd = input.format === "ad";
+    const systemPrompt = isAd ? buildAdSystemPrompt() : buildSystemPrompt();
+    const userPrompt = isAd ? buildAdUserPrompt(input) : buildUserPrompt(input);
 
     // 3. First attempt
     console.log(`[StoryGenerator] Generating with ${this.adapter.providerName}...`);

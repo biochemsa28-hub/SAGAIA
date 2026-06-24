@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getProjectDetail, updateProjectStatus, upsertAsset } from "@/lib/db/repository";
+import { getProjectDetail, updateProjectStatus, upsertAsset, getCharacter, getProjectCast } from "@/lib/db/repository";
 import { generateProjectImages } from "@/services/fal/image-generator";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -34,6 +34,48 @@ export async function POST(req: NextRequest) {
       : detail.scenes;
     if (!targetScenes.length) return NextResponse.json({ error: "Escena no encontrada" }, { status: 404 });
 
+    // Decide the character reference image:
+    //  1) A SAVED recurring character linked to the project → highest priority,
+    //     so EVERY scene reuses that character's locked-in look.
+    //  2) Otherwise, for single-scene regen of scene > 1, use scene 1's image so
+    //     the regenerated scene keeps the same person.
+    let referenceImageUrl: string | undefined;
+    if (detail.project.character_id) {
+      const character = await getCharacter(detail.project.character_id, session.user.id);
+      referenceImageUrl = character?.reference_image_url ?? undefined;
+    }
+    // A user-uploaded product/creative image drives ALL scenes so the REAL asset
+    // appears in the ad (the "looks real, made with AI" moment).
+    if (!referenceImageUrl && detail.project.reference_image_url) {
+      referenceImageUrl = detail.project.reference_image_url;
+    }
+    if (!referenceImageUrl && parsed.data.scene_number && parsed.data.scene_number > 1) {
+      const scene1 = detail.scenes.find((s) => s.scene_number === 1);
+      const refAsset = detail.assets?.find(
+        (a) => a.asset_type === "image" && a.scene_id === scene1?.id
+      );
+      referenceImageUrl = refAsset?.public_url ?? undefined;
+    }
+
+    // Phase 4: build a per-scene reference from the project cast — each scene's
+    // speaker → that character's selected portrait. Only applies when NO single
+    // saved character overrides everything (that takes priority above).
+    let sceneReferences: Map<number, string> | undefined;
+    if (!detail.project.character_id) {
+      const cast = await getProjectCast(parsed.data.project_id).catch(() => []);
+      if (cast.length) {
+        const portraitByName = new Map(
+          cast.filter((c) => c.reference_image_url).map((c) => [c.name.trim().toLowerCase(), c.reference_image_url!])
+        );
+        const map = new Map<number, string>();
+        for (const s of targetScenes) {
+          const url = s.speaker ? portraitByName.get(s.speaker.trim().toLowerCase()) : undefined;
+          if (url) map.set(s.scene_number, url);
+        }
+        if (map.size) sceneReferences = map;
+      }
+    }
+
     const results = await generateProjectImages({
       projectId: parsed.data.project_id,
       niche: detail.project.niche,
@@ -42,6 +84,8 @@ export async function POST(req: NextRequest) {
         scene_number: s.scene_number,
         image_prompt: s.image_prompt ?? "",
       })),
+      referenceImageUrl,
+      sceneReferences,
     });
 
     // Save URLs to DB assets table

@@ -3,10 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { storyGeneratorService } from "@/services/openai/story-generator";
 import {
-  getUserById, deductCredit,
+  getUserById, deductCredits,
   createProject, saveGenerationResult, updateProjectStatus,
 } from "@/lib/db/repository";
 import { initDb } from "@/lib/db";
+import { creditCostForTier } from "@/lib/config";
 import { StoryInputSchema } from "@/lib/validators/story.schema";
 
 export const runtime = "nodejs";
@@ -40,10 +41,13 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const validItems = body.items.filter((it) => it.idea?.trim().length > 5);
-    if (user.credits < validItems.length) {
+    // Batch only produces the baseline (Ken Burns) tier — charge its real NAVO cost.
+    const costPerItem = creditCostForTier("kenburns");
+    const needed = validItems.length * costPerItem;
+    if (user.credits < needed) {
       return NextResponse.json({
-        error: `No tienes suficientes créditos. Necesitas ${validItems.length}, tienes ${user.credits}.`,
-        credits_needed: validItems.length,
+        error: `No tienes suficientes NAVOS. Necesitas ${needed}, tienes ${user.credits}.`,
+        credits_needed: needed,
         credits_available: user.credits,
       }, { status: 402 });
     }
@@ -75,10 +79,10 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Deduct credit
-        const { ok, remaining } = await deductCredit(session.user.id);
+        // Deduct the Ken Burns NAVO cost for this item
+        const { ok, remaining } = await deductCredits(session.user.id, costPerItem);
         if (!ok) {
-          results.push({ index: i, idea: item.idea, status: "error", error: `Sin créditos (quedan ${remaining})` });
+          results.push({ index: i, idea: item.idea, status: "error", error: `Sin NAVOS (quedan ${remaining})` });
           break;
         }
 
@@ -93,6 +97,8 @@ export async function POST(req: NextRequest) {
           language: item.language ?? "es",
           visualStyle: item.visual_style ?? "cinematic",
           aiProvider: process.env.FORCE_MOCK_AI === "true" ? "mock" : "openai",
+          animationTier: "kenburns",
+          creditsSpent: costPerItem,
         });
         await updateProjectStatus(projectId, "generating");
 

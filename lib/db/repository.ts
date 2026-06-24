@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
 import type { StoryOutput } from "@/lib/validators/story.schema";
+import { FREE_SIGNUP_NAVOS } from "@/lib/config";
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -44,8 +45,8 @@ export async function createUser(params: {
   const db = getDb();
   const id = uuidv4();
   await db.execute({
-    sql: "INSERT INTO users (id, email, name, password_hash, plan, credits) VALUES (?, ?, ?, ?, 'free', 5)",
-    args: [id, params.email, params.name, params.passwordHash],
+    sql: "INSERT INTO users (id, email, name, password_hash, plan, credits) VALUES (?, ?, ?, ?, 'free', ?)",
+    args: [id, params.email, params.name, params.passwordHash, FREE_SIGNUP_NAVOS],
   });
   return {
     id,
@@ -53,7 +54,7 @@ export async function createUser(params: {
     name: params.name,
     password_hash: params.passwordHash,
     plan: "free",
-    credits: 5,
+    credits: FREE_SIGNUP_NAVOS,
     created_at: new Date().toISOString(),
   };
 }
@@ -165,6 +166,173 @@ export async function deductCredit(userId: string): Promise<{ ok: boolean; remai
   return { ok: true, remaining: Number(row["credits"] ?? 0) };
 }
 
+// Atomic check-and-decrement for an arbitrary amount — only deducts if the user
+// has at least `amount` credits. Used so premium tiers can cost more than 1 NAVO.
+export async function deductCredits(userId: string, amount: number): Promise<{ ok: boolean; remaining: number }> {
+  const n = Math.max(1, Math.floor(amount));
+  const db = getDb();
+  const result = await db.execute({
+    sql: "UPDATE users SET credits = credits - ?, updated_at = datetime('now') WHERE id = ? AND credits >= ? RETURNING credits",
+    args: [n, userId, n],
+  });
+  if (result.rows.length === 0) {
+    return { ok: false, remaining: await getUserCredits(userId) };
+  }
+  const row = result.rows[0] as Record<string, unknown>;
+  return { ok: true, remaining: Number(row["credits"] ?? 0) };
+}
+
+// Refund the credits spent on a project after a failed production.
+// Atomic + idempotent: only refunds once per project (credit_refunded guard wins
+// the race), and only when the project genuinely has no final video deliverable.
+// Refunds the EXACT amount stored in projects.credits_spent (tier-aware).
+export async function refundCreditForProject(
+  userId: string,
+  projectId: string,
+): Promise<{ refunded: boolean; remaining: number }> {
+  const db = getDb();
+
+  // Don't refund if a final video already exists (production actually succeeded).
+  const hasVideo = await db.execute({
+    sql: "SELECT 1 FROM assets WHERE project_id = ? AND asset_type = 'final_video' LIMIT 1",
+    args: [projectId],
+  });
+  if (hasVideo.rows.length > 0) {
+    return { refunded: false, remaining: await getUserCredits(userId) };
+  }
+
+  // Atomically claim the refund slot — only one caller can flip 0 → 1.
+  // Return credits_spent so we refund exactly what was charged.
+  const claim = await db.execute({
+    sql: "UPDATE projects SET credit_refunded = 1, updated_at = datetime('now') WHERE id = ? AND user_id = ? AND credit_refunded = 0 RETURNING credits_spent",
+    args: [projectId, userId],
+  });
+  if (claim.rows.length === 0) {
+    // Already refunded (or not the owner) — no-op.
+    return { refunded: false, remaining: await getUserCredits(userId) };
+  }
+
+  const spent = Number((claim.rows[0] as Record<string, unknown>)["credits_spent"] ?? 1) || 1;
+  const remaining = await addCredits(userId, spent);
+  return { refunded: true, remaining };
+}
+
+// ─── Recurring Characters (the moat) ───────────────────────────────────────────
+
+export interface DbCharacter {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  archetype: string | null;
+  visual_prompt: string | null;
+  voice_style: string | null;
+  reference_image_url: string | null;
+  niche: string | null;
+  created_at: string;
+}
+
+export async function createCharacter(params: {
+  userId: string;
+  name: string;
+  description: string;
+  archetype?: string | null;
+  visualPrompt?: string | null;
+  voiceStyle?: string | null;
+  referenceImageUrl?: string | null;
+  niche?: string | null;
+}): Promise<DbCharacter> {
+  const db = getDb();
+  const id = uuidv4();
+  await db.execute({
+    sql: `INSERT INTO characters (id, user_id, name, description, archetype, visual_prompt, voice_style, reference_image_url, niche, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    args: [
+      id, params.userId, params.name, params.description,
+      params.archetype ?? null, params.visualPrompt ?? null, params.voiceStyle ?? null,
+      params.referenceImageUrl ?? null, params.niche ?? null,
+    ],
+  });
+  const c = await getCharacter(id, params.userId);
+  if (!c) throw new Error("Failed to create character");
+  return c;
+}
+
+export async function listCharacters(userId: string): Promise<DbCharacter[]> {
+  const db = getDb();
+  const result = await db.execute({
+    sql: "SELECT * FROM characters WHERE user_id = ? ORDER BY datetime(COALESCE(updated_at, created_at)) DESC",
+    args: [userId],
+  });
+  return result.rows as unknown as DbCharacter[];
+}
+
+export async function getCharacter(id: string, userId: string): Promise<DbCharacter | null> {
+  const db = getDb();
+  const result = await db.execute({
+    sql: "SELECT * FROM characters WHERE id = ? AND user_id = ?",
+    args: [id, userId],
+  });
+  return (result.rows[0] as unknown as DbCharacter) ?? null;
+}
+
+export async function deleteCharacter(id: string, userId: string): Promise<boolean> {
+  const db = getDb();
+  const result = await db.execute({
+    sql: "DELETE FROM characters WHERE id = ? AND user_id = ? RETURNING id",
+    args: [id, userId],
+  });
+  return result.rows.length > 0;
+}
+
+// Link a project to a saved character so its scenes reuse that character's look.
+export async function setProjectCharacter(projectId: string, userId: string, characterId: string | null): Promise<void> {
+  const db = getDb();
+  await db.execute({
+    sql: "UPDATE projects SET character_id = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?",
+    args: [characterId, projectId, userId],
+  });
+}
+
+// ─── Project Cast (Phase 4) ─────────────────────────────────────────────────
+// The cast chosen for ONE project: name → selected portrait + voice archetype.
+// Used at production time to give each scene's speaker the right face and voice.
+
+export interface DbCastMember {
+  id: string;
+  project_id: string;
+  name: string;
+  role: string | null;
+  voice_profile: string | null;
+  reference_image_url: string | null;
+}
+
+// Replace the whole cast for a project (idempotent — clears then inserts).
+export async function setProjectCast(
+  projectId: string,
+  members: Array<{ name: string; role?: string | null; voice_profile?: string | null; reference_image_url?: string | null }>,
+): Promise<void> {
+  const db = getDb();
+  await db.execute({ sql: "DELETE FROM project_cast WHERE project_id = ?", args: [projectId] });
+  for (const m of members) {
+    if (!m.name) continue;
+    await db.execute({
+      sql: `INSERT INTO project_cast (id, project_id, name, role, voice_profile, reference_image_url)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [uuidv4(), projectId, m.name, m.role ?? null, m.voice_profile ?? null, m.reference_image_url ?? null],
+    });
+  }
+}
+
+export async function getProjectCast(projectId: string): Promise<DbCastMember[]> {
+  const db = getDb();
+  const res = await db.execute({
+    sql: "SELECT * FROM project_cast WHERE project_id = ?",
+    args: [projectId],
+  });
+  return res.rows as unknown as DbCastMember[];
+}
+
 export async function addCredits(userId: string, amount: number): Promise<number> {
   const db = getDb();
   const result = await db.execute({
@@ -247,6 +415,9 @@ export interface DbProject {
   status: string;
   ai_provider: string;
   error_message: string | null;
+  character_id: string | null;
+  animation_tier: string | null;
+  reference_image_url: string | null;
   created_at: string;
   updated_at: string;
   // joined fields
@@ -270,21 +441,57 @@ export async function createProject(params: {
   language: string;
   visualStyle: string;
   aiProvider: string;
+  animationTier?: string | null;
+  creditsSpent?: number;
+  referenceImageUrl?: string | null;
 }): Promise<string> {
   const db = getDb();
   const id = uuidv4();
   await db.execute({
     sql: `INSERT INTO projects
-      (id, user_id, title, niche, sub_niche, topic, tone, duration_target, language, visual_style, status, ai_provider)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
+      (id, user_id, title, niche, sub_niche, topic, tone, duration_target, language, visual_style, status, ai_provider, animation_tier, credits_spent, reference_image_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
     args: [
       id, params.userId, params.title, params.niche,
       params.subNiche ?? null, params.topic, params.tone,
       params.durationTarget, params.language, params.visualStyle,
-      params.aiProvider,
+      params.aiProvider, params.animationTier ?? null,
+      Math.max(1, Math.floor(params.creditsSpent ?? 1)),
+      params.referenceImageUrl ?? null,
     ],
   });
   return id;
+}
+
+// Delete a project and all its child rows. Ownership-checked: only removes when
+// the project belongs to the user. Returns true if a project was actually deleted.
+export async function deleteProject(projectId: string, userId: string): Promise<boolean> {
+  const db = getDb();
+  // Verify ownership first.
+  const owns = await db.execute({
+    sql: "SELECT 1 FROM projects WHERE id = ? AND user_id = ? LIMIT 1",
+    args: [projectId, userId],
+  });
+  if (owns.rows.length === 0) return false;
+
+  // Delete children FIRST, in dependency order. Some FKs (assets.scene_id,
+  // jobs.project_id, api_logs.project_id) are NOT declared ON DELETE CASCADE, so
+  // the project row can't be removed until these are cleared by hand.
+  //  assets → scenes → stories (scenes.story_id), plus seo/cast/jobs/logs.
+  await db.execute({ sql: "DELETE FROM assets WHERE project_id = ?", args: [projectId] });
+  await db.execute({ sql: "DELETE FROM scenes WHERE project_id = ?", args: [projectId] });
+  await db.execute({ sql: "DELETE FROM seo_packages WHERE project_id = ?", args: [projectId] });
+  await db.execute({ sql: "DELETE FROM stories WHERE project_id = ?", args: [projectId] });
+  // Tables that may not exist on older DBs — guard individually.
+  for (const sql of [
+    "DELETE FROM project_cast WHERE project_id = ?",
+    "DELETE FROM jobs WHERE project_id = ?",
+    "DELETE FROM api_logs WHERE project_id = ?",
+  ]) {
+    try { await db.execute({ sql, args: [projectId] }); } catch { /* table may not exist */ }
+  }
+  await db.execute({ sql: "DELETE FROM projects WHERE id = ? AND user_id = ?", args: [projectId, userId] });
+  return true;
 }
 
 export async function updateProjectStatus(id: string, status: string, errorMessage?: string): Promise<void> {
@@ -359,13 +566,14 @@ export async function saveGenerationResult(params: {
   for (const scene of story.scenes) {
     await db.execute({
       sql: `INSERT INTO scenes
-        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         uuidv4(), projectId, storyId, scene.scene_number,
         scene.narration_text, scene.duration_seconds,
         scene.image_prompt ?? null, scene.animation_prompt ?? null,
         scene.emotion ?? null, scene.camera_move ?? null,
+        scene.speaker ?? null, scene.voice_profile ?? null,
       ],
     });
   }
@@ -415,6 +623,8 @@ export interface DbScene {
   animation_prompt: string | null;
   emotion: string | null;
   camera_move: string | null;
+  speaker: string | null;
+  voice_profile: string | null;
 }
 
 export interface DbSeoPackage {
@@ -488,6 +698,7 @@ export async function upsertAsset(params: {
   publicUrl: string;
   filePath?: string;
   mimeType?: string;
+  metadata?: string;  // JSON: word timings, duration, etc.
 }): Promise<void> {
   const db = getDb();
 
@@ -510,15 +721,15 @@ export async function upsertAsset(params: {
   if (existing.rows[0]) {
     const assetId = (existing.rows[0] as Record<string, unknown>)["id"] as string;
     await db.execute({
-      sql: "UPDATE assets SET public_url = ?, file_path = ?, status = 'done', updated_at = datetime('now') WHERE id = ?",
-      args: [params.publicUrl, params.filePath ?? null, assetId],
+      sql: "UPDATE assets SET public_url = ?, file_path = ?, status = 'done', metadata = COALESCE(?, metadata), updated_at = datetime('now') WHERE id = ?",
+      args: [params.publicUrl, params.filePath ?? null, params.metadata ?? null, assetId],
     });
   } else {
     await db.execute({
-      sql: `INSERT INTO assets (id, project_id, scene_id, asset_type, status, public_url, file_path, mime_type)
-            VALUES (?, ?, ?, ?, 'done', ?, ?, ?)`,
+      sql: `INSERT INTO assets (id, project_id, scene_id, asset_type, status, public_url, file_path, mime_type, metadata)
+            VALUES (?, ?, ?, ?, 'done', ?, ?, ?, ?)`,
       args: [uuidv4(), params.projectId, sceneId, params.assetType,
-             params.publicUrl, params.filePath ?? null, params.mimeType ?? null],
+             params.publicUrl, params.filePath ?? null, params.mimeType ?? null, params.metadata ?? null],
     });
   }
 }

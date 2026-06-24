@@ -11,6 +11,7 @@ const BASE_INPUT: StoryInput = {
   language: "es",
   visual_style: "cinematic",
   target_platform: "youtube_shorts",
+  format: "story",
 };
 
 describe("MockAIAdapter", () => {

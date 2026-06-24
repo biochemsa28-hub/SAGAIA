@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
         scene_number: s.scene_number,
         narration_text: s.narration_text,
         emotion: s.emotion,
+        voice_profile: s.voice_profile,
+        speaker: s.speaker,
       })),
     });
 
@@ -60,7 +62,21 @@ export async function POST(req: NextRequest) {
             );
             const { fal } = await import("@fal-ai/client");
             fal.config({ credentials: process.env.FAL_API_KEY });
-            const uploaded = await fal.storage.upload(file) as string;
+            // Retry the upload once — a transient failure here previously left a
+            // scene with no audio asset, misaligning the final render.
+            let uploaded: string;
+            try {
+              uploaded = await fal.storage.upload(file) as string;
+            } catch {
+              await new Promise((res) => setTimeout(res, 1000));
+              uploaded = await fal.storage.upload(file) as string;
+            }
+            // Persist word timings + real audio duration so the assembler can
+            // build perfectly-synced karaoke subtitles and match clip length.
+            const meta =
+              r.wordTimings || r.audioDurationSec
+                ? JSON.stringify({ duration: r.audioDurationSec, words: r.wordTimings })
+                : undefined;
             await upsertAsset({
               projectId: parsed.data.project_id,
               sceneNumber: r.sceneNumber,
@@ -68,6 +84,7 @@ export async function POST(req: NextRequest) {
               publicUrl: uploaded,
               filePath: r.filePath,
               mimeType: "audio/mpeg",
+              metadata: meta,
             });
           } catch (e) {
             console.error("[voice upload]", e instanceof Error ? e.message : e);

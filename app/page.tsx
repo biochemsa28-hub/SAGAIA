@@ -2,17 +2,17 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "VYNAVO — Crea microseries virales con IA en minutos",
+  title: "VYNAVO — Microseries virales con personajes que actúan, con IA",
   description:
-    "VYNAVO convierte tu idea en una microserie completo: voz profesional, imágenes generadas, clips animados y video final MP4 listo para TikTok, Reels e YouTube Shorts. Sin edición. Sin equipos.",
+    "VYNAVO diseña tu elenco, le da voz propia a cada personaje y produce la microserie completa: guion actuado, imágenes consistentes, lip-sync, subtítulos y video MP4 listo para TikTok, Reels y YouTube Shorts.",
   keywords: [
-    "microserie IA", "crear microseries con IA", "generador de videos cortos IA",
-    "TikTok automatizado", "Reels IA", "YouTube Shorts IA", "storytelling automatizado",
-    "producción de contenido IA", "VYNAVO"
+    "microserie IA", "telenovela IA", "personajes IA que hablan", "lip-sync IA",
+    "crear videos con IA", "TikTok automatizado", "Reels IA", "YouTube Shorts IA",
+    "elenco IA", "voces por personaje", "VYNAVO"
   ],
   openGraph: {
-    title: "VYNAVO — Microseries IA listos para publicar",
-    description: "De idea a video viral en 7 minutos. Voz · Imágenes · Clips · Video MP4.",
+    title: "VYNAVO — Microseries IA con elenco y voces propias",
+    description: "De idea a microserie viral en minutos. Elenco IA · Voz por personaje · Lip-sync · MP4.",
     url: "https://vynavo.vercel.app",
     siteName: "VYNAVO Studio",
     type: "website",
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "VYNAVO — Microseries IA en minutos",
-    description: "Crea microseries completos con IA: voz, imágenes, clips y video final.",
+    title: "VYNAVO — Microseries IA con personajes que actúan",
+    description: "Elenco diseñado por IA, voz por personaje y video final listo para publicar.",
     images: ["/og-image.png"],
   },
   alternates: { canonical: "https://vynavo.vercel.app" },
@@ -30,30 +30,38 @@ export const metadata: Metadata = {
 
 const FEATURES = [
   {
-    icon: "🎤", color: "emerald", title: "Voz profesional",
-    desc: "ElevenLabs genera narración natural en tu idioma con el tono exacto de tu historia.",
+    icon: "🎭", title: "Elenco diseñado por IA",
+    desc: "La IA crea los personajes que tu historia necesita y tú eliges sus caras. Un elenco que tu audiencia reconoce y quiere seguir.",
   },
   {
-    icon: "🖼️", color: "blue", title: "Imágenes cinematográficas",
-    desc: "Flux Schnell crea imágenes 9:16 ultra-realistas adaptadas a cada escena.",
+    icon: "🗣️", title: "Cada personaje con su voz",
+    desc: "Voces distintas por personaje — hombre, mujer, niño, villano — que ACTÚAN su diálogo. No un narrador plano, una micronovela.",
   },
   {
-    icon: "🎬", color: "purple", title: "Clips animados",
-    desc: "Kling v1.6 anima cada imagen con movimiento de cámara cinematográfico.",
+    icon: "🎬", title: "Calidad obra de arte",
+    desc: "Un solo nivel: el mejor. Cada video se produce en máxima calidad con lip-sync — personajes que de verdad hablan a cámara.",
   },
   {
-    icon: "⚡", color: "pink", title: "Video final MP4",
-    desc: "Shotstack ensambla todo en un video 1080×1920 con subtítulos y audio sincronizado.",
+    icon: "🖼️", title: "Misma cara en todo",
+    desc: "Imágenes de cine con capa de realismo y el MISMO personaje en cada escena — y en todos tus videos. Tu sello propio.",
+  },
+  {
+    icon: "💬", title: "Subtítulos karaoke",
+    desc: "Subtítulos palabra por palabra, sincronizados al audio real, que disparan la retención en los primeros segundos.",
+  },
+  {
+    icon: "⚡", title: "Video MP4 + kit viral",
+    desc: "Video 9:16 final con SEO, hashtags, hook y estrategia de publicación lista para TikTok, Reels y Shorts.",
   },
 ];
 
 const NICHES = ["💔 Dramas de pareja", "👻 Terror psicológico", "💼 Negocios & éxito", "🌍 Historias reales", "🧠 Motivación", "💋 Romance"];
 
 const STATS = [
-  { value: "7 min", label: "Tiempo promedio de producción" },
-  { value: "1 crédito", label: "Por microserie completo" },
-  { value: "9:16", label: "Formato vertical optimizado" },
-  { value: "3 plataformas", label: "TikTok · Reels · Shorts" },
+  { value: "Obra de arte", label: "Calidad en cada video" },
+  { value: "10 voces", label: "Arquetipos por personaje" },
+  { value: "Lip-sync", label: "Personajes que hablan" },
+  { value: "9:16", label: "TikTok · Reels · Shorts" },
 ];
 
 export default function HomePage() {
@@ -92,20 +100,20 @@ export default function HomePage() {
 
         <div className="relative max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-violet-600/10 border border-violet-700/30 rounded-full px-4 py-1.5 mb-8 text-xs text-violet-300 font-medium">
-            ✦ Producción IA completa · Sin experiencia requerida
+            ✦ Elenco IA · Voz por personaje · Lip-sync
           </div>
 
           <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight">
-            De idea a{" "}
+            Microseries con{" "}
             <span className="bg-gradient-to-r from-violet-400 via-pink-400 to-orange-400 bg-clip-text text-transparent">
-              microserie viral
+              personajes que actúan
             </span>
-            {" "}en 7 minutos
+            {" "}— creados con IA
           </h1>
 
           <p className="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            VYNAVO produce todo automáticamente — voz, imágenes, clips animados y video MP4 final
-            listo para publicar en TikTok, Reels y YouTube Shorts.
+            VYNAVO diseña tu elenco, le da voz propia a cada personaje y produce la microserie completa:
+            guion actuado, imágenes consistentes, subtítulos y video MP4 listo para publicar.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -113,7 +121,7 @@ export default function HomePage() {
               href="/register"
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold px-8 py-4 rounded-xl text-base transition-all shadow-xl shadow-violet-900/30"
             >
-              ⚡ Crear mi primer microserie gratis
+              ⚡ Crear mi primera microserie gratis
             </Link>
             <Link
               href="/login"
@@ -123,7 +131,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <p className="text-xs text-zinc-600 mt-4">5 créditos gratis al registrarte · Sin tarjeta</p>
+          <p className="text-xs text-zinc-600 mt-4">NAVOS de regalo al registrarte · Sin tarjeta</p>
         </div>
       </section>
 
@@ -143,8 +151,8 @@ export default function HomePage() {
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-3">Todo incluido en un solo clic</h2>
-            <p className="text-zinc-400">Cada crédito activa el pipeline completo de producción</p>
+            <h2 className="text-3xl font-bold mb-3">Un estudio completo, en un solo clic</h2>
+            <p className="text-zinc-400">Tu idea entra como texto y sale como microserie lista para viralizar</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {FEATURES.map((f) => (
@@ -184,7 +192,7 @@ export default function HomePage() {
           <h2 className="text-4xl font-extrabold mb-4 leading-tight">
             Empieza a producir hoy
           </h2>
-          <p className="text-zinc-400 mb-8">5 microseries gratis. Sin tarjeta de crédito.</p>
+          <p className="text-zinc-400 mb-8">NAVOS de regalo al registrarte. Sin tarjeta de crédito.</p>
           <Link
             href="/register"
             className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold px-10 py-4 rounded-xl text-base transition-all shadow-xl shadow-violet-900/30"

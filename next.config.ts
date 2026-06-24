@@ -34,6 +34,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Self-contained build for Docker / VPS (Coolify, Dokploy, Hetzner…).
+  // Produces .next/standalone with a minimal node server — no Vercel needed.
+  output: "standalone",
   serverExternalPackages: ["@libsql/client"],
   images: {
     remotePatterns: [

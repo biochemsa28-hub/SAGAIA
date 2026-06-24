@@ -36,6 +36,11 @@ function getApiKey(): string {
   return key;
 }
 
+// Premium animation model — Seedance Pro by default (sharp motion, native 9:16,
+// 720p). Override via VIDEO_MODEL (e.g. a Seedance lite/2.0 variant or Kling).
+const VIDEO_MODEL = process.env.VIDEO_MODEL ?? "fal-ai/bytedance/seedance/v1/pro/image-to-video";
+const VIDEO_RESOLUTION = process.env.VIDEO_RESOLUTION ?? "720p";
+
 // ─── Submit jobs to fal queue (returns immediately) ───────────────────────────
 
 export async function submitVideoJobs(params: {
@@ -46,16 +51,19 @@ export async function submitVideoJobs(params: {
   const jobs: VideoJob[] = [];
   for (const scene of params.scenes) {
     try {
-      // Use "10" so Kling covers scenes longer than 5s — Shotstack trims to scene length
-      const klingDuration = (scene.duration_seconds ?? 5) > 5 ? "10" : "5";
+      // Seedance accepts a numeric duration (4–15s). Clamp to the scene length so
+      // the clip covers the narration; Shotstack trims any excess.
+      const duration = Math.min(15, Math.max(4, Math.round(scene.duration_seconds ?? 5)));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (fal.queue.submit as any)(
-        "fal-ai/kling-video/v1.6/standard/image-to-video",
+        VIDEO_MODEL,
         {
           input: {
             prompt: scene.animation_prompt,
             image_url: scene.image_url,
-            duration: klingDuration,
+            resolution: VIDEO_RESOLUTION,
+            aspect_ratio: "9:16",
+            duration,
           },
         }
       ) as { request_id: string };
@@ -89,14 +97,14 @@ export async function checkVideoJob(requestId: string): Promise<{
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const status = await (fal.queue.status as any)(
-      "fal-ai/kling-video/v1.6/standard/image-to-video",
+      VIDEO_MODEL,
       { requestId, logs: false }
     ) as { status: string };
 
     if (status.status === "COMPLETED") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (fal.queue.result as any)(
-        "fal-ai/kling-video/v1.6/standard/image-to-video",
+        VIDEO_MODEL,
         { requestId }
       ) as Record<string, unknown>;
 
@@ -105,7 +113,7 @@ export async function checkVideoJob(requestId: string): Promise<{
       return { status: "completed", url: video?.url };
     }
 
-    if (status.status === "FAILED") return { status: "failed", error: "Kling job failed" };
+    if (status.status === "FAILED") return { status: "failed", error: "Video job failed" };
     if (status.status === "IN_PROGRESS") return { status: "in_progress" };
     return { status: "queued" };
   } catch (err) {

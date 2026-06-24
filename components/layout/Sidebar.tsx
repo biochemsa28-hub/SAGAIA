@@ -4,14 +4,16 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard, PlusCircle, BookOpen,
-  Settings, Sparkles, ChevronRight, Zap, Package,
+  Settings, Sparkles, ChevronRight, Zap, Package, Users, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/dashboard",               icon: LayoutDashboard, label: "Dashboard"      },
   { href: "/dashboard/projects/new",  icon: PlusCircle,      label: "Nueva historia", highlight: true },
+  { href: "/dashboard/ads/new",       icon: Megaphone,       label: "Anuncios",       highlight: true },
   { href: "/dashboard/batch",         icon: Package,         label: "En serie",  highlight: true },
+  { href: "/dashboard/characters",    icon: Users,           label: "Personajes"     },
   { href: "/dashboard/library",       icon: BookOpen,        label: "Biblioteca"     },
   { href: "/dashboard/settings",      icon: Settings,        label: "Configuración"  },
 ];
@@ -31,9 +33,9 @@ export function Sidebar() {
       .catch(() => null);
   }, [pathname]); // refresh on route change
 
-  const maxCredits = plan === "free" ? 5 : plan === "starter" ? 10 : plan === "pro" ? 40 : 120;
+  const maxCredits = plan === "studio" ? 99000 : plan === "pro" ? 49000 : plan === "creator" ? 29000 : 9000;
   const pct = credits === null ? 0 : Math.min(100, Math.round((credits / maxCredits) * 100));
-  const low = credits !== null && credits <= 2;
+  const low = credits !== null && credits < 9000; // no alcanza para un video premium
   const empty = credits === 0;
 
   return (

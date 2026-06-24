@@ -25,7 +25,12 @@ export const StoryInputSchema = z.object({
   target_platform: z
     .enum(["tiktok", "instagram", "youtube_shorts", "youtube_long"])
     .default("youtube_shorts"),
-  additional_instructions: z.string().max(500).optional(),
+  // Holds the user's notes PLUS the injected cast design + chosen hook, so the
+  // ceiling must fit several character bios — not just a short note.
+  additional_instructions: z.string().max(3000).optional(),
+  // Content format: a narrative micro-series (default) or a UGC-style ADVERTISING
+  // video (product pitch). Same pipeline, different script brain.
+  format: z.enum(["story", "ad"]).default("story"),
 });
 
 export type StoryInput = z.infer<typeof StoryInputSchema>;
@@ -35,6 +40,12 @@ export type StoryInput = z.infer<typeof StoryInputSchema>;
 export const SceneSchema = z.object({
   scene_number: z.number().int().positive(),
   narration_text: z.string().min(10),
+  // WHO speaks this scene's narration (a cast member's name). Optional so older
+  // stories without attribution still validate.
+  speaker: z.string().max(60).optional(),
+  // The speaking character's voice archetype (from the cast). Drives the per-scene
+  // ElevenLabs voice so each character sounds distinct.
+  voice_profile: z.string().max(30).optional(),
   duration_seconds: z.number().int().min(2).max(120),
   image_prompt: z
     .string()

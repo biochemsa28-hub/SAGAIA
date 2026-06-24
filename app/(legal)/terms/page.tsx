@@ -19,7 +19,7 @@ export default function TermsPage() {
       <Section title="2. Descripción del Servicio">
         <p>{COMPANY} es una plataforma de generación de contenido audiovisual mediante inteligencia artificial que permite a los usuarios:</p>
         <ul>
-          <li>Generar guiones de microdramas virales mediante IA (OpenAI GPT-4)</li>
+          <li>Generar guiones de microseries virales mediante IA (OpenAI GPT-4)</li>
           <li>Producir narración de voz en off mediante síntesis de voz (ElevenLabs)</li>
           <li>Generar imágenes para cada escena mediante IA generativa (Flux)</li>
           <li>Animar escenas en clips de video (Kling AI)</li>

@@ -4,8 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { storyGeneratorService } from "@/services/openai/story-generator";
 import {
   createProject, saveGenerationResult, updateProjectStatus,
-  deductCredit, createApiLog,
+  deductCredits, createApiLog, setProjectCharacter, getUserById, setProjectCast,
 } from "@/lib/db/repository";
+import { resolveProjectTier, creditCostForTier } from "@/lib/config";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
 import { captureServer } from "@/lib/analytics/posthog";
@@ -25,6 +26,20 @@ const BodySchema = z.object({
   visual_style: z.string().default("cinematic"),
   target_platform: z.string().optional(),
   additional_instructions: z.string().optional(),
+  character_id: z.string().uuid().optional(), // reuse a saved recurring character
+  animation_tier: z.enum(["kenburns", "cinematic", "talking"]).optional(),
+  format: z.enum(["story", "ad"]).optional(), // "ad" = UGC advertising video
+  reference_image_url: z.string().url().optional(), // user-uploaded product/creative image
+
+  // The cast chosen on the "Elenco" screen: each character's name, voice archetype
+  // and the portrait the user selected. Persisted so production gives each scene's
+  // speaker the right face (per-scene image reference) and voice (Phase 4).
+  cast: z.array(z.object({
+    name: z.string().min(1).max(60),
+    role: z.string().max(40).optional(),
+    voice_profile: z.string().max(30).optional(),
+    reference_image_url: z.string().url().optional(),
+  })).max(4).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -55,12 +70,18 @@ export async function POST(req: NextRequest) {
 
     await initDb();
 
-    // ── Check & deduct credit ─────────────────────────────────────────────────
+    // Resolve the animation tier the user chose, clamped to what their plan allows.
+    // The tier determines how many NAVOS the video costs (premium tiers cost more).
+    const user = userId ? await getUserById(userId).catch(() => null) : null;
+    const animationTier = resolveProjectTier(parsed.data.animation_tier ?? null, user?.plan ?? "free");
+    const creditCost = creditCostForTier(animationTier);
+
+    // ── Check & deduct credits (tier-aware) ───────────────────────────────────
     if (userId) {
-      const credit = await deductCredit(userId);
+      const credit = await deductCredits(userId, creditCost);
       if (!credit.ok) {
         return NextResponse.json(
-          { error: "Sin créditos disponibles. Recarga tu cuenta para continuar.", credits: 0 },
+          { error: `Necesitas ${creditCost} NAVOS para este tipo de video. Recarga tu cuenta para continuar.`, credits: credit.remaining, required: creditCost },
           { status: 402 }
         );
       }
@@ -83,8 +104,19 @@ export async function POST(req: NextRequest) {
         language: parsed.data.language,
         visualStyle: parsed.data.visual_style,
         aiProvider: isMock ? "mock" : "openai",
+        animationTier,
+        creditsSpent: creditCost,
+        referenceImageUrl: parsed.data.reference_image_url ?? null,
       });
       await updateProjectStatus(projectId, "generating");
+      // Link a saved recurring character so all scenes reuse its locked-in look.
+      if (parsed.data.character_id) {
+        await setProjectCharacter(projectId, userId, parsed.data.character_id).catch(() => {});
+      }
+      // Persist the chosen cast (name → portrait + voice) for per-scene production.
+      if (parsed.data.cast?.length) {
+        await setProjectCast(projectId, parsed.data.cast).catch(() => {});
+      }
     }
 
     // ── Generate ──────────────────────────────────────────────────────────────

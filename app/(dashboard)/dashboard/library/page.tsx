@@ -5,7 +5,8 @@ import { TopBar } from "@/components/layout/TopBar";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, truncate } from "@/lib/utils";
-import { Film, PlusCircle, Zap, LayoutGrid, List } from "lucide-react";
+import { Film, PlusCircle, Zap, LayoutGrid, List, Trash2, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import type { DbProject } from "@/lib/db/repository";
 
 type ViewMode = "grid" | "list";
@@ -49,6 +50,8 @@ export default function LibraryPage() {
   const [projects, setProjects] = useState<DbProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("grid");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch("/api/projects")
@@ -57,6 +60,23 @@ export default function LibraryPage() {
       .catch(() => setProjects([]))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleDelete(e: React.MouseEvent, p: DbProject) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`¿Eliminar "${truncate(p.title, 40)}"? Esta acción no se puede deshacer.`)) return;
+    setDeletingId(p.id);
+    try {
+      const r = await fetch(`/api/projects/${p.id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error("delete failed");
+      setProjects((prev) => prev.filter((x) => x.id !== p.id));
+      toast("Proyecto eliminado", "success");
+    } catch {
+      toast("No se pudo eliminar el proyecto", "error");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <>
@@ -156,6 +176,16 @@ export default function LibraryPage() {
                       <StatusBadge status={p.status} />
                     </div>
 
+                    {/* Delete button (top-right, appears on hover) */}
+                    <button
+                      onClick={(e) => handleDelete(e, p)}
+                      disabled={deletingId === p.id}
+                      title="Eliminar proyecto"
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-black/70 text-zinc-300 opacity-0 group-hover:opacity-100 hover:bg-red-600 hover:text-white transition-all disabled:opacity-100"
+                    >
+                      {deletingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
+
                     {/* Overlay bottom: progress */}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent px-3 pt-6 pb-3">
                       <ProjectProgress p={p} />
@@ -215,6 +245,14 @@ export default function LibraryPage() {
                       </div>
                     )}
                     <StatusBadge status={p.status} />
+                    <button
+                      onClick={(e) => handleDelete(e, p)}
+                      disabled={deletingId === p.id}
+                      title="Eliminar proyecto"
+                      className="p-1.5 rounded-lg text-zinc-500 hover:bg-red-600/20 hover:text-red-400 transition-all"
+                    >
+                      {deletingId === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
               </Link>

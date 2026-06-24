@@ -5,11 +5,12 @@ import { useSession, signOut } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Film, Sparkles, LogOut, PartyPopper, ArrowRight,
-  Flame, Star, PlusCircle, TrendingUp, Zap,
+  Flame, Star, PlusCircle, TrendingUp, Zap, Trophy, Crown, RefreshCw,
 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
-import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
+import { CountUp } from "@/components/ui/CountUp";
+import { CREDIT_COST_BY_TIER } from "@/lib/config";
 import { formatDate, truncate } from "@/lib/utils";
 import type { DbProject } from "@/lib/db/repository";
 
@@ -59,8 +60,31 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [tipIndex] = useState(() => Math.floor(Math.random() * TIPS.length));
-  const [ideaOffset, setIdeaOffset] = useState(0);
+  // Ideas rotate by day-of-year so "Tendencias de hoy" feels fresh every visit.
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  const [ideaOffset, setIdeaOffset] = useState(() => (dayOfYear * 2) % VIRAL_IDEAS.length);
   const [navos, setNavos] = useState<number | null>(null);
+  const [streak, setStreak] = useState(0);
+
+  // Daily creation streak (client-side, localStorage). Increments on consecutive
+  // days, resets if a day is skipped — drives the "no rompas tu racha" hook.
+  useEffect(() => {
+    try {
+      const today = new Date().toDateString();
+      const raw = localStorage.getItem("vy_streak");
+      const prev = raw ? (JSON.parse(raw) as { date: string; count: number }) : null;
+      let count = 1;
+      if (prev) {
+        if (prev.date === today) { count = prev.count; }
+        else {
+          const diff = (new Date(today).getTime() - new Date(prev.date).getTime()) / 86400000;
+          count = diff === 1 ? prev.count + 1 : 1;
+        }
+      }
+      localStorage.setItem("vy_streak", JSON.stringify({ date: today, count }));
+      setStreak(count);
+    } catch { setStreak(1); }
+  }, []);
 
   useEffect(() => {
     fetch("/api/projects")
@@ -110,31 +134,68 @@ export default function DashboardPage() {
         {/* Payment banner */}
         <Suspense fallback={null}><PaymentBanner /></Suspense>
 
-        {/* ── CRÉDITOS + RACHA (always visible) ───────────────────────────── */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Créditos */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-900/60 to-zinc-900 border border-violet-700/30 p-4">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-violet-500/10 rounded-full -translate-y-4 translate-x-4" />
-            <Zap className="w-5 h-5 text-violet-400 mb-2" />
-            <p className="text-2xl font-bold text-white">{navos ?? "…"}</p>
-            <p className="text-xs text-violet-400 font-bold tracking-wide">NAVOS ⚡</p>
+        {/* ── CENTRO DE MANDO (stats vivas) ───────────────────────────────── */}
+        {/* NAVOS hero con barra + cobertura */}
+        <div className="relative overflow-hidden rounded-2xl vy-glass p-4 vy-lift">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/10 rounded-full blur-2xl -translate-y-6 translate-x-6" />
+          <div className="relative flex items-end justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Zap className="w-4 h-4 text-violet-400" />
+                <p className="text-[10px] text-violet-300 font-bold uppercase tracking-widest">Tus NAVOS</p>
+              </div>
+              <p className="text-3xl font-extrabold vy-grad-text">
+                {navos !== null ? <CountUp value={navos} /> : "…"}
+              </p>
+              {navos !== null && (
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Te alcanza para <span className="text-violet-300 font-semibold">{Math.floor(navos / CREDIT_COST_BY_TIER.kenburns)}</span> rápidos
+                  {navos >= CREDIT_COST_BY_TIER.talking && <> · <span className="text-cyan-300 font-semibold">{Math.floor(navos / CREDIT_COST_BY_TIER.talking)}</span> con voz</>}
+                </p>
+              )}
+            </div>
             <Link href="/pricing">
-              <p className="text-[10px] text-zinc-600 mt-1 hover:text-violet-400 transition-colors">Conseguir más →</p>
+              <button className="text-[11px] font-bold text-white vy-grad-bg px-3 py-1.5 rounded-full vy-press">Recargar +</button>
             </Link>
           </div>
+        </div>
 
-          {/* Videos creados (racha visual) */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-900/40 to-zinc-900 border border-amber-800/30 p-4">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-full -translate-y-4 translate-x-4" />
-            <Flame className="w-5 h-5 text-amber-400 mb-2" />
-            <p className="text-2xl font-bold text-white">{stats.ready}</p>
-            <p className="text-xs text-amber-400 font-medium">videos listos</p>
-            <p className="text-[10px] text-zinc-600 mt-1">{stats.total} proyectos en total</p>
+        {/* Racha · videos · viral */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="vy-glass rounded-2xl p-3.5 text-center vy-lift">
+            <Flame className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+            <p className="text-2xl font-extrabold text-white"><CountUp value={streak} /></p>
+            <p className="text-[10px] text-amber-400 font-semibold">racha 🔥</p>
+          </div>
+          <div className="vy-glass rounded-2xl p-3.5 text-center vy-lift">
+            <Film className="w-5 h-5 text-violet-400 mx-auto mb-1" />
+            <p className="text-2xl font-extrabold text-white"><CountUp value={stats.ready} /></p>
+            <p className="text-[10px] text-violet-400 font-semibold">videos listos</p>
+          </div>
+          <div className="vy-glass rounded-2xl p-3.5 text-center vy-lift">
+            <TrendingUp className="w-5 h-5 text-cyan-400 mx-auto mb-1" />
+            <p className="text-2xl font-extrabold text-white"><CountUp value={stats.ready > 0 ? 94 : 0} suffix="%" /></p>
+            <p className="text-[10px] text-cyan-400 font-semibold">viral avg</p>
+          </div>
+        </div>
+
+        {/* Achievement / nivel de creador */}
+        <div className="flex items-center gap-3 vy-glass rounded-xl px-4 py-3">
+          <div className="w-9 h-9 rounded-xl vy-grad-bg flex items-center justify-center shrink-0">
+            {stats.ready >= 10 ? <Crown className="w-4.5 h-4.5 text-white" /> : <Trophy className="w-4.5 h-4.5 text-white" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-white">
+              {stats.ready >= 10 ? "Creador Élite 👑" : stats.ready >= 3 ? "Creador en ascenso 🚀" : "Creador novato ✨"}
+            </p>
+            <p className="text-[10px] text-zinc-500">
+              {stats.ready >= 10 ? "Estás en el top 10% de creadores VYNAVO" : `${Math.max(0, 3 - stats.ready)} videos para subir de nivel`}
+            </p>
           </div>
         </div>
 
         {/* ── TIP DEL DÍA ─────────────────────────────────────────────────── */}
-        <div className="flex items-start gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
+        <div className="flex items-start gap-3 vy-glass rounded-xl px-4 py-3">
           <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <p className="text-xs text-zinc-300 leading-relaxed">
             <span className="text-emerald-400 font-semibold">Dato viral: </span>{TIPS[tipIndex]}
@@ -145,14 +206,17 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center justify-between mb-3 px-0.5">
             <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-amber-400" />
-              <h2 className="text-sm font-bold text-white">Ideas virales del día</h2>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-pink-500" />
+              </span>
+              <h2 className="text-sm font-bold vy-grad-text">Tendencias de hoy</h2>
             </div>
             <button
               onClick={() => setIdeaOffset((prev) => (prev + 4) % VIRAL_IDEAS.length)}
-              className="text-xs text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1"
+              className="text-xs text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1 vy-press"
             >
-              Ver más <ArrowRight className="w-3 h-3" />
+              Cambiar <RefreshCw className="w-3 h-3" />
             </button>
           </div>
 
@@ -179,7 +243,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-1.5 mt-2.5 ml-11">
                   <span className="text-[10px] font-medium text-zinc-500 bg-zinc-800/60 rounded-full px-2 py-0.5">{idea.tone}</span>
-                  <span className="text-[10px] text-zinc-600">Toca para crear →</span>
+                  <span className="text-[10px] font-semibold text-pink-400 bg-pink-950/40 rounded-full px-2 py-0.5">
+                    🔥 {(1.2 + ((dayOfYear + (ideaOffset + i) * 7) % 40) / 10).toFixed(1)}k creando hoy
+                  </span>
+                  <span className="text-[10px] text-zinc-600 ml-auto">crear →</span>
                 </div>
               </button>
             ))}

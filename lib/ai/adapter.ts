@@ -29,13 +29,12 @@ export function createAIAdapter(): AIAdapter {
   if (process.env.FORCE_MOCK_AI === "true") {
     return new MockAIAdapter();
   }
+  // Claude preferred: better creative writing, larger context, no extra package needed
+  if (process.env.ANTHROPIC_API_KEY) {
+    return new ClaudeAdapter();
+  }
   if (process.env.OPENAI_API_KEY) {
     return new OpenAIAdapter();
-  }
-  if (process.env.ANTHROPIC_API_KEY) {
-    // Future: return new ClaudeAdapter();
-    console.warn("[AI Adapter] Anthropic key found but adapter not yet implemented. Using mock.");
-    return new MockAIAdapter();
   }
   console.warn("[AI Adapter] No API key found. Using mock adapter.");
   return new MockAIAdapter();
@@ -67,8 +66,8 @@ class OpenAIAdapter implements AIAdapter {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.85,
-        max_tokens: Number(process.env.OPENAI_MAX_TOKENS ?? 4096),
+        temperature: 0.9,
+        max_tokens: Number(process.env.OPENAI_MAX_TOKENS ?? 8192),
         response_format: { type: "json_object" },
       });
 
@@ -111,6 +110,86 @@ class OpenAIAdapter implements AIAdapter {
   }
 }
 
+// ── Claude (Anthropic) Adapter ────────────────────────────────────────────────
+// Uses Anthropic Messages API via fetch — no extra SDK needed.
+// Set ANTHROPIC_API_KEY in Vercel to activate. Claude excels at emotional,
+// structured creative writing — ideal for micro-drama scripts.
+
+class ClaudeAdapter implements AIAdapter {
+  readonly providerName = "anthropic";
+  private readonly model: string;
+
+  constructor() {
+    this.model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+  }
+
+  async generateStory(
+    _input: StoryInput,
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<AIAdapterResult> {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: this.model,
+        max_tokens: Number(process.env.ANTHROPIC_MAX_TOKENS ?? 8096),
+        system: systemPrompt + "\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code blocks, no text before or after the JSON object.",
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      return {
+        success: false,
+        error: `Anthropic API error ${response.status}: ${err}`,
+        provider: this.providerName,
+        model: this.model,
+      };
+    }
+
+    const json = (await response.json()) as {
+      content: Array<{ type: string; text: string }>;
+      usage?: { input_tokens: number; output_tokens: number };
+    };
+
+    const rawResponse = json.content[0]?.type === "text" ? json.content[0].text ?? "" : "";
+    const tokensUsed = (json.usage?.input_tokens ?? 0) + (json.usage?.output_tokens ?? 0);
+    const costUsd = (tokensUsed / 1_000_000) * 3.0;
+
+    const validation = validateStoryOutput(rawResponse);
+    if (!validation.success) {
+      return {
+        success: false,
+        rawResponse,
+        error: validation.error,
+        tokensUsed,
+        costUsd,
+        provider: this.providerName,
+        model: this.model,
+      };
+    }
+
+    return {
+      success: true,
+      data: validation.data,
+      rawResponse,
+      tokensUsed,
+      costUsd,
+      provider: this.providerName,
+      model: this.model,
+    };
+  }
+}
+
 // ── Mock Adapter ──────────────────────────────────────────────────────────────
 
 export class MockAIAdapter implements AIAdapter {
@@ -129,28 +208,40 @@ export class MockAIAdapter implements AIAdapter {
       : input.duration_target === "3-5min" ? 10
       : 20;
 
+    const sceneDurSec = Math.ceil(
+      (input.duration_target === "30s" ? 30
+        : input.duration_target === "60s" ? 60
+        : input.duration_target === "3-5min" ? 240
+        : 900) / sceneCount
+    );
+
+    // Per-scene dramatic templates so mock videos feel like real micro-dramas
+    const MOCK_NARRATIONS = [
+      `Nadie sabe lo que realmente pasó esa noche. Solo quedó una sombra en la pared y el silencio.`,
+      `Ella abrió el cajón y encontró algo que cambió todo. Sus manos temblaban sin control.`,
+      `Habían prometido que jamás volverían. Pero ahí estaban, de nuevo, en la puerta.`,
+      `El mensaje decía solo tres palabras. Tres palabras que lo arruinaban todo.`,
+      `Mintió durante años. Y cuando la verdad salió, fue peor de lo que imaginaba.`,
+      `Se miraron en silencio. Los dos sabían lo que vendría después.`,
+      `El reloj marcaba las 3 de la madrugada. Esa hora en que los secretos salen solos.`,
+      `No era la primera vez que desaparecía. Pero esta vez algo era diferente.`,
+      `Le dijeron que era una coincidencia. Pero las coincidencias no duran tres años.`,
+      `El final nunca fue lo que esperabas. ¿O sí lo sabías desde el principio?`,
+    ];
+
     const scenes = Array.from({ length: sceneCount }, (_, i) => ({
       scene_number: i + 1,
-      narration_text: `[MOCK] Escena ${i + 1}: La historia de "${input.topic}" continúa. ${
-        i === 0
-          ? "El gancho inicial atrapa la atención del espectador."
-          : `La tensión aumenta en esta escena del tema ${input.niche}.`
-      }`,
-      duration_seconds: Math.ceil(
-        (input.duration_target === "30s" ? 30
-          : input.duration_target === "60s" ? 60
-          : input.duration_target === "3-5min" ? 240
-          : 900) / sceneCount
-      ),
-      image_prompt: `[MOCK] ${input.visual_style} style, dramatic lighting, scene ${i + 1} of ${input.topic}. Cinematic composition, 8k resolution, detailed environment, emotional atmosphere matching ${input.tone} tone.`,
-      animation_prompt: `[MOCK] Slow ${i % 2 === 0 ? "push in" : "dolly left"}, subtle atmospheric movement, ${input.tone} mood, smooth 24fps.`,
-      emotion: ["tension", "mystery", "hope", "fear", "wonder"][i % 5] ?? "tension",
-      camera_move: ["slow push in", "static wide", "dolly left", "tilt up", "pan right"][i % 5] ?? "static wide",
+      narration_text: MOCK_NARRATIONS[i % MOCK_NARRATIONS.length]!,
+      duration_seconds: sceneDurSec,
+      image_prompt: `${input.visual_style} style, cinematic dramatic scene ${i + 1}, ${input.niche} atmosphere, moody lighting with deep shadows, emotional tension, ultra detailed, 8k, ${input.tone} tone`,
+      animation_prompt: `${["Slow push in revealing the subject", "Gentle dolly left with depth of field", "Static wide with subtle camera shake", "Slow tilt up from detail to face", "Smooth pan right following the action"][i % 5]}, cinematic motion, ${input.tone} mood`,
+      emotion: (["tension", "mystery", "hope", "fear", "wonder"] as const)[i % 5] ?? "tension",
+      camera_move: (["slow push in", "static wide", "dolly left", "tilt up", "pan right"] as const)[i % 5] ?? "static wide",
     }));
 
     const mockData: StoryOutput = {
       meta: {
-        title: `[MOCK] ${input.topic} — Historia ${input.tone}`,
+        title: `${input.topic} — La Historia Que Nadie Te Contó`,
         niche: input.niche,
         tone: input.tone,
         duration_target: input.duration_target,
@@ -158,14 +249,14 @@ export class MockAIAdapter implements AIAdapter {
         visual_style: input.visual_style,
       },
       story: {
-        hook: `[MOCK] ¿Qué pasaría si todo lo que creías sobre ${input.topic} fuera una mentira?`,
-        full_narrative: `[MOCK] Historia completa sobre: ${input.topic}. Tono: ${input.tone}. Esta es una historia de ejemplo generada por el adaptador mock. En producción, aquí irá la narrativa completa generada por OpenAI o Claude.`,
-        cta: "[MOCK] Síguenos para más historias como esta. ¿Te sorprendió el final? Cuéntanos en los comentarios.",
+        hook: `¿Qué pasaría si todo lo que creías sobre ${input.topic} fuera una mentira?`,
+        full_narrative: `Una historia que nadie se atrevió a contar. Sobre ${input.topic}. El principio parece simple, pero nada es lo que parece. Cada escena revela una capa más oscura. Al final, la única pregunta que queda es: ¿tú habrías hecho lo mismo?`,
+        cta: "Comenta PARTE 2 para saber qué pasó",
       },
       scenes,
       seo: {
-        title: `[MOCK] ${input.topic} — La Historia Que Nadie Te Contó`,
-        description: `[MOCK] Descubre la verdad detrás de ${input.topic}. Una historia de ${input.tone} que te dejará sin palabras. #${input.niche} #historias #viral`,
+        title: `${input.topic} — La Historia Que Nadie Te Contó`,
+        description: `Descubre la verdad detrás de ${input.topic}. Una historia de ${input.tone} que te dejará sin palabras. #${input.niche} #historias #viral`,
         hashtags: [
           `#${input.niche}`,
           `#${input.tone}`,
@@ -179,8 +270,8 @@ export class MockAIAdapter implements AIAdapter {
           "#drama",
         ],
         tags: [input.niche, input.tone, input.topic, "microhistorias", "storytelling"],
-        thumbnail_concept: `[MOCK] Imagen dramática relacionada con ${input.topic}, expresión de sorpresa o miedo, texto impactante superpuesto.`,
-        thumbnail_prompt: `[MOCK] ${input.visual_style} style, dramatic close-up face expressing shock/fear, dark moody background, ${input.topic} theme, cinematic lighting, high contrast.`,
+        thumbnail_concept: `Imagen dramática relacionada con ${input.topic}, expresión de sorpresa o miedo, texto impactante superpuesto.`,
+        thumbnail_prompt: `${input.visual_style} style, dramatic close-up face expressing shock/fear, dark moody background, ${input.topic} theme, cinematic lighting, high contrast.`,
       },
       production_notes: {
         total_duration_seconds:
