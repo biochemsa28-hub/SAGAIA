@@ -17,7 +17,12 @@ out/
 db/*.db
 db/*.db-shm
 db/*.db-wal
-storage/
+# Carpeta temporal de runtime en la raíz. SIN la barra inicial esta regla también
+# tapaba services/storage/ — código fuente — y el build fallaba en cualquier
+# checkout limpio con "Can't resolve @/services/storage", mientras en local
+# compilaba perfecto porque el archivo sí existía en disco.
+/storage/
+!/services/storage/
 
 # OS
 .DS_Store
