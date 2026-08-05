@@ -11,6 +11,20 @@ import { internalSecret } from "@/lib/internal-auth";
 export const runtime = "nodejs";
 
 export async function GET() {
+  // Actually TALK to the database instead of checking that a variable exists.
+  // Reporting database:true for a present-but-broken connection is what sent us
+  // chasing a "forgotten password" for half an hour while every write silently
+  // failed with a 500. A health check that only reads env vars is a health check
+  // that lies at the exact moment you need it.
+  let db_connection: { ok: boolean; error?: string } = { ok: false, error: "no probada" };
+  try {
+    const { getDb } = await import("@/lib/db");
+    await getDb().execute("SELECT 1");
+    db_connection = { ok: true };
+  } catch (e) {
+    db_connection = { ok: false, error: (e instanceof Error ? e.message : String(e)).slice(0, 200) };
+  }
+
   const checks = {
     openai:      Boolean(process.env.OPENAI_API_KEY),
     elevenlabs:  Boolean(process.env.ELEVENLABS_API_KEY),
