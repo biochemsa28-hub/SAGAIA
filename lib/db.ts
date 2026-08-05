@@ -124,7 +124,6 @@ export async function initDb(): Promise<void> {
   // alongside the portrait so the model sees the face from several angles instead
   // of guessing them from one photo — markedly better identity consistency across
   // scenes AND across episodes of a series. Costs ~$0.06 once, reused forever.
-  await runMigration(db, "ALTER TABLE project_cast ADD COLUMN bible_url TEXT");
 
   // ── JOB QUEUE ──────────────────────────────────────────────────────────────
   // Production used to run as a fire-and-forget promise inside the request that
@@ -135,10 +134,6 @@ export async function initDb(): Promise<void> {
   //                  process died mid-job and the row can be safely re-claimed.
   //   stage        — which step it reached, so the UI can say something true and
   //                  a retry knows what already succeeded.
-  await runMigration(db, "ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT");
-  await runMigration(db, "ALTER TABLE jobs ADD COLUMN stage TEXT");
-  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, created_at)");
-  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id)");
 
   // The CAST chosen for a project (Phase 4): maps a character name → its selected
   // portrait (reference_image_url) + voice archetype. Lets production resolve each
@@ -164,6 +159,17 @@ export async function initDb(): Promise<void> {
     await db.execute("UPDATE users SET credits = credits * 1000");
     await db.execute({ sql: "INSERT INTO app_meta (key, value) VALUES (?, datetime('now'))", args: ["credit_scale_v2"] });
   }
+
+  // ── COLUMNAS SOBRE TABLAS YA CREADAS ───────────────────────────────────────
+  // Van al FINAL, después de todos los CREATE TABLE. Estaban arriba y en una base
+  // NUEVA fallaban con "no such table", tirando abajo initDb entero — y con eso
+  // toda escritura de la app devolvía 500. En local nunca se vio porque las tablas
+  // ya existían de antes.
+  await runMigration(db, "ALTER TABLE project_cast ADD COLUMN bible_url TEXT");
+  await runMigration(db, "ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT");
+  await runMigration(db, "ALTER TABLE jobs ADD COLUMN stage TEXT");
+  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, created_at)");
+  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id)");
 }
 
 // Run a migration that may already have been applied; ignore "duplicate"/"exists" errors.
