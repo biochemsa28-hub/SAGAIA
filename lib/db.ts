@@ -98,6 +98,48 @@ export async function initDb(): Promise<void> {
   // generated scenes feature it — the "made with AI but looks real" moment.
   await runMigration(db, "ALTER TABLE projects ADD COLUMN reference_image_url TEXT");
 
+  // Multiple product/creative images (JSON array of URLs) so an ad can show the
+  // product from several angles. nano-banana edit accepts an image array → better
+  // multi-angle fidelity. reference_image_url stays as the primary (first) image.
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN reference_image_urls TEXT");
+
+  // ── SERIES / EPISODES ──────────────────────────────────────────────────────
+  // Every video promises a "Parte 2" in its CTA, so it has to be possible to make
+  // one. A project can now point at the project it continues; the whole chain shares
+  // a series_id. This is the retention loop: the viewer comes back for the next
+  // episode, and the creator keeps producing (and spending) to deliver it.
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN series_id TEXT");
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN episode_number INTEGER NOT NULL DEFAULT 1");
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN parent_project_id TEXT");
+  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_projects_series ON projects(series_id, episode_number)");
+  // Backfill: projects created before this migration have series_id = NULL, so the
+  // "next episode" lookup (WHERE series_id = ?) wouldn't even find the project
+  // itself and Part 2 would be numbered 1. Every existing project becomes the head
+  // of its own series. Safe to re-run — it only touches NULLs.
+  await runMigration(db, "UPDATE projects SET series_id = id WHERE series_id IS NULL");
+
+  // ── CHARACTER BIBLE ────────────────────────────────────────────────────────
+  // A single multi-view sheet per character (front / three-quarter / profile /
+  // expression) generated ONCE from the chosen portrait. Passed to nano-banana
+  // alongside the portrait so the model sees the face from several angles instead
+  // of guessing them from one photo — markedly better identity consistency across
+  // scenes AND across episodes of a series. Costs ~$0.06 once, reused forever.
+  await runMigration(db, "ALTER TABLE project_cast ADD COLUMN bible_url TEXT");
+
+  // ── JOB QUEUE ──────────────────────────────────────────────────────────────
+  // Production used to run as a fire-and-forget promise inside the request that
+  // started it: nothing on disk, so a server restart silently lost a video the
+  // user had already paid for, and nobody could tell whether it was still running
+  // or dead. These columns make a job recoverable.
+  //   heartbeat_at — the worker stamps it while alive; a stale stamp means the
+  //                  process died mid-job and the row can be safely re-claimed.
+  //   stage        — which step it reached, so the UI can say something true and
+  //                  a retry knows what already succeeded.
+  await runMigration(db, "ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT");
+  await runMigration(db, "ALTER TABLE jobs ADD COLUMN stage TEXT");
+  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, created_at)");
+  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id)");
+
   // The CAST chosen for a project (Phase 4): maps a character name → its selected
   // portrait (reference_image_url) + voice archetype. Lets production resolve each
   // scene's speaker to the right face (per-scene image reference) and voice.

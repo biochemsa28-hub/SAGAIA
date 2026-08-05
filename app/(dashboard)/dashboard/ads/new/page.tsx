@@ -2,9 +2,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
-import { Megaphone, Sparkles, ArrowRight, AlertCircle, Loader2, Zap, Upload, X } from "lucide-react";
+import { Megaphone, Sparkles, ArrowRight, AlertCircle, Loader2, Zap, Upload, X, Images } from "lucide-react";
 import { TONES, DURATION_OPTIONS, PLATFORMS } from "@/lib/constants/nichos";
 import { CREDIT_COST_BY_TIER } from "@/lib/config";
+import { CinematicLoader } from "@/components/ui/CinematicLoader";
 
 // Ad-specific tone presets (friendlier than the drama tones, but we map to the
 // same tone ids the engine understands).
@@ -25,9 +26,11 @@ export default function NewAdPage() {
   const [credits, setCredits] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const MAX_IMAGES = 4;
 
   useEffect(() => {
     fetch("/api/credits").then(r => r.json())
@@ -37,21 +40,34 @@ export default function NewAdPage() {
       }).catch(() => null);
   }, []);
 
-  async function uploadImage(file: File) {
+  async function uploadImages(files: FileList) {
+    const slots = MAX_IMAGES - imageUrls.length;
+    if (slots <= 0) return;
     setUploading(true);
     setError(null);
+    setUploadMsg(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json() as { url?: string; error?: string };
-      if (!res.ok || !data.url) throw new Error(data.error ?? "No se pudo subir la imagen");
-      setImageUrl(data.url);
+      const picked = Array.from(files).slice(0, slots);
+      const uploaded: string[] = [];
+      for (const file of picked) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        const data = await res.json() as { url?: string; error?: string };
+        if (!res.ok || !data.url) throw new Error(data.error ?? "No se pudo subir la imagen");
+        uploaded.push(data.url);
+      }
+      setImageUrls((prev) => [...prev, ...uploaded].slice(0, MAX_IMAGES));
+      setUploadMsg({ ok: true, text: `${uploaded.length} imagen(es) subida(s) ✓` });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al subir la imagen");
+      setUploadMsg({ ok: false, text: err instanceof Error ? err.message : "Error al subir la imagen" });
     } finally {
       setUploading(false);
     }
+  }
+
+  function removeImage(url: string) {
+    setImageUrls((prev) => prev.filter((u) => u !== url));
   }
 
   async function generate() {
@@ -79,7 +95,8 @@ export default function NewAdPage() {
           target_platform: platform,
           animation_tier: tier,
           format: "ad",
-          reference_image_url: imageUrl ?? undefined,
+          reference_image_url: imageUrls[0] ?? undefined,
+          reference_image_urls: imageUrls.length ? imageUrls : undefined,
         }),
       });
       if (res.status === 402) {
@@ -103,13 +120,8 @@ export default function NewAdPage() {
       <>
         <TopBar title="Anuncios" subtitle="Creando tu anuncio" />
         <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 text-center">
-          <div className="relative w-24 h-24 mb-6" style={{ perspective: "700px" }}>
-            <div className="absolute -inset-2 rounded-full border-2 border-transparent border-t-violet-500 border-r-pink-500 vy-ring-spin" />
-            <div className="vy-flip3d w-24 h-24 rounded-2xl vy-grad-bg flex items-center justify-center">
-              <Megaphone className="w-10 h-10 text-white" />
-            </div>
-          </div>
-          <h2 className="text-lg font-bold vy-grad-text">Escribiendo tu anuncio…</h2>
+          <CinematicLoader icon="📣" />
+          <h2 className="text-lg font-bold vy-grad-text vy-glowtext mt-2">Escribiendo tu anuncio…</h2>
           <p className="text-sm text-zinc-500 mt-1">Hook · problema · producto · beneficios · CTA</p>
         </div>
       </>
@@ -121,36 +133,72 @@ export default function NewAdPage() {
       <TopBar title="Anuncios" subtitle="Crea un video publicitario con IA" />
       <div className="p-4 max-w-xl mx-auto space-y-5 pb-28">
 
-        {/* Intro */}
-        <div className="vy-glass rounded-2xl p-4 flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl vy-grad-bg flex items-center justify-center shrink-0">
-            <Megaphone className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">Anuncio estilo creador (UGC)</p>
-            <p className="text-xs text-zinc-400 mt-0.5">Un presentador real promociona tu producto: engancha, muestra el beneficio y cierra con un llamado a la acción. Ideal con el tier 🗣️ Habla.</p>
+        {/* Hero */}
+        <div className="relative overflow-hidden rounded-2xl vy-grad-bg p-[1.5px]">
+          <div className="relative rounded-2xl bg-zinc-950/90 p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl vy-grad-bg flex items-center justify-center shrink-0 vy-float2">
+                <Megaphone className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-base font-extrabold vy-grad-text">Anuncio estilo creador (UGC)</p>
+                <p className="text-xs text-zinc-400 mt-0.5">Un presentador real promociona tu producto: engancha, muestra el beneficio y cierra con un CTA. Se ve orgánico, no comercial.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {["🗣️ Presentador que habla", "📦 Tu producto real", "🎬 Calidad cine", "⚡ En minutos"].map((b) => (
+                <span key={b} className="text-[10px] font-bold text-violet-200 bg-violet-950/50 border border-violet-800/40 rounded-full px-2.5 py-1">{b}</span>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Subir imagen del producto / contenido */}
-        <div>
-          <label className="text-xs font-bold text-zinc-400">Sube tu producto o contenido <span className="text-zinc-600">(opcional, ¡recomendado!)</span></label>
-          <p className="text-[11px] text-zinc-600 mb-2">La IA usará tu imagen real en el anuncio — se ve auténtico, no genérico.</p>
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) void uploadImage(f); }} />
-          {imageUrl ? (
-            <div className="relative w-32">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageUrl} alt="Producto" className="w-32 h-32 object-cover rounded-xl border border-violet-700/50" />
-              <button onClick={() => setImageUrl(null)} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center text-zinc-300 hover:text-white">
-                <X className="w-3.5 h-3.5" />
+        {/* Subir imágenes del producto / contenido — galería multi-ángulo */}
+        <div className="vy-glass rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-sm font-bold text-white flex items-center gap-1.5">
+              <Images className="w-4 h-4 text-violet-300" /> Fotos de tu producto
+            </label>
+            <span className="text-[10px] font-bold text-zinc-500">{imageUrls.length}/{MAX_IMAGES}</span>
+          </div>
+          <p className="text-[11px] text-zinc-500 mb-3">Sube <span className="text-violet-300 font-semibold">varios ángulos</span> (frente, lados, en uso). Mientras más vea la IA, más real se ve tu anuncio. ✨</p>
+
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden"
+            onChange={e => { const fl = e.target.files; if (fl?.length) void uploadImages(fl); e.target.value = ""; }} />
+
+          <div className="grid grid-cols-4 gap-2">
+            {imageUrls.map((url, i) => (
+              <div key={url} className="relative aspect-square group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`Producto ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-violet-700/50" />
+                {i === 0 && (
+                  <span className="absolute bottom-1 left-1 text-[8px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-md">Principal</span>
+                )}
+                <button onClick={() => removeImage(url)}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center text-zinc-300 hover:text-white hover:border-red-500 transition-colors">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {imageUrls.length < MAX_IMAGES && (
+              <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                className="aspect-square flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-zinc-700 hover:border-violet-600 hover:bg-violet-950/30 text-zinc-500 hover:text-violet-300 transition-all">
+                {uploading
+                  ? <Loader2 className="w-5 h-5 animate-spin" />
+                  : <><Upload className="w-5 h-5" /><span className="text-[9px] font-bold">Añadir</span></>}
               </button>
-            </div>
-          ) : (
-            <button onClick={() => fileRef.current?.click()} disabled={uploading}
-              className="w-full flex items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed border-zinc-700 hover:border-violet-700/60 text-zinc-400 hover:text-violet-300 transition-all">
-              {uploading ? <><Loader2 className="w-5 h-5 animate-spin" /> Subiendo…</> : <><Upload className="w-5 h-5" /> Subir imagen (JPG/PNG/WEBP)</>}
-            </button>
+            )}
+          </div>
+
+          {/* Feedback de subida — visible justo aquí, no al fondo del formulario */}
+          {uploading && (
+            <p className="text-[11px] text-violet-300 mt-2 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Subiendo imagen…</p>
+          )}
+          {!uploading && uploadMsg && (
+            <p className={`text-[11px] mt-2 flex items-start gap-1.5 ${uploadMsg.ok ? "text-emerald-400" : "text-red-400"}`}>
+              {uploadMsg.ok ? <span>✓</span> : <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />}
+              <span>{uploadMsg.text}</span>
+            </p>
           )}
         </div>
 

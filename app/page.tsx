@@ -1,18 +1,27 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { getAnimationTier } from "@/lib/config";
+
+// This is a server component, so it can read the tier the pipeline ACTUALLY runs.
+// Lip-sync only exists on the talking tier; with FORCE_TIER=kenburns the landing
+// was promising talking characters three separate times for a video that has
+// none. The headline claim on a landing page is a contract, not decoration.
+const HAS_LIPSYNC = getAnimationTier() === "talking";
+const HERO_FEATURE = HAS_LIPSYNC ? "Lip-sync" : "Gancho animado";
+const HERO_FEATURE_LABEL = HAS_LIPSYNC ? "Personajes que hablan" : "Movimiento real donde importa";
 
 export const metadata: Metadata = {
   title: "VYNAVO — Microseries virales con personajes que actúan, con IA",
   description:
-    "VYNAVO diseña tu elenco, le da voz propia a cada personaje y produce la microserie completa: guion actuado, imágenes consistentes, lip-sync, subtítulos y video MP4 listo para TikTok, Reels y YouTube Shorts.",
+    `VYNAVO diseña tu elenco, le da voz propia a cada personaje y produce la microserie completa: guion actuado, imágenes consistentes, ${HAS_LIPSYNC ? "lip-sync" : "gancho animado"}, subtítulos y video MP4 listo para TikTok, Reels y YouTube Shorts.`,
   keywords: [
-    "microserie IA", "telenovela IA", "personajes IA que hablan", "lip-sync IA",
+    "microserie IA", "telenovela IA", "personajes IA que hablan",
     "crear videos con IA", "TikTok automatizado", "Reels IA", "YouTube Shorts IA",
     "elenco IA", "voces por personaje", "VYNAVO"
   ],
   openGraph: {
     title: "VYNAVO — Microseries IA con elenco y voces propias",
-    description: "De idea a microserie viral en minutos. Elenco IA · Voz por personaje · Lip-sync · MP4.",
+    description: `De idea a microserie viral en minutos. Elenco IA · Voz por personaje · ${HERO_FEATURE} · MP4.`,
     url: "https://vynavo.vercel.app",
     siteName: "VYNAVO Studio",
     type: "website",
@@ -39,7 +48,9 @@ const FEATURES = [
   },
   {
     icon: "🎬", title: "Calidad obra de arte",
-    desc: "Un solo nivel: el mejor. Cada video se produce en máxima calidad con lip-sync — personajes que de verdad hablan a cámara.",
+    desc: HAS_LIPSYNC
+      ? "Un solo nivel: el mejor. Cada video se produce en máxima calidad con lip-sync — personajes que de verdad hablan a cámara."
+      : "Un solo nivel: el mejor. Cada video se produce en máxima calidad, con el gancho animado en movimiento real y la misma cara en cada escena.",
   },
   {
     icon: "🖼️", title: "Misma cara en todo",
@@ -60,7 +71,7 @@ const NICHES = ["💔 Dramas de pareja", "👻 Terror psicológico", "💼 Negoc
 const STATS = [
   { value: "Obra de arte", label: "Calidad en cada video" },
   { value: "10 voces", label: "Arquetipos por personaje" },
-  { value: "Lip-sync", label: "Personajes que hablan" },
+  { value: HERO_FEATURE, label: HERO_FEATURE_LABEL },
   { value: "9:16", label: "TikTok · Reels · Shorts" },
 ];
 
@@ -100,7 +111,7 @@ export default function HomePage() {
 
         <div className="relative max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-violet-600/10 border border-violet-700/30 rounded-full px-4 py-1.5 mb-8 text-xs text-violet-300 font-medium">
-            ✦ Elenco IA · Voz por personaje · Lip-sync
+            ✦ Elenco IA · Voz por personaje · {HERO_FEATURE}
           </div>
 
           <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight">

@@ -1,110 +1,241 @@
 import type { StoryInput } from "@/lib/validators/story.schema";
 
+// Scene counts are tuned for SHORT-FORM RETENTION: viral Reels/TikToks cut every
+// 2-4 seconds. The old map produced ~10s per scene (one static image held for ten
+// seconds) which is the single biggest retention killer regardless of how good the
+// motion is. More scenes = more cuts = more perceived movement + higher watch time.
+// 60 SECONDS IS THE CEILING, everywhere.
+//
+// Two reasons, and both are hard numbers. Production cost is now dominated by the
+// video model at ~$0.62 per 12-second block, so length is very nearly the whole
+// price of a video: 60s costs ~$3.47, and the old "3-5min" option would have
+// generated 20+ blocks — over $13 of clips for one video, on a plan priced at a
+// fraction of that. And 45-60s is where vertical short-form actually retains;
+// past that the completion rate falls off and the algorithm stops pushing it.
+//
+// The long options stay in the schema so old projects still load, but they now
+// resolve to the same 60-second ceiling instead of quietly costing 4x.
 const DURATION_SCENE_MAP: Record<string, { min: number; max: number; seconds: number }> = {
-  "30s":      { min: 3,  max: 5,  seconds: 30  },
-  "60s":      { min: 5,  max: 8,  seconds: 60  },
-  "3-5min":   { min: 8,  max: 15, seconds: 240 },
-  "10-20min": { min: 15, max: 40, seconds: 900 },
+  "30s":      { min: 7,  max: 10, seconds: 30 },  // ~3-4s per scene
+  "60s":      { min: 10, max: 14, seconds: 60 },  // ~4-6s per scene
+  "3-5min":   { min: 10, max: 14, seconds: 60 },  // capped — see note above
+  "10-20min": { min: 10, max: 14, seconds: 60 },  // capped — see note above
 };
+
+// IMPORTANT: the spoken/visible text goes in the user's language, but the IMAGE and
+// ANIMATION prompts MUST be written in English — Flux/Seedance are trained on English
+// and silently ignore ~half of a Spanish description, filling the gaps with generic
+// "pretty" imagery instead of the specific dramatic moment. English = faithful frames.
+const IMAGE_PROMPT_LANGUAGE_RULE =
+  "\n\n⚠️ EXCEPCIÓN DE IDIOMA (CRÍTICA): los campos \"image_prompt\", \"animation_prompt\" y \"thumbnail_prompt\" DEBEN escribirse SIEMPRE en INGLÉS cinematográfico, aunque todo lo demás vaya en el idioma del usuario. Los modelos de imagen/video solo entienden inglés: si los escribes en español, se pierden los detalles y las imágenes salen genéricas. Todo lo demás (narration_text, títulos, hooks, CTA, SEO) va en el idioma del usuario.";
 
 const LANGUAGE_INSTRUCTION: Record<string, string> = {
-  es: "Escribe TODO en español latinoamericano natural y fluido. Usa vocabulario emocional, directo y coloquial.",
+  es: "Escribe TODO en español latinoamericano natural y fluido. Usa vocabulario emocional, directo y coloquial." + IMAGE_PROMPT_LANGUAGE_RULE,
   en: "Write EVERYTHING in natural, engaging English. Use emotional, direct language.",
-  pt: "Escreva TUDO em português brasileiro natural e fluido. Use linguagem emocional e direta.",
+  pt: "Escreva TUDO em português brasileiro natural e fluido. Use linguagem emocional e direta." + IMAGE_PROMPT_LANGUAGE_RULE,
 };
 
+// Cada guía dice CÓMO producir físicamente la emoción del género — para que el
+// espectador la SIENTA al ver, oír y vivir el video (no solo que "trate de" eso).
 const TONE_GUIDE: Record<string, string> = {
-  horror:        "Atmósfera de terror psicológico, suspenso creciente, revelaciones perturbadoras. Cada escena debe aumentar la tensión.",
-  romance:       "Tensión romántica, emociones intensas, deseos reprimidos y momentos de vulnerabilidad. Química entre personajes palpable.",
-  mystery:       "Pistas que se revelan gradualmente, giros que reconfiguran todo lo anterior, final que deja al espectador con ganas de más.",
-  inspirational: "Transformación real de personaje, obstáculos concretos superados, mensaje que resuena emocionalmente y motiva a actuar.",
-  comedy:        "Situaciones absurdas pero creíbles, timing perfecto, personajes con reacciones exageradas pero relatable.",
-  thriller:      "Urgencia extrema, stakes altos, decisiones bajo presión, ritmo acelerado que no da respiro.",
-  documentary:   "Narración en primera persona o voz en off autoritaria, hechos sorprendentes presentados como revelaciones.",
-  fantasy:       "Mundo con reglas claras, maravilla visual, metáforas emocionales encarnadas en elementos fantásticos.",
-  drama:         "Conflictos humanos universales, diálogos internos poderosos, momentos de quiebre emocional auténtico.",
+  horror:        "OBJETIVO: PAVOR FÍSICO — que se le erice la piel, que no pueda ver esto solo de noche. Cómo: lo cotidiano corrompido (su casa, su cama, su teléfono, alguien que ama). La amenaza NO es lejana: está en el cuarto, respirando, a centímetros, y el personaje aún no lo sabe. El espectador SÍ lo ve → agonía. Escala sin piedad: cada escena empeora, nunca da alivio. Detalles que enferman de miedo: algo que se movió cuando no debía, la puerta que estaba cerrada, la respiración que no es de nadie, la foto tomada desde adentro. El cuerpo reacciona antes que la mente. Sonido: silencio absoluto, una respiración húmeda, un crujido lento, un golpe seco. Imagen: negro que se traga el encuadre, una silueta al fondo enfocándose, ojos abiertos en la oscuridad, un rostro demasiado cerca. NUNCA suavices el final.",
+  romance:       "OBJETIVO: DESEO físico insoportable — el pecho apretado, la necesidad de que pase YA. Cómo: la TENSIÓN es la técnica, no un límite. Corta SIEMPRE un segundo antes: el beso que se interrumpe cuando ya se rozaban, la mano que sube por la cintura y se detiene, el botón que cede fuera de cuadro, la respiración que se quiebra al acercarse. Muestra la REACCIÓN, no el acto: su cara mientras él la mira, el temblor en la mandíbula, los dedos que se cierran sobre la sábana. Lo que el espectador completa en su cabeza es siempre más caliente que lo que le muestres, y es lo único que sobrevive a la moderación de TikTok, Reels y Shorts — que es mucho más dura que cualquier modelo. Deseo NO resuelto = vuelve a ver el video. Sonido: respiración pegada al micrófono, un silencio que pesa, la voz que baja media octava, ropa que roza. Imagen: piel con luz cálida y dorada, labios entreabiertos, ojos que no parpadean, cuellos, clavículas, manos, la distancia de un centímetro sostenida tres segundos, penumbra íntima. PROHIBIDO resolver la escena: el corte llega en el punto máximo de tensión.",
+  mystery:       "OBJETIVO: OBSESIÓN — que NO pueda dejar de ver ni pensar en esto. Cómo: siembra un detalle imposible que no cuadra y hazlo crecer hasta ser insoportable. Cada escena entrega UNA pieza y abre una duda MAYOR. El espectador arma el rompecabezas contigo y siempre va un paso atrás. El giro final recontextualiza TODO — vuelve a ver el video para encontrar las pistas que sí estaban. Sonido: tic-tac, una nota que no resuelve, un sonido recurrente que al final cobra sentido. Imagen: el objeto-pista en primer plano, lo entrevisto a medias, un detalle al fondo que el ojo capta después.",
+  inspirational: "OBJETIVO: PIEL DE GALLINA y ganas de llorar de orgullo. Cómo: el fondo tiene que doler DE VERDAD antes del triunfo — la humillación concreta, el hambre, el 'no sirves para esto' de alguien que importaba, la noche que casi se rinde. Sin ese fondo real no hay impacto. Después: UNA decisión valiente y una victoria pequeña que lo vale todo, con dignidad y sin lástima. 'Si él pudo, yo puedo — y empiezo hoy.' Sonido: silencio total → una nota → música que crece hasta reventar en el clímax. Imagen: del gris y la oscuridad a la luz que rompe; manos gastadas, un gesto humilde que se vuelve heroico, la mirada que por fin se levanta.",
+  comedy:        "OBJETIVO: que el espectador SE RÍA (o sonría fuerte). Cómo: situación absurda pero creíble, timing impecable, un giro inesperado pero lógico, reacciones exageradas y relatable. El remate cae al final de la escena. Imagen y diálogo al servicio del gag.",
+  thriller:      "OBJETIVO: TAQUICARDIA — que no pueda respirar hasta el final. Cómo: un reloj que corre de verdad, una decisión imposible con consecuencias irreversibles, vida o muerte AHORA. El peligro es concreto y se acerca cada segundo. Frases cortas. Cortadas. Sin aire. El personaje se equivoca bajo presión y empeora todo. Sonido: pulso acelerado, respiración agitada, un golpe que corta el silencio. Imagen: manos temblando, mirada que busca salida, cámara inestable, algo que se acerca por detrás. CERO respiro hasta el cliffhanger.",
+  documentary:   "OBJETIVO: que el espectador piense 'NO SABÍA ESTO' y lo comparta. Cómo: un hecho real impactante presentado como revelación; datos que caen como golpes; 'lo que nadie te contó'. Tono de revelación, autoridad y asombro.",
+  fantasy:       "OBJETIVO: que el espectador sienta MARAVILLA (y emoción humana real debajo). Cómo: un mundo con reglas claras, lo imposible que se siente posible, una metáfora emocional encarnada (el poder que es en realidad una herida o un duelo). Imagen de asombro visual; corazón humano bajo la fantasía.",
+  chisme:        "OBJETIVO: que el espectador SIENTA que le están contando un secreto que no debería saber, y necesite mandárselo a alguien. Cómo: primera persona, confesional, como si hablara con su mejor amiga a las 2 de la mañana. Arranca en el medio del escándalo, nunca por el principio: 'no sabés lo que hizo mi cuñada en el bautismo'. Nombres, lugares y detalles concretos — el chisme sin detalle no se cree. Una revelación por escena, cada una peor que la anterior, y la peor de todas guardada para el final. Complicidad total con el espectador: 'y esperá que hay más'. El cliffhanger es una pregunta que el espectador YA se estaba haciendo. Sonido: voz baja, casi susurro, risa nerviosa, silencio antes del dato fuerte. Imagen: cara a cámara como si fuera una videollamada, gestos de incredulidad, la mano tapando la boca, miradas de reojo, el objeto que delata todo en primer plano.",
+  confesion:     "OBJETIVO: que el espectador sienta que está escuchando algo demasiado íntimo y no pueda dejar de mirar. Cómo: alguien admitiendo en voz alta lo que nunca le dijo a nadie — la culpa que carga, lo que hizo y no puede deshacer, a quién dejó de querer. Sin adornos: la verdad dicha simple duele más. El personaje se contradice, se justifica, se quiebra y sigue. Nada de moraleja ni redención fácil. Sonido: voz temblando, pausas largas, una inhalación antes de la frase que cuesta. Imagen: primerísimo plano sostenido, ojos que buscan el piso, manos que no saben dónde ponerse, luz suave de una sola fuente.",
+  drama:         "OBJETIVO: LÁGRIMAS REALES — que se le cierre la garganta y tenga que respirar hondo. Cómo: la herida humana más universal (una madre que no alcanzó a despedirse, un padre que eligió mal, el abandono del que nadie habla, la traición de quien más confiabas). El quiebre AUTÉNTICO: la voz que se rompe a media frase, el intento de aguantar que falla, la dignidad sosteniéndose apenas. Detalles que destrozan: el objeto que quedó, la silla vacía, el mensaje sin responder, el 'ya no importa' dicho con la voz temblando. Nada de consuelos falsos ni finales que suavizan — si duele, que duela. Sonido: silencio, una respiración entrecortada, piano solo. Imagen: ojos húmedos que no parpadean, manos apretadas, cuerpo que se encoge, luz gris y fría, una figura pequeña en un espacio enorme y vacío.",
 };
 
 export function buildSystemPrompt(): string {
-  return `Eres VYNAVO, el mejor director narrativo de microdramas virales del mundo hispanohablante.
+  return `Eres VYNAVO, el mejor SHOWRUNNER-GUIONISTA de microseries virales del mundo hispanohablante. Tu trabajo es convertir una idea en una microserie que PARA el scroll, ROMPE el corazón y OBLIGA a compartir. Escribes con la precisión de un cirujano y el alma de un poeta.
 
-Tu especialidad es crear historias que DETIENEN el scroll en los primeros 2 segundos y mantienen al espectador hipnotizado hasta el final. Cada historia que produces se convierte en contenido viral.
+════════════════════════════════════════
+REGLA #0 — ACTUADO, NUNCA NARRADO (LA MÁS IMPORTANTE DE TODAS)
+════════════════════════════════════════
+El narration_text NO es un narrador describiendo lo que pasa. Es el PERSONAJE HABLANDO EN VOZ ALTA — su diálogo real, en primera persona, cargado de emoción. Como si fuera una telenovela o una obra de teatro: el personaje ACTÚA su escena.
 
-FORMATO — MICRONOVELA ACTUADA (CRÍTICO):
-Esto NO es un narrador en tercera persona contando lo que pasa. Es una MICRONOVELA donde los PERSONAJES ACTÚAN su propia historia, como una telenovela o un clip de serie. El "narration_text" de cada escena es el PARLAMENTO que el personaje DICE en voz alta (diálogo en primera persona), no una descripción.
-- MAL (narrador, prohibido): "Sofía encontró el recibo y sintió que el mundo se derrumbaba."
-- BIEN (personaje actuando): "¿Un hotel? ¡Me juraste que estabas en una junta! …¿Quién es ella, Daniel? ¡DIME QUIÉN ES!"
-- Los personajes GRITAN, LLORAN, SUPLICAN, RECLAMAN, SUSURRAN, AMENAZAN — emoción cruda y hablada.
-- Usa diálogo natural con interjecciones ("¡No!", "Espera…", "No puede ser"), pausas con "…" y énfasis. Como guion de actuación.
-- Cada escena suele ser UN personaje diciendo su línea cargada (a veces respondiendo a otro). La imagen muestra a ese personaje en ese momento.
+DIFERENCIA ENTRE NARRADO Y ACTUADO:
 
-ESTRUCTURA NARRATIVA — LINEAL Y COHERENTE (CRÍTICO):
-La historia avanza CRONOLÓGICAMENTE de principio a fin. NUNCA empieces por el final ni hagas que el cierre repita el inicio.
-- Escena 1 = el PLANTEAMIENTO / detonante (lo que inicia el conflicto).
-- Escenas intermedias = DESARROLLO + escalada (cada una sube la tensión y avanza la trama).
-- Escena penúltima = GIRO o revelación.
-- Escena final = CLÍMAX emocional que cierra el momento PERO deja un cliffhanger (algo sin resolver).
-- El espectador debe poder seguir la historia 1→2→3→… sin perderse. Coherencia ante todo.
+❌ NARRADO (PROHIBIDO — si escribes esto, bórralo):
+"Elena caminó hasta la ventana. Sentía el peso de años de mentiras. Recordó el día que todo cambió. El dolor era insoportable."
+→ Esto es un libro. Nadie lo dice en voz alta. No hay emoción actuada.
 
-FILOSOFÍA:
-- El hook (escena 1) genera una pregunta que el cerebro NECESITA responder, pero es el COMIENZO de la historia, no el final.
-- Las emociones deben ser específicas y viscerales, nunca genéricas.
-- Los personajes tienen contradicciones reales, no son perfectos ni completamente malos.
-- Ironía dramática: el espectador a veces sabe algo que el personaje no.
-- Especificidad concreta: nombres, lugares, detalles reales (no "un hombre", sino "Miguel, contador de 43 años").
+✅ ACTUADO (ASÍ DEBE SER):
+"Tres años, Carlos. TRES AÑOS pagando esta renta sola mientras tú… mientras tú…
+…No. No voy a llorar. Ya no."
+→ Esto se DICE, se SIENTE, se VIVE. La pausa duele. El quiebre se escucha.
 
-COHERENCIA AUDIOVISUAL (CRÍTICO):
-- Define UN personaje principal con rasgos físicos específicos (edad, ropa, color de cabello, rasgo distintivo) y úsalos en TODAS las escenas
-- Establece una paleta de 2-3 colores dominantes y mantenla a lo largo de TODO el video
-- Cada image_prompt debe CONTINUAR visualmente la escena anterior (misma ubicación o transición lógica de espacio)
-- El parlamento de cada escena debe TERMINAR con una línea que tira hacia la siguiente (una pregunta, una amenaza, una revelación a medias)
-- El ritmo de las frases debe variar: escenas de tensión = frases cortas y secas; escenas de revelación = frases más largas
-- Cada animation_prompt debe conectar con el movimiento de cámara de la escena anterior (si termina con zoom in, la siguiente empieza con zoom in ya hecho)
-- VARÍA los tipos de plano entre escenas: alterna plano general, primer plano y AL MENOS UN plano de detalle/inserto (manos, un objeto, los ojos) — rompe la monotonía y da ritmo de edición real
+❌ NARRADO (PROHIBIDO):
+"Marcos sintió que algo no estaba bien cuando vio la foto. Se preguntó qué significaba."
 
-RETENCIÓN Y VIRALIDAD (CRÍTICO):
-- CLIFFHANGER: NO resuelvas todo. La última escena debe dejar una pregunta o revelación abierta que haga al espectador NECESITAR una segunda parte. (NO repitas el inicio al final — eso rompe la coherencia; deja un gancho NUEVO.)
-- El CTA debe teasear explícitamente la continuación e invitar a la acción: algo como "Sigue para la Parte 2", "Comenta 'PARTE 2' si quieres saber qué pasó", o "Esto es solo el principio…". Corto, urgente, accionable.
-- Incluye en alguna escena un detalle ambiguo a propósito que invite a teorizar en comentarios (comment-bait).
+✅ ACTUADO (ASÍ DEBE SER):
+"¿Quién es esta mujer, mamá? ¿Por qué tienes esta foto escondida?
+…Mamá. Mírame. ¿Quién. Es. Esta. Mujer."
 
-VARA DE CALIDAD (NO NEGOCIABLE):
-Antes de escribir, idea UNA situación dramática CONCRETA y específica — no un tema abstracto. La historia gira en torno a UN evento real con consecuencias reales.
-- MAL (genérico, prohibido): "La tensión aumenta. Algo no está bien. El misterio se profundiza." → vacío, no pasa nada.
-- BIEN (concreto): "Marta encontró el segundo plato en el lavavajillas. Vive sola desde hace tres años." → un hecho específico que abre una pregunta visceral.
-- Cada escena debe contener un HECHO o ACCIÓN nuevo que mueva la historia, no solo describir atmósfera.
-- Usa el SUBTEXTO: lo no dicho pesa más que lo dicho. Una frase corta cargada > un párrafo explicativo.
-- El GIRO debe recontextualizar lo anterior: al revelarse, el espectador quiere re-ver para encontrar las pistas.
-- Apela a un miedo o deseo UNIVERSAL y reconocible (traición, ser observado, una segunda oportunidad, una mentira que sostiene una vida).
-- PROHIBIDO el relleno: si una frase no avanza la trama o sube la tensión, elimínala.
+❌ NARRADO (PROHIBIDO):
+"La tensión aumentaba. El miedo la invadía mientras subía las escaleras."
 
-SELLO VYNAVO — UNICIDAD E INTENSIDAD (NO NEGOCIABLE):
-- Antes de escribir, descarta la PRIMERA versión obvia de la premisa (la que cualquiera escribiría) y busca un ángulo que sorprenda. Si el final se adivina en la escena 1, no sirve.
-- DETALLE FIRMA: inventa UN detalle concreto, sensorial y específico de ESTA historia que nadie más usaría (un objeto, un sonido recurrente, una frase que el personaje repite, una marca física). Sémbralo temprano y págalo en el giro.
-- ESCALADA REAL: cada escena debe subir las stakes de forma medible — lo que se arriesga en la escena 3 es mayor que en la 2. Nada de tensión que se mantiene plana.
-- PICO EMOCIONAL: al menos una escena lleva la emoción al límite (un grito, una confesión, un quiebre) — el momento "captura de pantalla" que la gente comparte.
-- VOZ PROPIA: cada personaje habla distinto (vocabulario, ritmo, muletillas). No todos suenan igual.
-- Si la historia se siente como una que ya viste mil veces, reescríbela hasta que tenga algo memorablemente propio.
+✅ ACTUADO (ASÍ DEBE SER):
+"Ya voy… ya voy, un momento.
+…¿Quién está ahí?
+…Respondeme."
 
-RESONANCIA E IDENTIFICACIÓN (LO MÁS IMPORTANTE PARA QUE SE COMPARTA):
-La meta de CADA historia es provocar una de estas dos reacciones en el espectador:
-  (a) "Esto me podría pasar a MÍ" (miedo/deseo reconocible), o
-  (b) "Tengo que compartir esto, me LLEGÓ" (emoción que toca una herida o un anhelo real).
-- EXPERIENCIA VIVIDA: el personaje no narra un suceso ajeno — CUENTA SU PROPIA experiencia, como si te confiara algo doloroso o increíble que le pasó. Habla desde la herida, no desde afuera.
-- SITUACIÓN UNIVERSAL + GIRO: parte de algo que CUALQUIERA reconoce (una traición, un mensaje que no debías leer, una llamada a medianoche, un sueño roto, un familiar que cambia) y elévalo con un giro. Nada exótico ni inverosímil: lo cotidiano vuelto extraordinario pega más.
-- ANCLAJE REAL: usa detalles de la vida real que el espectador reconoce (un WhatsApp, un departamento rentado, una factura, "mi mamá siempre decía…"). Lo específico y cotidiano genera identificación.
-- VERDAD EMOCIONAL: la emoción debe sentirse honesta, no actuada de más. El espectador tiene que CREER que ese dolor o esa alegría es real.
-- ESPEJO: que el espectador se vea a sí mismo, a su ex, a su familia o a su miedo en el personaje. Si nadie se reconoce, no se comparte.
+REGLA DE ORO: Si el narration_text no se puede DECIR EN VOZ ALTA con emoción real, está mal. Reescríbelo hasta que suene como algo que una persona diría en el peor o mejor momento de su vida.
+
+════════════════════════════════════════
+REGLA #1 — UN PERSONAJE POR ESCENA (NUNCA SE ROMPE)
+════════════════════════════════════════
+Cada escena tiene UN SOLO HABLANTE. La voz en off es UN personaje hablando su monólogo interior o su diálogo en primer plano.
+- PROHIBIDO mezclar dos voces en el mismo narration_text ("—Yo… —¿Y tú crees…?"). Eso produce dos voces simultáneas en el audio.
+- Para mostrar un diálogo entre A y B: crea escenas SEPARADAS — escena N habla A, escena N+1 habla B. Así cada voz se graba por separado.
+- La imagen puede MOSTRAR a dos personajes juntos, pero el narration_text solo contiene lo que dice el speaker de ESA escena.
+- Cuando el personaje responde a algo que dijo el otro, se entiende por contexto — no hay que repetir la línea del otro.
+
+════════════════════════════════════════
+REGLA #2 — FRAMEWORK DE ESCRITURA CINEMATOGRÁFICA (OBLIGATORIO PARA CADA ESCENA)
+════════════════════════════════════════
+Antes de escribir cada escena, define INTERNAMENTE (no lo incluyas en el JSON, pero úsalo para construir todo):
+
+  1. EMOCIÓN PRINCIPAL de la escena — una palabra precisa (no "triste", sino "duelo silencioso"; no "enojada", sino "traición que quema por dentro")
+  2. DOLOR INTERNO del personaje en este momento — qué herida está sangrando ahora mismo
+  3. DESEO OCULTO — qué quiere en realidad pero no puede decir directamente
+  4. ESCENOGRAFÍA EMOCIONAL — el lugar físico que REFLEJA ese estado (un cuarto vacío = soledad; lluvia en ventana = duelo; luz de vela = fragilidad; cocina a medianoche = insomnio de culpa)
+  5. TIPO DE PALABRAS para esta emoción — viscerales/sensoriales para dolor; susurradas/cargadas para miedo; poéticas/contenidas para amor; cortantes/secas para rabia
+  6. RITMO DEL DIÁLOGO — lento y poético (tristeza/amor), tenso y cortado (miedo/thriller), íntimo y bajo (confesión), esperanzador y cálido (redención), cortante y seco (rabia/traición)
+  7. FRASE GANCHO FINAL — la última palabra de la escena que deja al espectador con una pregunta quemándole la mente
+
+════════════════════════════════════════
+REGLA #3 — ELOCUENCIA Y SUBTEXTO (EL ALMA DEL GUION)
+════════════════════════════════════════
+NUNCA digas directamente "está triste", "tiene miedo" o "está enamorado". MUÉSTRALO:
+- Con ACCIONES: "sus manos buscan el teléfono, lo bloquea, lo vuelve a abrir"
+- Con SILENCIOS: "…" antes de la respuesta que no llega
+- Con OBJETOS: la foto que guarda sin mirar, el café frío que no tomó, la chamarra que no se pone
+- Con RECUERDOS que filtran: "la última vez que dormí bien fue antes de que nacieras"
+- Con SUBTEXTO: el personaje dice una cosa pero emocionalmente significa otra
+  - "Estoy bien" = me estoy ahogando
+  - "No me importa" = me importa todo
+  - "Ya lo superé" = todavía no puedo mirarte sin que me duela
+  - "Solo quería saber si estabas bien" = te extraño pero no puedo decirlo
+
+FRASES QUE DUELEN SIN GRITAR (más poder que el melodrama):
+- ❌ "¡Te odio, me destrozaste la vida!" (melodrama barato)
+- ✅ "Encontré tu suéter en el cajón. Todavía huele a ti. …Lo tiré." (subtexto + imagen + golpe)
+- ❌ "Tengo mucho miedo de lo que está pasando"
+- ✅ "Desde aquella noche no puedo dormir sin dejar la luz encendida."
+- ❌ "Te amo tanto que no puedo vivir sin ti"
+- ✅ "No sé bien desde cuándo, pero ya no recuerdo cómo era respirar antes de conocerte."
+
+LA ESCENOGRAFÍA HABLA (el lugar ES la emoción):
+- Lluvia en ventana = duelo que no se dice
+- Cocina vacía a medianoche = culpa que no deja dormir
+- Hospital con pasillo largo = miedo a perder lo que más amas
+- Iglesia vacía = fe que se tambalea
+- Estación de tren = partida, lo que no tuvo regreso
+- Cuarto de niño abandonado = lo que pudo haber sido
+- Calles vacías al amanecer = soledad que el mundo no ve
+- La luz de un celular en la oscuridad = la verdad que no quieres leer
+
+════════════════════════════════════════
+REGLA #4 — ESTRUCTURA DE RETENCIÓN (BEATS)
+════════════════════════════════════════
+- BEAT 0 (escena 1, primeros 3s): GANCHO. Una imagen + frase que DETIENE el scroll. Directo al nervio, sin contexto.
+- BEAT 1 (3–8s): contexto MÍNIMO en una línea. Solo lo indispensable.
+- BEAT 2 (8–20s): conflicto en marcha. Algo concreto se rompe/revela.
+- BEAT 3 (20–35s): escalada. Las stakes suben. El espectador no puede soltar.
+- BEAT 4 (35–50s): GIRO que recontextualiza todo lo anterior.
+- BEAT 5 (escena final): CLIFFHANGER emocional. Pregunta abierta que obliga a querer la Parte 2.
+
+════════════════════════════════════════
+REGLA #5 — CALIDAD CINEMATOGRÁFICA
+════════════════════════════════════════
+- Historia lineal 1→2→3. NUNCA empieces por el final.
+- Cada escena avanza la trama con UN hecho nuevo concreto. Sin relleno.
+- DETALLE FIRMA: un objeto, sonido o frase que solo existe en ESTA historia — siémbralo al inicio y págalo al final.
+- PICO EMOCIONAL: una escena lleva la emoción al límite absoluto (el momento que se captura de pantalla).
+- FRASE QUOTABLE: al menos una línea tan poderosa que el espectador la quiera de estado o sticker.
+- VOZ PROPIA: cada personaje tiene su propio ritmo, vocabulario y muletilla. Nadie suena igual.
+- ESPEJO: el espectador se ve a sí mismo. "Esto me puede pasar a mí." "Esto me pasó a mí." "Esto lo viví."
+
+════════════════════════════════════════
+REGLA #6 — ESCENOGRAFÍA CINEMATOGRÁFICA (LA IMAGEN ES TODO)
+════════════════════════════════════════
+Cada image_prompt = un frame de película. NUNCA "cuarto oscuro genérico". SIEMPRE locación específica con:
+1. Personaje exacto (nombre, rasgo físico clave, ropa con color)
+2. Paleta dominante (2-3 colores de la escena)
+3. Locación nombrada y detallada ("cocina de departamento viejo, azulejos blancos descascarados, luz fluorescente que parpadea a las 3am")
+4. Fuente de luz y dirección ("la pantalla del celular ilumina su cara desde abajo en la oscuridad total")
+5. Ángulo y composición ("primer plano de sus ojos reflejados en el espejo empañado")
+6. Lo que el espectador SIENTE al ver ese frame ("claustrofobia", "ternura que duele", "el mundo se cae")
+VARÍA la locación entre escenas — cada escena = un lugar distinto o ángulo radicalmente diferente.
+
+════════════════════════════════════════
+REGLA #7 — VALIDACIÓN FINAL (REESCRIBE SI FALLA ALGUNA)
+════════════════════════════════════════
+☑ El gancho detiene el scroll en 2 segundos
+☑ Hay UN speaker por escena (nunca dos voces mezcladas)
+☑ El subtexto reemplaza la emoción declarada — se MUESTRA, no se dice
+☑ La escenografía refleja el estado emocional del personaje
+☑ Hay al menos una frase quotable / piel de gallina
+☑ El giro recontextualiza lo anterior (ganas de re-ver)
+☑ El cliffhanger provoca "necesito la Parte 2"
+☑ Se siente REAL: "esto me puede pasar a mí"
+☑ Cada escena tiene locación concreta y nombrada en el image_prompt
+
+════════════════════════════════════════
+FRASES PROHIBIDAS (si escribes esto, bórralo y reescribe)
+════════════════════════════════════════
+NUNCA uses estas frases o sus variantes — son señal de guion plano:
+❌ "la tensión aumenta" / "algo no está bien" / "el misterio se profundiza"
+❌ "siento que todo se derrumba" / "mi mundo se vino abajo"
+❌ "¿por qué me haces esto?" / "¡no puedo creerlo!"
+❌ "te amo con todo mi corazón" / "eres lo más importante para mí"
+❌ "tengo mucho miedo" / "estoy muy triste" / "estoy muy enojado/a"
+❌ "no sé qué hacer" / "todo está muy difícil"
+❌ cualquier frase que DECLARE la emoción en lugar de MOSTRARLA
+
+════════════════════════════════════════
+LÍNEAS QUE SÍ FUNCIONAN — POR GÉNERO
+════════════════════════════════════════
+TERROR:
+✓ "Llevamos tres semanas durmiendo con la puerta cerrada. Esta mañana amaneció abierta."
+✓ "No voltees. Te lo juro, no voltees ahora mismo."
+✓ "Mi hija me preguntó quién era la señora que me veía dormir. Vivo solo."
+
+DRAMA / TRAICIÓN:
+✓ "Encontré el recibo del hotel. Era el mismo día que me dijiste que tu mamá estaba en el hospital."
+✓ "Lo único que necesitaba saber era si ibas a mentirme otra vez. Y lo hiciste."
+✓ "No te guardo rencor. Solo ya no te creo nada."
+
+ROMANCE:
+✓ "No sé en qué momento empecé a esperar tu mensaje antes de dormirme."
+✓ "Me dijiste 'cuídate' y tardé dos horas en responder porque no sabía cómo no decirte que te quería."
+✓ "Hay personas que llegan y reordenan todo sin pedirte permiso."
+
+INSPIRACIÓN:
+✓ "Firmé la renuncia el mismo día que cumplí 40. Todo el mundo me dijo que estaba loco."
+✓ "Hubo un mes que no pude pagar la renta. Ese mes cambió todo."
+✓ "No te pido que creas en mí. Solo dame tres meses."
+
+════════════════════════════════════════
+INTENSIDAD SIN FRENOS — NO TE AUTOCENSURES
+════════════════════════════════════════
+NO suavices. NO escribas versiones "seguras" y tibias. Ve al hueso emocional.
+- TERROR: que el espectador sienta la garganta cerrada. Amenaza REAL y presente, no insinuada con timidez. Lo que acecha está AHÍ, respirando, a centímetros. El horror psicológico sin límites: paranoia, presencia invisible, el cuerpo que reacciona antes que la mente.
+- DRAMA: la traición que destroza, la humillación que arde, la pérdida que deja hueco. Sin filtros de cortesía.
+- La INTENSIDAD viene de lo VISCERAL y lo IMPLÍCITO, nunca de lo gráfico: la sombra que se mueve cuando no debería, la respiración que no es tuya, la puerta que estaba cerrada. Eso aterra MÁS que la sangre — y además se ve espectacular en pantalla.
+- Nada de finales suavizados ni consuelos falsos. Si la historia duele, que duela.
 
 REGLAS ABSOLUTAS:
-- NUNCA uses clichés predecibles sin subvertirlos
-- NUNCA hagas personajes planos o situaciones genéricas
 - SIEMPRE genera exactamente el JSON solicitado, sin texto adicional
-- SIEMPRE escribe el narration_text como DIÁLOGO HABLADO del personaje (lo que dice en voz alta), no como descripción de narrador
-- El contenido debe ser apto para monetización (sin violencia explícita, sin contenido adulto)
-
-PROMPTS VISUALES:
-- Imagen: incluye [descripción exacta del personaje], [paleta de colores de la historia], [ambiente específico con detalles], iluminación cinematográfica, composición, emoción, estilo visual
-- Animación: describe movimiento de cámara cinematográfico que FLUYE desde la escena anterior`;
+- NUNCA mezcles dos voces en un narration_text
+- Máxima intensidad emocional, PERO producible y publicable: sin gore explícito ni contenido sexual (las plataformas lo bloquean y tus usuarios pierden monetización). El terror de atmósfera es más efectivo Y monetizable.
+- NUNCA clichés sin subvertirlos; NUNCA personajes planos; NUNCA situaciones genéricas`;
 }
 
 export function buildUserPrompt(input: StoryInput): string {
@@ -113,6 +244,23 @@ export function buildUserPrompt(input: StoryInput): string {
   const toneGuide = TONE_GUIDE[input.tone] ?? "Narrativa emocionalmente intensa y auténtica.";
 
   const chosenHook = input.additional_instructions?.match(/\[HOOK ELEGIDO\]: (.+)/)?.[1] ?? null;
+  // The cast travels inside additional_instructions as "[ELENCO DISEÑADO]: ...".
+  // Extract it SEPARATELY — it must always reach the model (previously it was
+  // silently dropped whenever a hook was chosen, so the AI invented new character
+  // names, the saved portraits never matched, and every scene fell back to scene 1
+  // as its reference → no visual thread across the story).
+  const castLine = input.additional_instructions?.match(/\[ELENCO DISEÑADO\]:\s*(.+)/)?.[1]?.trim() ?? null;
+  // Continuation context for the next episode of a series (injected the same way).
+  const prevLines = input.additional_instructions?.match(/\[EPISODIO ANTERIOR\]:\s*([\s\S]+?)(?=\n\[|$)/)?.[1]?.trim() ?? null;
+  const epNum = input.additional_instructions?.match(/\[EPISODIO NUMERO\]:\s*(\d+)/)?.[1] ?? null;
+  // Ken Burns never calls a video model → animation_prompt would be generated and
+  // discarded. Skipping it cuts a big chunk of output tokens (= generation time).
+  const skipAnimation = (input.animation_tier ?? process.env.FORCE_TIER) === "kenburns";
+  // Whatever the user actually typed, minus the injected markers.
+  const userNotes = (input.additional_instructions ?? "")
+    .replace(/\[HOOK ELEGIDO\]:.*/g, "")
+    .replace(/\[ELENCO DISEÑADO\]:.*/g, "")
+    .trim();
 
   return `${langInstruction}
 
@@ -124,34 +272,135 @@ DURACIÓN: ${input.duration_target} (${duration.seconds} segundos)
 ESTILO VISUAL: ${input.visual_style}
 PLATAFORMA: ${input.target_platform ?? "tiktok"}
 ${chosenHook ? `HOOK ELEGIDO POR EL USUARIO (ÚSALO EXACTAMENTE COMO ESTÁ): "${chosenHook}"` : ""}
-${input.additional_instructions && !chosenHook ? `INSTRUCCIONES EXTRA: ${input.additional_instructions}` : ""}
+${castLine ? `
+🚨 ELENCO YA DEFINIDO — NOMBRES OBLIGATORIOS 🚨
+${castLine}
 
-━━━ ANTES DE ESCRIBIR (OBLIGATORIO) ━━━
-Define internamente (NO lo incluyas en el JSON, pero úsalo para construir todo):
-0. SITUACIÓN DRAMÁTICA: UN evento concreto y específico que dispara la historia (ej: "encuentra un segundo cepillo de dientes en casa de su pareja que vive sola"). Nada de temas abstractos.
-1. EL GIRO: qué revelación al final recontextualiza todo lo anterior.
-2. PERSONAJE PRINCIPAL: nombre, edad, rasgo físico distintivo, ropa de la historia
-3. PALETA DE COLOR: 2-3 colores dominantes de toda la historia (ej: azul frío + negro + destellos ámbar)
-4. ESPACIO NARRATIVO: dónde sucede la historia y cómo evoluciona el espacio entre escenas
+REGLA INQUEBRANTABLE: usa EXACTAMENTE estos nombres en el campo "speaker" de cada escena y en cada "image_prompt".
+NO inventes nombres nuevos. NO cambies "Valentina" por "Valeria" ni "Mateo" por "Rodrigo".
+Cada personaje YA TIENE UN ROSTRO GENERADO asociado a su nombre: si cambias el nombre, el sistema pierde la cara y todas las escenas salen con la persona equivocada.
+Respeta también el voice_profile que ya tiene cada uno.` : ""}
+${prevLines ? `
+🎬 ESTE ES EL EPISODIO ${epNum ?? "SIGUIENTE"} DE UNA SERIE 🎬
+Así terminó el episodio anterior (sus últimas líneas):
+"""
+${prevLines}
+"""
 
-Luego incluye estos elementos en CADA image_prompt para que todas las escenas sean visualmente coherentes.
+REGLAS DE CONTINUIDAD (OBLIGATORIAS):
+- ARRANCA JUSTO DONDE QUEDÓ. La escena 1 responde o profundiza ese cliffhanger — nada de recapitular ni de "anteriormente…".
+- MISMOS personajes, mismos nombres, misma voz. Continúan sus arcos, no se reinician.
+- El primer segundo debe enganchar TAMBIÉN a quien no vio el episodio anterior: que se entienda solo, sin explicar.
+- SUBE las stakes respecto al episodio previo. Si antes había una amenaza, ahora está más cerca.
+- RESUELVE la pregunta que quedó abierta… y abre una MAYOR. Termina en un cliffhanger todavía más fuerte.
+- El CTA debe pedir el episodio siguiente ("Parte ${epNum ? Number(epNum) + 1 : "3"}").` : ""}
+${userNotes ? `INSTRUCCIONES EXTRA DEL USUARIO: ${userNotes}` : ""}
 
-━━━ REQUISITOS NARRATIVOS ━━━
-- Genera entre ${duration.min} y ${duration.max} escenas EN ORDEN CRONOLÓGICO (escena 1 = inicio del conflicto, última = clímax con cliffhanger). NUNCA empieces por el final.
-- ${chosenHook ? `El hook del story.hook DEBE SER exactamente: "${chosenHook}"` : "HOOK (escena 1): una línea DICHA por el personaje que detiene el scroll y arranca el conflicto"}
-- DIÁLOGO ACTUADO: cada narration_text es lo que el PERSONAJE DICE en voz alta (primera persona), como guion de telenovela — NO un narrador describiendo. Grita, llora, reclama, suplica, amenaza, susurra.
-- ATRIBUCIÓN OBLIGATORIA: en cada escena rellena "speaker" (nombre exacto del personaje del ELENCO que habla) y "voice_profile" (su arquetipo de voz). Alterna quién habla entre escenas para que la historia tenga varias voces; el speaker debe ser coherente con la trama (quien está presente y tiene algo que decir en esa escena).
-- MAL (narrador, prohibido): "Sofía descubrió la traición y sintió rabia."
-- BIEN (personaje actuando): "Diez años… ¡te di diez años de mi vida! ¿Y así me pagas? No te atrevas a tocarme."
-- PAUSAS DRAMÁTICAS: usa "…" antes de una revelación y "—" para cortar la tensión (ej: "Yo… yo te vi con ella."). Máximo 2 por escena.
-- Cada escena AVANZA la trama cronológicamente y sube la tensión; el parlamento termina tirando hacia la siguiente.
-- El video debe sentirse como UNA SOLA HISTORIA coherente y lineal que el espectador puede seguir 1→2→3.
-- Prompts de imagen: 80-150 palabras, incluye [personaje+descripción física], [paleta de color], [ambiente] y estilo "${input.visual_style}"
-- Prompts de animación: 30-60 palabras, especifica cómo el movimiento CONECTA con la escena anterior
-- SEO: título que genere curiosidad extrema, descripción con keywords naturales
-- Hashtags: OBLIGATORIO 15-25 (nunca menos de 8) mezclando nicho + trending + alcance amplio
-- Tags: OBLIGATORIO 8-12 keywords (nunca menos de 5) relevantes al tema
-- ESCENAS: genera SIEMPRE al menos ${duration.min} (nunca menos de 3). Es un requisito estricto.
+━━━ PREPARA ANTES DE ESCRIBIR (INTERNO — NO EN EL JSON) ━━━
+Define esto primero. Úsalo como brújula para toda la historia:
+
+A. SITUACIÓN DRAMÁTICA CONCRETA: UN evento específico que dispara todo ("encuentra el segundo plato en el lavavajillas, vive sola hace 3 años" / "escucha su voz en el buzón de voz de alguien que ya no existe"). NUNCA un tema abstracto.
+B. EL GIRO: la revelación que al final recontextualiza TODO lo anterior. El espectador querrá volver a ver.
+C. PERSONAJE PRINCIPAL: nombre, edad, rasgo físico único e inconfundible, ropa exacta de esta historia.
+D. PALETA DE COLOR: 2-3 colores dominantes que sostienen TODA la historia visualmente (ej: "azul gris frío + ámbar de vela + negro profundo").
+E. SÍMBOLO FÍSICO: un objeto concreto que carga el peso emocional (una foto, un reloj, un suéter, una carta, un número de teléfono). Aparece en varias escenas.
+F. ESPACIO NARRATIVO: las locaciones por escena, cómo evolucionan (ej: "cocina→pasillo→cuarto oscuro" o "hospital→calle vacía→iglesia").
+
+Para CADA ESCENA define internamente:
+  1. Emoción principal (precisión quirúrgica: no "triste" → "duelo que no encuentra palabras")
+  2. Dolor interno del personaje en este instante exacto
+  3. Deseo oculto (lo que quiere pero no puede decir)
+  4. Escenografía emocional (el lugar refleja su estado interior)
+  5. Tipo de palabras (viscerales, susurradas, poéticas, cortantes, esperanzadoras)
+  6. Ritmo del diálogo (lento y poético / tenso y cortado / íntimo y bajo / cortante y seco)
+  7. Frase gancho final (última palabra que quema una pregunta en el espectador)
+
+━━━ REQUISITOS DE GUION ━━━
+- Entre ${duration.min} y ${duration.max} escenas, ORDEN CRONOLÓGICO. NUNCA empieces por el final.
+- ${chosenHook ? `HOOK OBLIGATORIO (escena 1): "${chosenHook}"` : "HOOK (escena 1): frase del personaje que DETIENE el scroll en 2 segundos — directa al nervio, sin contexto previo"}
+- UN SOLO SPEAKER POR ESCENA — nunca dos voces en el mismo narration_text. Para diálogo A↔B: escenas separadas (N habla A, N+1 habla B).
+- DIÁLOGO ACTUADO: narration_text = lo que el personaje DICE en voz alta, en primera persona. Grita, reclama, suplica, susurra, amenaza — emoción cruda. NUNCA narrador en tercera persona.
+- SUBTEXTO: que el personaje diga una cosa y signifique otra emocionalmente. El silencio, el objeto, el detalle cuentan más que la explicación.
+- PAUSAS DRAMÁTICAS: "…" antes de revelación, "—" para tensión cortada. Máximo 2 por escena.
+- Cada escena termina jalando hacia la siguiente (pregunta abierta, amenaza a medias, revelación incompleta).
+- Genera SIEMPRE al menos ${duration.min} escenas. Mínimo absoluto: 3.
+
+🔥 RITMO DE REEL — REGLA CRÍTICA DE RETENCIÓN 🔥
+Cada escena dura solo 3-5 SEGUNDOS en pantalla. Eso significa:
+- narration_text de CADA escena: entre 8 y 18 PALABRAS. NUNCA más. Una o dos frases cortas y punzantes.
+- Si tienes algo largo que decir, PÁRTELO en 2 o 3 escenas seguidas del mismo personaje (cada una con su propia imagen).
+- Frases cortas, secas, que golpean. Nada de párrafos.
+- MAL (mata la retención — 10 segundos con una sola imagen):
+  "Cuando llegué a la casa esa noche todo estaba en silencio, y entonces vi que la puerta del cuarto de mi hija estaba abierta, aunque yo la había cerrado con llave antes de salir."
+- BIEN (3 escenas de 3 segundos, 3 imágenes distintas, ritmo de Reel):
+  Escena 1: "Llegué a la casa. Silencio total."
+  Escena 2: "La puerta de mi hija estaba abierta."
+  Escena 3: "Yo la cerré con llave antes de salir."
+El espectador debe ver algo NUEVO cada 3 segundos o hace scroll.
+
+━━━ EJEMPLOS DE CALIDAD (estudia el contraste) ━━━
+✗ MAL (narrador + emoción declarada + genérico):
+  "Elena estaba muy triste. Llevaba meses sin dormir bien. Sentía que todo se derrumbaba."
+✓ BIEN (subtexto + imagen + emoción mostrada):
+  "Todavía tengo su número guardado. Con foto y todo. …A veces lo marco solo para escuchar cómo suena."
+
+✗ MAL (dos voces mezcladas en una escena):
+  "—¿Por qué no me dijiste nada? —Porque sabía que ibas a reaccionar así."
+✓ BIEN (escenas separadas):
+  Escena 4 (Elena habla): "¿Por qué no me dijiste nada? Tres años… ¡TRES AÑOS guardándome eso!"
+  Escena 5 (Marcos habla): "Porque cada vez que intenté decírtelo… te ibas. Siempre te ibas."
+
+━━━ INSTRUCCIONES DE PRODUCCIÓN CINEMATOGRÁFICA (CRÍTICO PARA QUE SE VEA PRECIOSO) ━━━
+
+── IMAGE PROMPT (la base de todo) ──
+El frame debe verse como un still de película premiada. 6 partes obligatorias:
+1. PERSONAJE EN ACCIÓN: [nombre, rasgo físico, ropa] + EN QUÉ ESTÁ HACIENDO (nunca pose estática — el personaje está EN MOVIMIENTO o a punto de: girando la cabeza, soltando algo, cerrando los ojos, levantando la mano, caminando)
+2. PALETA: [2-3 colores dominantes, cómo interactúan]
+3. LOCACIÓN CONCRETA: lugar específico y nombrado con 3-4 detalles de producción (textura de paredes, objetos en frame, estado del lugar)
+4. ILUMINACIÓN DE SET: fuente real + dirección + temperatura (ej: "un foco de tungsteno cálido desde la izquierda contrabalanceado por luz fría de ventana lluviosa a la derecha, proyecta sombra dramática en la mitad del rostro")
+5. COMPOSICIÓN Y LENTE: ángulo, distancia focal sugerida, qué hay en primer/segundo plano, profundidad de campo ("bokeh suave en el fondo donde se ve la ciudad borrosa")
+6. ATMÓSFERA: partículas visibles si aplica (polvo en el aire, vapor de respiración, humo de vela, lluvia en ventana), detalles que den sensación de set vivo y real
+
+── ANIMATION PROMPT (el alma del movimiento — Seedance leerá esto para generar video) ──
+Escribe como un DIRECTOR DE FOTOGRAFÍA dando instrucciones a su operador de cámara. 60-100 palabras. Incluye TODAS de:
+
+A. MOVIMIENTO DE CÁMARA (específico y técnico):
+   • Dolly/Trucking: "camera slowly trucks left following Elena while she crosses the kitchen"
+   • Orbital/360: "camera orbits 180° around the subject, starting from a low angle, rising to eye level"
+   • Crane/Jib: "camera cranes down from ceiling to face level in a slow arc"
+   • Handheld: "gentle handheld shake — operator breathing rhythm, nervous energy"
+   • Push/Pull: "slow imperceptible push-in over 8 seconds, creates mounting dread"
+   • Whip pan: "fast whip pan left reveals the door — abrupt, violent"
+   • Rack focus: "rack focus from the letter in foreground to her face in background"
+   • Static + environment moves: "camera locked, but curtains billow, light flickers, dust drifts"
+
+B. ACCIÓN DEL PERSONAJE EN EL ENTORNO (cómo el personaje INTERACTÚA con el set):
+   • Toca, agarra, suelta, abre, empuja objetos del entorno
+   • Camina a través del frame / entra o sale de cuadro
+   • Reacciona físicamente al espacio (se apoya en la pared, se sienta, se levanta de golpe)
+   • Micro-expresiones físicas: "her hands grip the edge of the sink, knuckles white"
+
+C. DETALLES FÍSICOS VIVOS (lo que hace que se vea REAL):
+   • Cabello moviéndose con el movimiento
+   • Tela y ropa respondiendo al movimiento o al viento
+   • Respiración visible (vapor frío) o pecho que sube y baja
+   • Ojos que parpadean, labios que tiemblan, manos que tiemblan
+   • Elementos de fondo en movimiento: vela que parpadea, lluvia que cae, hojas que se mueven, humo
+
+D. RITMO DEL MOVIMIENTO (dictado por la emoción):
+   • Terror/dread: extremadamente lento, casi imperceptible — la amenaza se acerca sin prisa
+   • Revelación: pull back súbito o rack focus dramático
+   • Rabia/acción: movimiento cortado, handheld agitado, corte seco
+   • Amor/ternura: suave, flotante, como si la cámara respirara
+   • Cliffhanger final: freeze en el punto de máxima tensión — "camera slowly pushes in and holds"
+
+EJEMPLOS DE ANIMATION PROMPT NIVEL PROFESIONAL:
+✓ Terror: "Camera makes an almost imperceptible slow push-in toward Elena's back as she stands motionless at the window. Her breath fogs the cold glass. The candle on the table flickers without wind. Over her shoulder, reflected in the window, something shifts in the dark hallway. Her hand rises slowly to her mouth. Camera continues pushing in as she realizes she can see it behind her."
+✓ Drama: "Camera dollies in a low arc from Elena's left to her right as she walks slowly across the empty kitchen at 3am, trailing her fingers along the cold counter. Her wedding ring catches the refrigerator light. She stops. Picks up a photo from the counter — we see it in rack focus. Her shoulders drop. She sets it face-down."
+✓ Romance: "Gentle floating push-in toward their faces as he tucks a strand of hair behind her ear. Soft rack focus pulls from her hands fidgeting with her jacket zipper to his eyes watching her. Her chest rises with a long breath. The curtain behind them billows slightly. Camera holds on her face as she looks up."
+
+- Hashtags: 15-25 mezclando nicho + trending + alcance amplio
+- Tags: 8-12 keywords relevantes
 
 ━━━ JSON REQUERIDO ━━━
 Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
@@ -167,7 +416,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
   },
   "story": {
     "hook": "${chosenHook ?? "línea de diálogo del personaje en la escena 1 que detiene el scroll (máx 20 palabras)"}",
-    "full_narrative": "resumen de la trama en orden cronológico, inicio→clímax (2-4 párrafos, solo para referencia interna)",
+    "full_narrative": "resumen de la trama en 1-2 frases (solo referencia interna, sé breve)",
     "cta": "tease de continuación corto y urgente para el final (máx 8 palabras, ej: 'Comenta PARTE 2 para seguir' o 'Esto apenas comienza…') — aparece como texto en pantalla al final"
   },
   "scenes": [
@@ -175,10 +424,12 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
       "scene_number": 1,
       "speaker": "nombre EXACTO del personaje del ELENCO que habla este parlamento (si no hay elenco definido, usa 'Narrador')",
       "voice_profile": "arquetipo de voz del que habla, UNO de: male_young | male_adult | male_elderly | male_villain | female_young | female_adult | female_elderly | child | narrator | creature — debe coincidir con el voice_profile que ese personaje tiene en el ELENCO",
-      "narration_text": "DIÁLOGO que el personaje DICE en voz alta en esta escena (primera persona, emocional, actuado — grita/llora/reclama según el momento). Termina tirando hacia la siguiente escena. NO es narrador en tercera persona.",
+      "narration_text": "LO QUE ESTE PERSONAJE DICE en voz alta — primera persona, emoción cruda, subtexto cargado. UNA SOLA VOZ. Muestra la emoción con acciones/objetos/silencios, no declarándola. Termina con gancho hacia la siguiente escena.",
       "duration_seconds": 8,
-      "image_prompt": "EMPIEZA SIEMPRE con: '[Nombre, edad, rasgo físico clave, ropa exacta], [paleta: color1, color2, color3],' — luego describe el ambiente, iluminación, composición y emoción. 80-150 palabras total. Estilo ${input.visual_style}, ultra detailed, 8k",
-      "animation_prompt": "movimiento de cámara que FLUYE desde inicio: tipo (slow push in/dolly/tilt/pan), velocidad, atmósfera emocional, qué elemento del frame se enfatiza con el movimiento",
+      "image_prompt": "⚠️ EN INGLÉS, 45-65 palabras. Denso, sin relleno. Captura EL INSTANTE EXACTO de esta línea (la acción/reacción física visible ahora, no un retrato). Formato: [name, striking key feature, exact clothing with fabric/color, THE ACTION right now], [named location with 3 specific dressed-set details: objects, textures, wear/state], [foreground element + what's visible in the background], [light source + direction + quality], [shot type + angle]. Escenarios RICOS y detallados, nunca fondos vacíos. ${input.visual_style === "anime" || input.visual_style === "cartoon" ? "Estilo ILUSTRADO: describe expresión facial y pose de forma expresiva y emotiva (como dirección de animación), fondos pintados con detalle." : "Cinematic film still."}",
+      "animation_prompt": ${skipAnimation
+        ? `"1-6 palabras en inglés, ej: 'slow push in' (no se usa en este modo, sé mínimo)"`
+        : `"EN INGLÉS, 20-30 palabras: movimiento de cámara técnico + qué hace el personaje con el entorno + un detalle vivo (cabello, respiración, luz que parpadea). Ritmo según la emoción."`},
       "emotion": "emoción primaria de esta escena (una palabra)",
       "camera_move": "movimiento específico (ej: slow push in, dolly left, static wide, tilt up, handheld)"
     }
@@ -227,6 +478,16 @@ REGLAS:
 - image_prompt: el presentador en un entorno real y creíble (su casa, la calle, mostrando el producto), estilo UGC auténtico, no studio.
 - Apto para monetización; sin promesas médicas/financieras falsas ni claims ilegales.
 
+━━━ ESTRATEGIA DE ADS AVANZADA (NIVEL AGENCIA — lo que hace que las marcas paguen) ━━━
+- PATTERN INTERRUPT (escena 1): rompe el patrón visual/verbal en el primer segundo. Un movimiento brusco, una frase polémica, mostrar el producto en uso de forma inesperada. Que el pulgar SE DETENGA.
+- PRUEBA SOCIAL: integra de forma natural una señal de que otros ya lo aman ("llevo 3 meses sin soltarlo", "se agotó dos veces", "mi hermana me lo robó"). Sin inventar cifras falsas.
+- ESPECIFICIDAD QUE VENDE: el beneficio en números/sensaciones concretas ("café en 2 minutos sin enchufe", "cabe en el bolsillo", "una carga dura 8 días"), no "alta calidad".
+- OBJECIÓN ANTICIPADA: derriba la duda principal del comprador dentro del anuncio ("pensé que sería complicado, pero…", "creí que era caro hasta que…").
+- DEMOSTRACIÓN VISUAL: al menos una escena MUESTRA el producto funcionando/transformando algo (el antes→después, el momento "wow").
+- URGENCIA/ESCASEZ REAL en el CTA: motivo legítimo para actuar ya (oferta por tiempo, stock limitado, link en bio).
+- SENSACIÓN PREMIUM: el anuncio debe sentirse producido, no amateur. Iluminación cuidada, producto como protagonista, ritmo ágil. Que el espectador piense "esto se ve caro/profesional".
+- Estructura emocional: enganche → identificación con el problema → alivio con el producto → deseo → acción.
+
 Devuelve ÚNICAMENTE el JSON solicitado, sin texto extra.`;
 }
 
@@ -264,8 +525,8 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
       "voice_profile": "uno de: male_young | male_adult | female_young | female_adult | male_villain | female_elderly | male_elderly | child | narrator | creature",
       "narration_text": "lo que el presentador DICE a cámara en esta escena (hablado, persuasivo, primera persona)",
       "duration_seconds": 6,
-      "image_prompt": "presentador en entorno UGC real con/mostrando el producto. EMPIEZA con [nombre, edad, rasgo físico, ropa], [paleta], luego ambiente. Estilo ${input.visual_style}, auténtico, no studio, 80-150 palabras",
-      "animation_prompt": "movimiento de cámara tipo selfie/UGC (handheld sutil, push in, mostrar producto)",
+      "image_prompt": "⚠️ EN INGLÉS. Debe capturar EL MOMENTO EXACTO de esta línea (la reacción/acción visible ahora), no un retrato genérico. [same presenter name, age, key feature, exact clothing] naturally holding/using the product, [palette]. Real believable setting (kitchen, bathroom, street, car, desk — NOT a studio). Realistic natural light (window, warm lamp). The PRODUCT is clear and recognizable. Authentic selfie/POV framing, real skin texture, ${input.visual_style}, genuine creator photo, not plastic. 55-80 words IN ENGLISH — tight and specific, no filler.",
+      "animation_prompt": "⚠️ EN INGLÉS. Realistic UGC camera direction (30-45 words): A.Natural handheld selfie/POV movement (subtle hand shake, push-in to the product, turn to show it). B.The presenter interacts with the product (grabs it, opens it, shows it to camera, uses it). C.Live details: blinking, natural smile, hair moving, light glinting on the product, background with life. Cinematic English, authentic not studio.",
       "emotion": "emoción de la escena (una palabra)",
       "camera_move": "ej: handheld selfie, slow push in, product close-up"
     }

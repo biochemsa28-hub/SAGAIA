@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getProjectDetail, updateProjectStatus, upsertAsset, getUserById } from "@/lib/db/repository";
-import { submitVideoJobs, checkVideoJob, downloadVideo } from "@/services/fal/video-generator";
+import { resolveRequestUserId } from "@/lib/internal-auth";
+import { getProjectDetail, updateProjectStatus, upsertAsset, getUserById, bumpDailyVideoCount, createApiLog } from "@/lib/db/repository";
+import { submitVideoJobs, checkVideoJob } from "@/services/fal/video-generator";
 import { submitLipsyncJobs, checkLipsyncJob } from "@/services/fal/lipsync-generator";
 import { submitVideoLipsyncJobs, checkVideoLipsyncJob } from "@/services/fal/video-lipsync-generator";
 import { initDb } from "@/lib/db";
-import { resolveProjectTier, PRO_PIPELINE } from "@/lib/config";
+import { generateShotSheet } from "@/services/fal/shot-grid";
+import { planNarrativeBlocks, blockPanelFramings, type BlockScene } from "@/services/video/narrative-blocks";
+import { buildDialogueDirection, transcribeClip } from "@/services/video/native-audio";
+import { trimClipHead } from "@/services/ffmpeg/trim";
+import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_BLOCKS_PER_VIDEO, MAX_VIDEO_SECONDS } from "@/lib/config";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -33,10 +36,11 @@ const SubmitSchema = z.object({
 // POST /api/videos — submit jobs OR collect results
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const body: unknown = await req.json();
+    // Either a browser session, or the job worker carrying the internal secret —
+    // production has to keep running after the user closes the tab.
+    const body: unknown = await req.json().catch(() => null);
+    const userId = await resolveRequestUserId(req, body);
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const parsed = SubmitSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
 
@@ -44,18 +48,36 @@ export async function POST(req: NextRequest) {
 
     // ── ACTION: submit ────────────────────────────────────────────────────────
     if (parsed.data.action === "submit") {
-      const detail = await getProjectDetail(parsed.data.project_id, session.user.id);
+      const detail = await getProjectDetail(parsed.data.project_id, userId);
       if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
 
       // Effective tier = project's choice, clamped to the owner's plan.
-      const user = await getUserById(session.user.id).catch(() => null);
+      const user = await getUserById(userId).catch(() => null);
       const tier = resolveProjectTier(detail.project.animation_tier, user?.plan ?? "free");
-      // Ken Burns tier never uses a video model — short-circuit so no credits are spent.
-      if (tier === "kenburns") {
+      if (!detail.scenes?.length) return NextResponse.json({ error: "Sin escenas" }, { status: 422 });
+
+      // HYBRID: on the Ken Burns tier we normally spend nothing on a video model.
+      // But when ANIMATE_HERO_SCENES > 0 we animate just the hero beats (the hook,
+      // and optionally the closer) with real video and leave everything else free.
+      const heroScenes = tier === "kenburns" ? heroSceneNumbers(detail.scenes.length) : [];
+      if (tier === "kenburns" && heroScenes.length === 0) {
         return NextResponse.json({ success: true, action: "skipped", reason: "kenburns_tier", total: 0, jobs: [] });
       }
 
-      if (!detail.scenes?.length) return NextResponse.json({ error: "Sin escenas" }, { status: 422 });
+      // ── SPEND KILL-SWITCH ──────────────────────────────────────────────────
+      // Cap total video productions per day so a bug/retry-loop/abuse can't drain
+      // the fal balance. Only counts the initial submit (not single-scene regen or
+      // the PRO lip-sync stage). Blocks BEFORE any paid fal call.
+      if (!parsed.data.scene_number) {
+        const todayCount = await bumpDailyVideoCount();
+        if (todayCount > MAX_DAILY_VIDEOS) {
+          console.warn(`[videos] daily cap hit: ${todayCount}/${MAX_DAILY_VIDEOS}`);
+          return NextResponse.json(
+            { error: "Límite diario de producción alcanzado (protección de gasto). Intenta mañana o sube MAX_DAILY_VIDEOS." },
+            { status: 429 }
+          );
+        }
+      }
 
       const imageAssets = detail.assets?.filter((a) => a.asset_type === "image") ?? [];
       if (!imageAssets.length) {
@@ -138,10 +160,106 @@ export async function POST(req: NextRequest) {
         } catch { /* ignore */ }
       }
 
-      // Single-scene regeneration: only submit the requested scene
+      // ── NARRATIVE BLOCKS ───────────────────────────────────────────────────
+      // One clip per GROUP of consecutive scenes. The plan is derived from the
+      // scenes + their measured audio, so the collect step and the assembler can
+      // recompute the identical grouping without threading state through the queue.
+      const blockScenes: BlockScene[] = detail.scenes.map((sc) => ({
+        scene_number: sc.scene_number,
+        image_url: imageBySceneId.get(sc.id)?.public_url ?? null,
+        image_prompt: sc.image_prompt,
+        narration_text: sc.narration_text,
+        audio_seconds: audioDurBySceneId.get(sc.id) ?? null,
+        duration_seconds: sc.duration_seconds,
+      }));
+
+      if (NARRATIVE_BLOCKS_ON && !parsed.data.scene_number) {
+        const planned = planNarrativeBlocks(blockScenes, BLOCK_TARGET_SECONDS);
+        // Enforce the ceiling HERE, at the only place that spends money. A script
+        // that came back longer than asked would otherwise bill a clip per extra
+        // block — the single largest way this pipeline can overspend.
+        const blocks = planned.slice(0, MAX_BLOCKS_PER_VIDEO);
+        if (planned.length > blocks.length) {
+          console.warn(`[blocks] recortado a ${blocks.length} bloques (tope ${MAX_VIDEO_SECONDS}s) — el guion pedía ${planned.length}`);
+        }
+        console.log(`[blocks] ${detail.scenes.length} escenas → ${blocks.length} bloques`);
+
+        const imgByScene = new Map(
+          detail.scenes.map((sc) => [sc.scene_number, imageBySceneId.get(sc.id)?.public_url]),
+        );
+        const sceneByNumber = new Map(detail.scenes.map((sc) => [sc.scene_number, sc]));
+
+        let blockJobs;
+        if (NATIVE_AUDIO_ON) {
+          // ── NATIVE AUDIO PATH ────────────────────────────────────────────────
+          // No storyboard sheet. The clip runs from this block's first scene image
+          // to the NEXT block's first image (end_image_url), so consecutive blocks
+          // meet on the same frame and the video reads as one continuous take
+          // rather than seven clips butted together. The dialogue is quoted in the
+          // prompt, which is what makes the characters say the script instead of
+          // improvising — verified against a transcript of the generated audio.
+          blockJobs = blocks.map((block, bi) => {
+            const nextBlock = blocks[bi + 1];
+            const endImage = nextBlock ? imgByScene.get(nextBlock.leadScene) : imgByScene.get(block.scenes[block.scenes.length - 1]!);
+            const lines = block.scenes
+              .map((n) => sceneByNumber.get(n))
+              .filter(Boolean)
+              .map((sc) => ({ speaker: sc!.speaker, text: sc!.narration_text ?? "" }));
+            return {
+              scene_number: block.leadScene,
+              image_url: imgByScene.get(block.leadScene) ?? block.referenceImageUrl,
+              end_image_url: endImage && endImage !== imgByScene.get(block.leadScene) ? endImage : undefined,
+              animation_prompt:
+                "Cinematic scene with natural camera movement and cuts between shots, consistent characters and lighting." +
+                buildDialogueDirection(lines),
+              duration_seconds: Math.min(HOOK_BLOCK_SECONDS, Math.max(4, Math.ceil(block.seconds + 1))),
+              generate_audio: true,
+            };
+          });
+        } else {
+          // Sheets in parallel: waiting for each clip to chain off the previous one
+          // would multiply wall-clock by the block count.
+          const prepared = await Promise.all(blocks.map(async (b) => {
+            const sheet = await generateShotSheet({
+              basePrompt: b.beats[0] ?? "",
+              primaryImageUrl: b.referenceImageUrl,
+              framings: blockPanelFramings(b),
+              niche: detail.project.niche,
+              visualStyle: detail.project.visual_style,
+            }).catch(() => null);
+            return { block: b, sheet };
+          }));
+          blockJobs = prepared.map(({ block, sheet }) => ({
+            scene_number: block.leadScene,
+            image_url: sheet ?? block.referenceImageUrl,
+            end_image_url: undefined as string | undefined,
+            animation_prompt: sheet
+              ? "Play this storyboard as a continuous cinematic sequence. Cut between the four panels " +
+                "in order: top-left, then top-right, then bottom-left, then bottom-right. Each panel is a " +
+                "separate camera setup shown FULL FRAME, not a grid. Hard cuts between shots."
+              : "cinematic camera movement, smooth motion",
+            duration_seconds: HOOK_BLOCK_SECONDS,
+            generate_audio: false,
+          }));
+        }
+
+        const jobs = await submitVideoJobs({ scenes: blockJobs });
+        return NextResponse.json({
+          success: true,
+          action: "submitted",
+          mode: "blocks",
+          total: jobs.length,
+          jobs: jobs.map((j) => ({ scene_number: j.sceneNumber, request_id: j.requestId, status: j.status, error: j.error })),
+        });
+      }
+
+      // Single-scene regeneration: only submit the requested scene.
+      // Hybrid mode: only the hero scenes get paid animation.
       const sourceScenes = parsed.data.scene_number
         ? detail.scenes.filter((s) => s.scene_number === parsed.data.scene_number)
-        : detail.scenes;
+        : heroScenes.length
+          ? detail.scenes.filter((s) => heroScenes.includes(s.scene_number))
+          : detail.scenes;
 
       const scenes = sourceScenes
         .map((scene, idx) => {
@@ -157,6 +275,49 @@ export async function POST(req: NextRequest) {
           };
         })
         .filter((s) => s.image_url);
+
+      // ── HOOK BLOCK ─────────────────────────────────────────────────────────
+      // For the hero beat, swap the single still for a 2x2 storyboard sheet and
+      // ask the model to PLAY it: one call yields three real camera setups with
+      // motion instead of one held frame. Any failure leaves the scene exactly as
+      // it was — a normal animated still — so this can never make things worse.
+      if (HOOK_BLOCK_ON && heroScenes.length) {
+        await Promise.all(scenes.map(async (sc) => {
+          if (!heroScenes.includes(sc.scene_number)) return;
+          const scene = detail.scenes.find((x) => x.scene_number === sc.scene_number);
+          try {
+            // Reuse the sheet the images step already paid for on this same scene.
+            // Without this the hero scene buys the identical sheet twice — once to
+            // slice into shots, once to hand to the video model.
+            let sheet: string | null = null;
+            const imgAsset = scene ? imageBySceneId.get(scene.id) : undefined;
+            if (imgAsset?.metadata) {
+              try {
+                const m = JSON.parse(imgAsset.metadata) as { sheet?: string };
+                if (m.sheet) { sheet = m.sheet; console.log(`[hook-block] escena ${sc.scene_number}: hoja reutilizada`); }
+              } catch { /* metadata vieja sin hoja */ }
+            }
+            sheet = sheet ?? await generateShotSheet({
+              basePrompt: scene?.image_prompt ?? sc.animation_prompt,
+              primaryImageUrl: sc.image_url,
+              framings: SHOT_FRAMINGS.slice(1, 4),
+              niche: detail.project.niche,
+              visualStyle: detail.project.visual_style,
+            });
+            if (!sheet) return;
+            sc.image_url = sheet;
+            sc.animation_prompt =
+              "Play this storyboard as a continuous cinematic sequence. Cut between the four panels " +
+              "in order: top-left, then top-right, then bottom-left, then bottom-right. Each panel is a " +
+              "separate camera setup shown FULL FRAME, not a grid. Hard cuts between shots. " +
+              "Natural motion within each shot.";
+            sc.duration_seconds = HOOK_BLOCK_SECONDS;
+            console.log(`[hook-block] escena ${sc.scene_number}: storyboard → clip multishot`);
+          } catch (e) {
+            console.error("[hook-block]", e instanceof Error ? e.message.slice(0, 120) : e);
+          }
+        }));
+      }
 
       const jobs = await submitVideoJobs({ scenes });
 
@@ -177,7 +338,7 @@ export async function POST(req: NextRequest) {
     // Takes the finished Seedance motion clips + each scene's audio and applies
     // video lip-sync (sync.so) → the final talking clip WITH real motion.
     if (parsed.data.action === "lipsync_submit" && parsed.data.motion?.length) {
-      const lsDetail = await getProjectDetail(parsed.data.project_id, session.user.id);
+      const lsDetail = await getProjectDetail(parsed.data.project_id, userId);
       if (!lsDetail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
       const audioBySceneId = new Map(
         (lsDetail.assets ?? []).filter((a) => a.asset_type === "audio" && a.scene_id).map((a) => [a.scene_id, a])
@@ -205,8 +366,8 @@ export async function POST(req: NextRequest) {
     if (parsed.data.action === "collect" && parsed.data.jobs?.length) {
       // Stage-aware checker: PRO motion → Seedance; PRO lipsync → video lip-sync;
       // otherwise talking → VEED image lip-sync; cinematic → Seedance.
-      const collectDetail = await getProjectDetail(parsed.data.project_id, session.user.id);
-      const collectUser = await getUserById(session.user.id).catch(() => null);
+      const collectDetail = await getProjectDetail(parsed.data.project_id, userId);
+      const collectUser = await getUserById(userId).catch(() => null);
       const collectTier = resolveProjectTier(collectDetail?.project.animation_tier, collectUser?.plan ?? "free");
       const stage = parsed.data.stage;
       const checkJob = stage === "motion" ? checkVideoJob
@@ -223,24 +384,110 @@ export async function POST(req: NextRequest) {
       // save them as the scene's final video asset; just hand the URLs back.
       const saveAsset = stage !== "motion";
       const completed = saveAsset ? results.filter((r) => r.status === "completed" && r.url) : [];
-      for (const r of completed) {
+      const { rehostToR2 } = await import("@/services/storage");
+      await Promise.all(completed.map(async (r) => {
         try {
-          const { filePath } = await downloadVideo({
-            url: r.url!,
-            projectId: parsed.data.project_id,
-            sceneNumber: r.scene_number,
-          });
+          // NOT downloaded separately any more: re-hosting already pulls the file,
+          // so downloadVideo was a second full transfer of the same clip for a
+          // filePath nothing reads on the R2 path.
+          const filePath = undefined as string | undefined;
+          // fal.media clip URLs are TEMPORARY → re-host to durable R2 so the paid
+          // clip never expires and always shows up in the app.
+          // A hook-block clip opens on the storyboard grid for ~2s before the
+          // first real shot. Cut that head off locally (free) BEFORE it becomes
+          // the durable asset — it sits exactly where retention is decided.
+          let durableUrl: string;
+          // Recompute the same grouping the submit step used — it is a pure
+          // function of the scenes and their audio, so both sides agree without
+          // any state travelling through the queue.
+          let blockScenes: number[] | undefined;
+          if (NARRATIVE_BLOCKS_ON && collectDetail?.scenes?.length) {
+            const audioDur = new Map<string, number>();
+            for (const a of collectDetail.assets ?? []) {
+              if (a.asset_type !== "audio" || !a.scene_id || !a.metadata) continue;
+              try {
+                const m = JSON.parse(a.metadata) as { duration?: number };
+                if (typeof m.duration === "number" && m.duration > 0) audioDur.set(a.scene_id, m.duration);
+              } catch { /* ignore */ }
+            }
+            const imgBy = new Map(
+              (collectDetail.assets ?? []).filter((a) => a.asset_type === "image" && a.scene_id).map((a) => [a.scene_id, a.public_url]),
+            );
+            const plan = planNarrativeBlocks(
+              collectDetail.scenes.map((sc) => ({
+                scene_number: sc.scene_number,
+                image_url: imgBy.get(sc.id) ?? null,
+                image_prompt: sc.image_prompt,
+                narration_text: sc.narration_text,
+                audio_seconds: audioDur.get(sc.id) ?? null,
+                duration_seconds: sc.duration_seconds,
+              })),
+              BLOCK_TARGET_SECONDS,
+            );
+            blockScenes = plan.find((b) => b.leadScene === r.scene_number)?.scenes;
+          }
+
+          // NEVER trim in native mode: there is no storyboard head to remove, so
+          // the 5s cut would land on the opening dialogue and delete it. The trim
+          // only exists for the sheet-based path.
+          const isHookBlock = !NATIVE_AUDIO_ON && (HOOK_BLOCK_ON || NARRATIVE_BLOCKS_ON)
+            && (blockScenes ? true : heroSceneNumbers(collectDetail?.scenes?.length ?? 0).includes(r.scene_number));
+          const trimmed = isHookBlock ? await trimClipHead(r.url!, HOOK_BLOCK_TRIM_SECONDS) : null;
+          if (trimmed) {
+            const { uploadBuffer } = await import("@/services/storage");
+            durableUrl = (await uploadBuffer({ buffer: trimmed, ext: "mp4", contentType: "video/mp4", folder: "clips" })).url;
+            console.log(`[hook-block] escena ${r.scene_number}: recortados ${HOOK_BLOCK_TRIM_SECONDS}s de grilla`);
+          } else {
+            durableUrl = await rehostToR2(r.url!, "clips", "mp4", "video/mp4");
+          }
+          // Transcribe BEFORE saving so the words travel with the asset. A failure
+          // here costs captions, never the video.
+          const transcript = NATIVE_AUDIO_ON
+            ? await transcribeClip(durableUrl, NATIVE_AUDIO_LANGUAGE).catch(() => null)
+            : null;
+          if (transcript) {
+            console.log(`[nativo] escena ${r.scene_number}: "${transcript.text.slice(0, 70)}" (${transcript.words.length} palabras)`);
+          }
+
           await upsertAsset({
             projectId: parsed.data.project_id,
             sceneNumber: r.scene_number,
             assetType: "video",
-            publicUrl: r.url!,
+            publicUrl: durableUrl,
             filePath,
             mimeType: "video/mp4",
+            // Everything the assembler needs about this clip: which scenes it
+            // covers, and — when the characters speak for themselves — what they
+            // actually said, with word timings. The captions describe the take
+            // instead of dictating it, which is the only honest way to subtitle
+            // audio the model improvised the delivery of.
+            metadata: (blockScenes && blockScenes.length > 1) || transcript
+              ? JSON.stringify({
+                  ...(blockScenes && blockScenes.length > 1 ? { block: blockScenes } : {}),
+                  ...(transcript ? { native_audio: true, text: transcript.text, wordTimings: transcript.words } : {}),
+                })
+              : undefined,
           });
         } catch (e) {
           console.error("[videos collect]", e);
         }
+      }));
+
+      // 💰 Log estimated video spend (the most expensive step) per completed clip.
+      const doneCount = results.filter((r) => r.status === "completed").length;
+      if (doneCount > 0) {
+        try {
+          const { estimateVideos } = await import("@/lib/costs");
+          const isVeo3 = /veo3|veo-3|veo\/3/i.test(process.env.VIDEO_MODEL ?? "");
+          const model: "seedance" | "veo3" = isVeo3 ? "veo3" : "seedance";
+          const isLipsyncStage = stage === "lipsync";
+          const cost = estimateVideos(doneCount, model, isLipsyncStage);
+          await createApiLog({
+            userId: userId, projectId: parsed.data.project_id,
+            provider: "fal", endpoint: "/api/videos", model: isLipsyncStage ? "lipsync" : model,
+            costUsd: cost, statusCode: 200,
+          });
+        } catch { /* never break on logging */ }
       }
 
       const allDone = results.every((r) => r.status === "completed" || r.status === "failed");

@@ -18,13 +18,17 @@ export const VOICE_PROFILES = [
 export type VoiceProfile = (typeof VOICE_PROFILES)[number];
 
 export const CastMemberSchema = z.object({
-  name: z.string().min(1).max(60),
-  role: z.string().max(40),                 // protagonista | antagonista | interés | etc.
+  // Limits are generous AND self-healing: an over-long field gets trimmed instead of
+  // failing the whole cast. A slightly verbose model reply must never 502 the user.
+  name: z.string().min(1).max(80).transform((s) => s.slice(0, 80)),
+  role: z.string().max(400).transform((s) => s.slice(0, 80)),   // protagonista | antagonista | etc.
   gender: z.enum(["male", "female", "neutral"]),
   age: z.enum(["child", "teen", "young", "adult", "elderly"]),
   kind: z.enum(["human", "animal", "monster", "other"]),
-  personality: z.string().max(300),
-  visual_description: z.string().min(10).max(600), // feeds nano-banana
+  personality: z.string().max(1200).transform((s) => s.slice(0, 600)),
+  // Richer descriptions produce better portraits — the old 600 cap was what broke
+  // casting once the prompt started asking for magnetism and styling detail.
+  visual_description: z.string().min(10).max(2000).transform((s) => s.slice(0, 1200)),
   voice_profile: z.enum(VOICE_PROFILES),
 });
 export type CastMember = z.infer<typeof CastMemberSchema>;
@@ -60,6 +64,7 @@ REGLAS:
 - Los personajes deben CONTRASTAR fuerte entre sí (visual, edad y emocionalmente) — que se distingan de un vistazo, nunca dos parecidos.
 - Evita el arquetipo más obvio: dale a cada uno un giro que lo haga inesperado (el villano que da ternura, la víctima que esconde algo, el niño que sabe demasiado).
 - Piensa en identificación + obsesión: que el espectador vea a alguien que reconoce Y quiera saber su secreto.
+- ATRACTIVO Y MAGNETISMO: los protagonistas deben ser guapos, con presencia y carisma innegable — belleza real y creíble, no de catálogo. En romance/drama esto es lo que engancha: el espectador tiene que sentir atracción por ellos. Dale a cada uno un detalle sensual concreto (la forma en que se muerde el labio, la clavícula marcada, la mirada que desarma, el mechón que se acomoda). En "visual_description" incluye ese magnetismo: piel luminosa, mirada intensa, cuerpo y postura con seguridad.
 
 voice_profile permitidos: ${VOICE_PROFILES.join(", ")}.
 (Para animal/monster usa "creature". "narrator" solo si la historia realmente necesita una voz narradora aparte.)
@@ -123,6 +128,20 @@ function mockCast(input: CastingInput): Cast {
 
 // ─── Generate the cast via the configured AI provider ──────────────────────────
 
+// Robustly pull a JSON object out of a model response: strips ```json fences and
+// any surrounding prose, then falls back to the outermost {...} block. Models drift
+// on formatting, and a bare JSON.parse turned that drift into hard failures.
+function extractJson(raw: string): unknown | null {
+  const cleaned = raw.replace(/```(?:json)?/gi, "").trim();
+  try { return JSON.parse(cleaned); } catch { /* try harder below */ }
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try { return JSON.parse(cleaned.slice(start, end + 1)); } catch { /* give up */ }
+  }
+  return null;
+}
+
 export async function generateCast(input: CastingInput): Promise<{ success: boolean; cast?: Cast; error?: string }> {
   if (process.env.FORCE_MOCK_AI === "true" || (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY)) {
     return { success: true, cast: mockCast(input) };
@@ -139,29 +158,44 @@ export async function generateCast(input: CastingInput): Promise<{ success: bool
         headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({
           model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
-          max_tokens: 2048,
-          system: system + "\n\nResponde SOLO con el JSON.",
+          // 2048 truncated the JSON mid-object when the cast had 3 detailed members
+          // → JSON.parse threw → intermittent 502s on the casting step.
+          max_tokens: 4096,
+          system: system + "\n\nResponde SOLO con el JSON, sin ```markdown ni texto extra.",
           messages: [{ role: "user", content: user }],
         }),
       });
-      if (!res.ok) return { success: false, error: `Anthropic ${res.status}` };
-      const j = await res.json() as { content: Array<{ type: string; text?: string }> };
-      raw = j.content[0]?.text ?? "";
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        console.error("[casting] anthropic error", res.status, detail.slice(0, 200));
+        return { success: false, error: `El diseñador de elenco no respondió (${res.status}). Intenta de nuevo.` };
+      }
+      const j = await res.json() as { content?: Array<{ type: string; text?: string }> };
+      // Pick the TEXT block explicitly — content[0] isn't guaranteed to be text.
+      raw = j.content?.find((c) => c.type === "text")?.text ?? "";
     } else {
       const { default: OpenAI } = await import("openai");
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const completion = await client.chat.completions.create({
         model: process.env.OPENAI_MODEL ?? "gpt-4o",
         temperature: 0.9,
-        max_tokens: 2048,
+        max_tokens: 4096,
         response_format: { type: "json_object" },
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
       });
       raw = completion.choices[0]?.message?.content ?? "";
     }
 
-    const parsed = CastSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return { success: false, error: "El elenco generado no tiene el formato esperado" };
+    const json = extractJson(raw);
+    if (!json) {
+      console.error("[casting] unparseable response:", raw.slice(0, 200));
+      return { success: false, error: "El elenco llegó incompleto. Intenta de nuevo." };
+    }
+    const parsed = CastSchema.safeParse(json);
+    if (!parsed.success) {
+      console.error("[casting] schema mismatch:", JSON.stringify(parsed.error.issues).slice(0, 200));
+      return { success: false, error: "El elenco generado no tiene el formato esperado" };
+    }
     // Enforce the hard cap.
     return { success: true, cast: { cast: parsed.data.cast.slice(0, MAX_CAST) } };
   } catch (err) {

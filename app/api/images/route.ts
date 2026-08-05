@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getProjectDetail, updateProjectStatus, upsertAsset, getCharacter, getProjectCast } from "@/lib/db/repository";
-import { generateProjectImages } from "@/services/fal/image-generator";
+import { resolveRequestUserId } from "@/lib/internal-auth";
+import { getProjectDetail, updateProjectStatus, upsertAsset, getCharacter, getProjectCast, createApiLog, setCastBible } from "@/lib/db/repository";
+import { generateProjectImages, generateSceneShots, generateCharacterBible } from "@/services/fal/image-generator";
+import { generateShotGrid } from "@/services/fal/shot-grid";
 import { initDb } from "@/lib/db";
+import { SHOTS_PER_SCENE, SHOT_FRAMINGS, CHARACTER_BIBLE_ON, SHOT_GRID_ON, ANCHOR_IMAGES_ONLY } from "@/lib/config";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// A real run of this route took 3.7 minutes with 14 scenes; the previous ceiling would have killed it
+// mid-flight on a serverless host with the fal spend already committed. These are
+// sized from measurement, not from a default.
+export const maxDuration = 300;
 
 const BodySchema = z.object({
   project_id: z.string().uuid(),
@@ -16,23 +20,66 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const body: unknown = await req.json();
+    // Either a browser session, or the job worker carrying the internal secret —
+    // production has to keep running after the user closes the tab.
+    const body: unknown = await req.json().catch(() => null);
+    const userId = await resolveRequestUserId(req, body);
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "project_id requerido" }, { status: 400 });
 
     await initDb();
-    const detail = await getProjectDetail(parsed.data.project_id, session.user.id);
+    const detail = await getProjectDetail(parsed.data.project_id, userId);
     if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     if (!detail.scenes?.length) return NextResponse.json({ error: "El proyecto no tiene escenas" }, { status: 422 });
 
-    // Single-scene regeneration: filter to just the requested scene
-    const targetScenes = parsed.data.scene_number
+    // Scenes that ALREADY have an image → never regenerate them on a retry
+    // (that's wasted fal $). Map scene.id → scene_number for the existing set.
+    const sceneNumById = new Map(detail.scenes.map((s) => [s.id, s.scene_number]));
+    const existingImageScenes = new Set<number>(
+      (detail.assets ?? [])
+        .filter((a) => a.asset_type === "image" && a.public_url && a.scene_id)
+        .map((a) => sceneNumById.get(a.scene_id!))
+        .filter((n): n is number => typeof n === "number")
+    );
+
+    // Single-scene regen = force that one. Otherwise generate ONLY the missing scenes.
+    let targetScenes = parsed.data.scene_number
       ? detail.scenes.filter((s) => s.scene_number === parsed.data.scene_number)
-      : detail.scenes;
-    if (!targetScenes.length) return NextResponse.json({ error: "Escena no encontrada" }, { status: 404 });
+      : detail.scenes.filter((s) => !existingImageScenes.has(s.scene_number));
+
+    // ── ANCHOR IMAGES ONLY ─────────────────────────────────────────────────
+    // Plan the blocks from the SCRIPT (free) and render only the frames the clips
+    // will consume: each block's opening frame, plus the closing frame of the last
+    // one. The scenes in between are carried by the generated motion, so rendering
+    // them buys a picture nobody ever sees.
+    if (ANCHOR_IMAGES_ONLY && !parsed.data.scene_number) {
+      const { planNarrativeBlocks } = await import("@/services/video/narrative-blocks");
+      const { BLOCK_TARGET_SECONDS } = await import("@/lib/config");
+      const plan = planNarrativeBlocks(
+        detail.scenes.map((sc) => ({
+          scene_number: sc.scene_number,
+          image_url: "planned",          // the planner only checks for presence
+          narration_text: sc.narration_text,
+          duration_seconds: sc.duration_seconds,
+        })),
+        BLOCK_TARGET_SECONDS,
+      );
+      if (plan.length) {
+        const anchors = new Set<number>(plan.map((b) => b.leadScene));
+        // The final block still needs a frame to end ON.
+        const lastBlock = plan[plan.length - 1]!;
+        anchors.add(lastBlock.scenes[lastBlock.scenes.length - 1]!);
+        const before = targetScenes.length;
+        targetScenes = targetScenes.filter((sc) => anchors.has(sc.scene_number));
+        console.log(`[anclas] ${before} escenas → ${targetScenes.length} imágenes (${plan.length} bloques)`);
+      }
+    }
+
+    // Nothing to do → all images already exist. Return without spending a cent.
+    if (!targetScenes.length) {
+      return NextResponse.json({ success: true, total: 0, succeeded: 0, failed: 0, skipped_all: true });
+    }
 
     // Decide the character reference image:
     //  1) A SAVED recurring character linked to the project → highest priority,
@@ -41,13 +88,35 @@ export async function POST(req: NextRequest) {
     //     the regenerated scene keeps the same person.
     let referenceImageUrl: string | undefined;
     if (detail.project.character_id) {
-      const character = await getCharacter(detail.project.character_id, session.user.id);
+      const character = await getCharacter(detail.project.character_id, userId);
       referenceImageUrl = character?.reference_image_url ?? undefined;
     }
     // A user-uploaded product/creative image drives ALL scenes so the REAL asset
     // appears in the ad (the "looks real, made with AI" moment).
     if (!referenceImageUrl && detail.project.reference_image_url) {
       referenceImageUrl = detail.project.reference_image_url;
+    }
+
+    // Retry case: scene 1 already exists but later scenes are missing → use scene 1's
+    // saved image as the reference so the newly-generated scenes stay consistent
+    // (and we don't waste money re-doing scene 1).
+    if (!referenceImageUrl && !targetScenes.some((s) => s.scene_number === 1) && existingImageScenes.has(1)) {
+      const scene1 = detail.scenes.find((s) => s.scene_number === 1);
+      const scene1Img = detail.assets?.find((a) => a.asset_type === "image" && a.scene_id === scene1?.id);
+      if (scene1Img?.public_url) referenceImageUrl = scene1Img.public_url;
+    }
+
+    // Multiple product images (different angles) → passed to nano-banana so it sees
+    // the real product from every side = much better product fidelity in the ad.
+    let referenceImageUrls: string[] | undefined;
+    if (!detail.project.character_id && detail.project.reference_image_urls) {
+      try {
+        const arr = JSON.parse(detail.project.reference_image_urls) as unknown;
+        if (Array.isArray(arr) && arr.every((u) => typeof u === "string")) {
+          referenceImageUrls = arr as string[];
+          if (!referenceImageUrl && referenceImageUrls[0]) referenceImageUrl = referenceImageUrls[0];
+        }
+      } catch { /* ignore malformed JSON */ }
     }
     if (!referenceImageUrl && parsed.data.scene_number && parsed.data.scene_number > 1) {
       const scene1 = detail.scenes.find((s) => s.scene_number === 1);
@@ -61,19 +130,89 @@ export async function POST(req: NextRequest) {
     // speaker → that character's selected portrait. Only applies when NO single
     // saved character overrides everything (that takes priority above).
     let sceneReferences: Map<number, string> | undefined;
+    // Each scene can pass BOTH the portrait and the multi-view sheet to the edit
+    // model (more angles = far better identity retention).
+    // portrait URL → its bible sheet. Keyed by portrait (not name) so the mapping
+    // survives the appearance-order fallback below, where speaker names don't match.
+    const bibleByPortrait = new Map<string, string>();
     if (!detail.project.character_id) {
       const cast = await getProjectCast(parsed.data.project_id).catch(() => []);
-      if (cast.length) {
-        const portraitByName = new Map(
-          cast.filter((c) => c.reference_image_url).map((c) => [c.name.trim().toLowerCase(), c.reference_image_url!])
-        );
+      const withPortrait = cast.filter((c) => c.reference_image_url);
+
+      // CHARACTER BIBLE — build once per character, then reuse for every scene and
+      // every future episode. Failures are non-fatal: we fall back to the portrait.
+      if (CHARACTER_BIBLE_ON) {
+        const { rehostToR2: rehost } = await import("@/services/storage");
+        await Promise.all(withPortrait.map(async (c) => {
+          if (c.bible_url) {
+            bibleByPortrait.set(c.reference_image_url!, c.bible_url);
+            return;
+          }
+          try {
+            const raw = await generateCharacterBible({
+              portraitUrl: c.reference_image_url!,
+              description: `${c.name}${c.role ? `, ${c.role}` : ""}`,
+              niche: detail.project.niche,
+              visualStyle: detail.project.visual_style,
+            });
+            if (!raw) return;
+            const durable = await rehost(raw, "bibles", "jpg", "image/jpeg");
+            await setCastBible(c.id, durable);
+            bibleByPortrait.set(c.reference_image_url!, durable);
+          } catch (e) {
+            console.error(`[bible] ${c.name} failed:`, e instanceof Error ? e.message.slice(0, 120) : e);
+          }
+        }));
+      }
+
+      if (withPortrait.length) {
+        const norm = (s: string) => s.trim().toLowerCase();
+        const portraitByName = new Map(withPortrait.map((c) => [norm(c.name), c.reference_image_url!]));
         const map = new Map<number, string>();
+        // Pass 1 — exact name match (the happy path).
         for (const s of targetScenes) {
-          const url = s.speaker ? portraitByName.get(s.speaker.trim().toLowerCase()) : undefined;
+          const url = s.speaker ? portraitByName.get(norm(s.speaker)) : undefined;
           if (url) map.set(s.scene_number, url);
+        }
+
+        // Pass 2 — SAFETY NET. If the story AI drifted from the cast names (e.g. it
+        // wrote "Valeria" when the cast says "Valentina"), exact matching finds
+        // nothing and every scene would collapse onto scene 1's image, killing the
+        // visual thread. Instead, assign portraits stably by ORDER OF APPEARANCE so
+        // each distinct speaker keeps ONE consistent face for the whole story.
+        if (map.size === 0) {
+          const speakers: string[] = [];
+          for (const s of targetScenes) {
+            const sp = s.speaker ? norm(s.speaker) : "";
+            if (sp && !speakers.includes(sp)) speakers.push(sp);
+          }
+          if (speakers.length) {
+            console.warn(`[images] cast names don't match speakers (${speakers.join(", ")}) — mapping portraits by appearance order`);
+            for (const s of targetScenes) {
+              const sp = s.speaker ? norm(s.speaker) : "";
+              const idx = speakers.indexOf(sp);
+              if (idx >= 0) {
+                const portrait = withPortrait[idx % withPortrait.length]!.reference_image_url!;
+                map.set(s.scene_number, portrait);
+              }
+            }
+          }
         }
         if (map.size) sceneReferences = map;
       }
+    }
+
+    // scene_number → the speaking character's bible sheet. Derived from the portrait
+    // map that was actually chosen above, so it stays correct whether scenes were
+    // matched by exact name or by the appearance-order safety net.
+    let sceneBibles: Map<number, string> | undefined;
+    if (bibleByPortrait.size && sceneReferences) {
+      const m = new Map<number, string>();
+      for (const [sceneNumber, portrait] of sceneReferences) {
+        const b = bibleByPortrait.get(portrait);
+        if (b) m.set(sceneNumber, b);
+      }
+      if (m.size) sceneBibles = m;
     }
 
     const results = await generateProjectImages({
@@ -83,29 +222,115 @@ export async function POST(req: NextRequest) {
       scenes: targetScenes.map((s) => ({
         scene_number: s.scene_number,
         image_prompt: s.image_prompt ?? "",
+        emotion: s.emotion ?? undefined,
+        narration_text: s.narration_text ?? undefined,
       })),
       referenceImageUrl,
+      referenceImageUrls,
       sceneReferences,
+      sceneBibles,
     });
 
-    // Save URLs to DB assets table
+    // Save URLs to DB assets table — re-host each fal.media image (TEMPORARY URL)
+    // to durable R2 so scenes never break later and you own your paid assets.
+    const { rehostToR2 } = await import("@/services/storage");
+    // Counters so the spend log reflects every paid call, not only the primaries.
+    let sheetCount = 0;
+    let shotCount = 0;
+    const promptByScene = new Map(targetScenes.map((s) => [s.scene_number, s.image_prompt ?? ""]));
+    const emotionByScene = new Map(targetScenes.map((s) => [s.scene_number, s.emotion ?? undefined]));
+
     await Promise.all(
       results
         .filter((r) => r.success && r.url)
-        .map((r) =>
-          upsertAsset({
+        .map(async (r) => {
+          const durableUrl = await rehostToR2(r.url!, "images", "jpg", "image/jpeg");
+
+          // MULTI-SHOT: render extra camera setups of this same beat, referenced to
+          // the frame we just made, so the edit can CUT between angles instead of
+          // holding one image for the whole scene. Stored in metadata.shots so every
+          // existing consumer of public_url keeps working untouched.
+          let shots: string[] = [];
+          // Kept outside the block so the asset metadata can carry it.
+          let sheetUrl: string | null = null;
+          if (SHOTS_PER_SCENE > 1) {
+            const basePrompt = promptByScene.get(r.sceneNumber) ?? "";
+            const framings = SHOT_FRAMINGS.slice(1, SHOTS_PER_SCENE);
+            try {
+              // Preferred path: ONE storyboard sheet sliced locally. Returns [] on
+              // any problem (irregular sheet, no FFmpeg) so we fall through below.
+              let extra: string[] = [];
+              // The sheet is kept so the hook block can reuse it for this same
+              // scene instead of paying for a second identical one.
+              if (SHOT_GRID_ON) {
+                const grid = await generateShotGrid({
+                  basePrompt,
+                  primaryImageUrl: durableUrl,
+                  framings,
+                  niche: detail.project.niche,
+                  visualStyle: detail.project.visual_style,
+                });
+                extra = grid.shots;
+                sheetUrl = grid.sheetUrl;
+                if (grid.sheetUrl) sheetCount++;
+              }
+              // Fallback: one fal call per framing (3× the cost, and the framings
+              // drift — kept because a scene with one held image is worse).
+              if (!extra.length) {
+                extra = await generateSceneShots({
+                  basePrompt,
+                  primaryImageUrl: durableUrl,
+                  projectId: parsed.data.project_id,
+                  sceneNumber: r.sceneNumber,
+                  niche: detail.project.niche,
+                  visualStyle: detail.project.visual_style,
+                  framings,
+                  emotion: emotionByScene.get(r.sceneNumber),
+                });
+              }
+              shotCount += extra.length;
+              shots = await Promise.all(extra.map((u) => rehostToR2(u, "images", "jpg", "image/jpeg")));
+            } catch (e) {
+              console.error("[images] extra shots failed:", e instanceof Error ? e.message.slice(0, 120) : e);
+            }
+          }
+
+          await upsertAsset({
             projectId: parsed.data.project_id,
             sceneNumber: r.sceneNumber,
             assetType: "image",
-            publicUrl: r.url!,
+            publicUrl: durableUrl,
             filePath: r.filePath,
             mimeType: "image/jpeg",
-          })
-        )
+            metadata: (shots.length || sheetUrl) ? JSON.stringify({ shots, sheet: sheetUrl ?? undefined }) : undefined,
+          });
+        })
     );
 
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
+
+    // 💰 Log estimated fal spend so the app is never blind to cost again.
+    try {
+      const { estimateImages } = await import("@/lib/costs");
+      const lora = (process.env.FLUX_REALISM_LORA?.length ?? 0) > 0;
+      const ultra = (process.env.FLUX_QUALITY ?? "").toLowerCase() === "ultra";
+      const upscale = (process.env.IMAGE_UPSCALE ?? "") === "on";
+      // Count what really happened, not just the primary renders: bibles are one
+      // edit call each, and every sliced sheet is a kontext/max call. Under-logging
+      // here is what let the real cost drift 2.5x from the price for weeks.
+      const { estimateImageExtras } = await import("@/lib/costs");
+      const biblesBuilt = bibleByPortrait.size;
+      const sheetsBuilt = SHOT_GRID_ON ? sheetCount : 0;
+      const extraShotsBuilt = SHOT_GRID_ON ? 0 : shotCount;
+      const cost = estimateImages(succeeded, { lora, ultra, upscale })
+                 + estimateImageExtras({ bibles: biblesBuilt, sheets: sheetsBuilt, extraShots: extraShotsBuilt });
+      await createApiLog({
+        userId: userId, projectId: parsed.data.project_id,
+        provider: "fal", endpoint: "/api/images", model: ultra ? "flux-pro-ultra" : lora ? "flux-lora" : "flux",
+        costUsd: cost, statusCode: 200,
+      });
+    } catch { /* logging must never break production */ }
 
     await updateProjectStatus(
       parsed.data.project_id,

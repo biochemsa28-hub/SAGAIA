@@ -22,6 +22,8 @@ interface DashboardData {
 // Viral idea cards — pre-fill create form
 const VIRAL_IDEAS = [
   { emoji: "😱", niche: "Terror psicológico",   tone: "horror",    duration: "60s",    topic: "Una mujer escucha la voz de su hija llamándola... pero su hija lleva 3 años muerta",      color: "from-red-900/40 to-zinc-900",      border: "border-red-800/30" },
+  { emoji: "📸", niche: "Terror",                tone: "horror",    duration: "60s",    topic: "Un hombre recibe fotos de su propia casa tomadas mientras dormía, pero vive solo",        color: "from-red-900/40 to-zinc-900",      border: "border-red-800/30" },
+  { emoji: "🖍️", niche: "Terror sobrenatural",   tone: "horror",    duration: "60s",    topic: "Una niña dibuja el mismo monstruo cada noche. Sus padres descubren que existe",           color: "from-violet-900/40 to-zinc-900",   border: "border-violet-800/30" },
   { emoji: "💔", niche: "Romance prohibido",     tone: "romance",   duration: "60s",    topic: "Su mejor amigo de 15 años le confiesa que siempre la amó... en el día de su boda",         color: "from-pink-900/40 to-zinc-900",     border: "border-pink-800/30" },
   { emoji: "🔍", niche: "Misterio",              tone: "mystery",   duration: "3-5min", topic: "Encuentra fotos de su propia infancia en casa de un desconocido que jamás conoció",        color: "from-blue-900/40 to-zinc-900",     border: "border-blue-800/30" },
   { emoji: "💪", niche: "Superación personal",   tone: "inspirational", duration: "60s", topic: "De dormir en su carro a facturar $10k al mes: la historia que nadie te contó",           color: "from-emerald-900/40 to-zinc-900",  border: "border-emerald-800/30" },
@@ -29,6 +31,20 @@ const VIRAL_IDEAS = [
   { emoji: "🕵️", niche: "Thriller",              tone: "thriller",  duration: "3-5min", topic: "La psicóloga descubre que todos sus pacientes comparten el mismo sueño recurrente",       color: "from-amber-900/40 to-zinc-900",    border: "border-amber-800/30" },
   { emoji: "🧠", niche: "Conspiración",           tone: "mystery",   duration: "3-5min", topic: "El experimento del gobierno que terminó mal — y los sobrevivientes que guardan silencio", color: "from-teal-900/40 to-zinc-900",     border: "border-teal-800/30" },
   { emoji: "❤️", niche: "Drama familiar",         tone: "drama",     duration: "60s",    topic: "La carta que encontró en el ático de su madre reveló el secreto de 30 años",             color: "from-rose-900/40 to-zinc-900",     border: "border-rose-800/30" },
+  { emoji: "📱", niche: "Terror digital",         tone: "horror",    duration: "60s",    topic: "Su ex sigue viendo sus estados de WhatsApp... pero murió en un accidente hace un mes",     color: "from-red-900/40 to-zinc-900",      border: "border-red-800/30" },
+  { emoji: "🚪", niche: "Terror",                tone: "horror",    duration: "60s",    topic: "Cada noche su perro ladra a la misma puerta cerrada. Hoy decidió abrirla",               color: "from-red-900/40 to-zinc-900",      border: "border-red-800/30" },
+  { emoji: "👶", niche: "Drama",                  tone: "drama",     duration: "60s",    topic: "Adoptó a un niño que en su primer día le susurró: 'Yo te conozco de antes, mamá'",        color: "from-rose-900/40 to-zinc-900",     border: "border-rose-800/30" },
+  { emoji: "💍", niche: "Romance",                tone: "romance",   duration: "60s",    topic: "Le devolvieron el anillo que perdió hace 20 años... con una nota de su primer amor",      color: "from-pink-900/40 to-zinc-900",     border: "border-pink-800/30" },
+  { emoji: "🏚️", niche: "Misterio",              tone: "mystery",   duration: "3-5min", topic: "Compró la casa más barata del pueblo. Los vecinos dejan comida en su puerta cada noche",   color: "from-blue-900/40 to-zinc-900",     border: "border-blue-800/30" },
+  { emoji: "🩸", niche: "Thriller",               tone: "thriller",  duration: "60s",    topic: "Despierta con sangre que no es suya y un mensaje en el espejo: 'Termina lo que empezaste'", color: "from-amber-900/40 to-zinc-900",    border: "border-amber-800/30" },
+  { emoji: "🌟", niche: "Superación",             tone: "inspirational", duration: "60s", topic: "Le dijeron que jamás volvería a caminar. Hoy cruzó la meta de una maratón",              color: "from-emerald-900/40 to-zinc-900",  border: "border-emerald-800/30" },
+  { emoji: "📞", niche: "Sobrenatural",           tone: "horror",    duration: "60s",    topic: "Contesta una llamada de su propio número. Del otro lado, su voz le advierte de esta noche", color: "from-violet-900/40 to-zinc-900",   border: "border-violet-800/30" },
+  { emoji: "👰", niche: "Drama",                  tone: "drama",     duration: "60s",    topic: "El día de su boda llegó una invitada que nadie reconoció... menos el novio",              color: "from-rose-900/40 to-zinc-900",     border: "border-rose-800/30" },
+  { emoji: "🧸", niche: "Terror",                tone: "horror",    duration: "60s",    topic: "Su hijo habla con un 'amigo invisible' que sabe cosas que pasaron antes de que naciera",  color: "from-red-900/40 to-zinc-900",      border: "border-red-800/30" },
+  { emoji: "💸", niche: "Superación",             tone: "inspirational", duration: "60s", topic: "Renunció con $3 en la cuenta. Lo que hizo los siguientes 6 meses cambió a su familia",    color: "from-emerald-900/40 to-zinc-900",  border: "border-emerald-800/30" },
+  { emoji: "🔦", niche: "Thriller",               tone: "thriller",  duration: "3-5min", topic: "El guardia nocturno encuentra una cámara que graba un pasillo que no existe en el edificio", color: "from-amber-900/40 to-zinc-900",    border: "border-amber-800/30" },
+  { emoji: "💌", niche: "Romance",                tone: "romance",   duration: "60s",    topic: "Recibe cartas de amor sin remitente. La letra es idéntica a la suya",                    color: "from-pink-900/40 to-zinc-900",     border: "border-pink-800/30" },
+  { emoji: "🌑", niche: "Misterio",              tone: "mystery",   duration: "3-5min", topic: "Todo el pueblo desaparece cada 100 años. Faltan 3 días y ella es la única que lo sabe",    color: "from-blue-900/40 to-zinc-900",     border: "border-blue-800/30" },
 ];
 
 const TIPS = [
@@ -59,10 +75,23 @@ export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tipIndex] = useState(() => Math.floor(Math.random() * TIPS.length));
+  // Start deterministic (index 0) so SSR and the first client render match —
+  // then pick a random tip AFTER mount. Randomizing during render breaks hydration.
+  const [tipIndex, setTipIndex] = useState(0);
+  useEffect(() => { setTipIndex(Math.floor(Math.random() * TIPS.length)); }, []);
   // Ideas rotate by day-of-year so "Tendencias de hoy" feels fresh every visit.
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  const IDEAS_PER_VIEW = 6;
   const [ideaOffset, setIdeaOffset] = useState(() => (dayOfYear * 2) % VIRAL_IDEAS.length);
+  const [ideaCycle, setIdeaCycle] = useState(0); // bumps each rotation → replays cascade
+  // Auto-rotate so fresh ideas keep "appearing" with the cascade effect.
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setIdeaOffset((prev) => (prev + IDEAS_PER_VIEW) % VIRAL_IDEAS.length);
+      setIdeaCycle((c) => c + 1);
+    }, 9000);
+    return () => clearInterval(iv);
+  }, []);
   const [navos, setNavos] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
 
@@ -114,7 +143,8 @@ export default function DashboardPage() {
 
   const stats = data?.stats ?? { total: 0, ready: 0, generating: 0, scenes: 0 };
   const hasProjects = (data?.projects?.length ?? 0) > 0;
-  const visibleIdeas = VIRAL_IDEAS.slice(ideaOffset, ideaOffset + 4);
+  // Wrap-around so it ALWAYS shows the full count even crossing the end of the list.
+  const visibleIdeas = Array.from({ length: IDEAS_PER_VIEW }, (_, k) => VIRAL_IDEAS[(ideaOffset + k) % VIRAL_IDEAS.length]!);
 
   return (
     <>
@@ -213,7 +243,7 @@ export default function DashboardPage() {
               <h2 className="text-sm font-bold vy-grad-text">Tendencias de hoy</h2>
             </div>
             <button
-              onClick={() => setIdeaOffset((prev) => (prev + 4) % VIRAL_IDEAS.length)}
+              onClick={() => { setIdeaOffset((prev) => (prev + IDEAS_PER_VIEW) % VIRAL_IDEAS.length); setIdeaCycle((c) => c + 1); }}
               className="text-xs text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1 vy-press"
             >
               Cambiar <RefreshCw className="w-3 h-3" />
@@ -223,9 +253,10 @@ export default function DashboardPage() {
           <div className="space-y-2.5">
             {visibleIdeas.map((idea, i) => (
               <button
-                key={ideaOffset + i}
+                key={`${ideaCycle}-${i}`}
                 onClick={() => createFromIdea(idea)}
-                className={`w-full text-left rounded-2xl bg-gradient-to-r ${idea.color} border ${idea.border} p-4 hover:brightness-110 active:scale-[0.98] transition-all`}
+                style={{ animationDelay: `${i * 90}ms` }}
+                className={`vy-fadeup opacity-0 w-full text-left rounded-2xl bg-gradient-to-r ${idea.color} border ${idea.border} p-4 hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] transition-all`}
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl shrink-0 mt-0.5">{idea.emoji}</span>

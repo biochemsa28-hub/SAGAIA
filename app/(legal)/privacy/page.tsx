@@ -67,11 +67,13 @@ export default function PrivacyPage() {
             </tr>
           </thead>
           <tbody>
-            <tr><td>OpenAI</td><td>Generación de guiones</td><td>Premisa e instrucciones del proyecto</td></tr>
-            <tr><td>ElevenLabs</td><td>Síntesis de voz</td><td>Texto de narración de cada escena</td></tr>
-            <tr><td>Fal.ai (Flux)</td><td>Generación de imágenes</td><td>Prompts de imagen</td></tr>
-            <tr><td>Kling AI</td><td>Animación de clips</td><td>Prompts de animación e imágenes</td></tr>
-            <tr><td>Shotstack</td><td>Ensamblaje de video</td><td>URLs de clips y audio</td></tr>
+            <tr><td>Anthropic (Claude)</td><td>Generación de guiones y elenco</td><td>Premisa e instrucciones del proyecto</td></tr>
+            <tr><td>OpenAI</td><td>Generación de guiones (alternativa)</td><td>Premisa e instrucciones del proyecto</td></tr>
+            <tr><td>ElevenLabs</td><td>Síntesis de voz, música y efectos</td><td>Texto de narración de cada escena</td></tr>
+            <tr><td>Fal.ai</td><td>Generación y edición de imágenes</td><td>Prompts de imagen y retratos de referencia</td></tr>
+            <tr><td>ByteDance (Seedance, vía Fal.ai)</td><td>Animación de clips</td><td>Prompts de animación e imágenes de escena</td></tr>
+            <tr><td>Cloudflare R2</td><td>Almacenamiento de archivos generados</td><td>Imágenes, audio y videos del proyecto</td></tr>
+            <tr><td>Shotstack</td><td>Ensamblaje de video (opcional)</td><td>URLs de clips y audio</td></tr>
             <tr><td>Stripe</td><td>Procesamiento de pagos</td><td>Datos de facturación</td></tr>
             <tr><td>Turso (libSQL)</td><td>Base de datos</td><td>Todos los datos de cuenta</td></tr>
             <tr><td>Vercel</td><td>Hosting</td><td>Logs del servidor, IP</td></tr>

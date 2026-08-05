@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { resolveRequestUserId } from "@/lib/internal-auth";
 import { getProjectDetail, updateProjectStatus, upsertAsset, getUserById } from "@/lib/db/repository";
 import { submitAssembly, checkAssembly } from "@/services/shotstack/assembler";
 import { generateStorySfx } from "@/services/elevenlabs/sfx-generator";
@@ -12,7 +11,10 @@ import { captureServer } from "@/lib/analytics/posthog";
 import { resolveProjectTier } from "@/lib/config";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// A real run of this route took over a minute rendering 6 blocks locally with FFmpeg; the previous ceiling would have killed it
+// mid-flight on a serverless host with the fal spend already committed. These are
+// sized from measurement, not from a default.
+export const maxDuration = 300;
 
 const Schema = z.object({
   project_id: z.string().uuid(),
@@ -23,10 +25,11 @@ const Schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const body: unknown = await req.json();
+    // Either a browser session, or the job worker carrying the internal secret —
+    // production has to keep running after the user closes the tab.
+    const body: unknown = await req.json().catch(() => null);
+    const userId = await resolveRequestUserId(req, body);
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const parsed = Schema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
 
@@ -34,54 +37,89 @@ export async function POST(req: NextRequest) {
 
     // ── CHECK status of existing render ──────────────────────────────────────
     if (parsed.data.action === "check" && parsed.data.render_id) {
+      // FFmpeg renders synchronously at submit → already done + saved to R2.
+      if (parsed.data.render_id === "ffmpeg-local") {
+        const d = await getProjectDetail(parsed.data.project_id, userId).catch(() => null);
+        const fv = d?.assets?.find((a) => a.asset_type === "final_video");
+        return NextResponse.json({ success: true, status: "done", url: fv?.public_url ?? null });
+      }
       const status = await checkAssembly(parsed.data.render_id);
 
       if (status.status === "done" && status.url) {
+        // Re-host the Shotstack output to durable R2 — its S3 URL is TEMPORARY and
+        // expires, which is why finished videos "disappeared". Now you own it forever.
+        const { rehostToR2 } = await import("@/services/storage");
+        const durableUrl = await rehostToR2(status.url, "finals", "mp4", "video/mp4");
         await upsertAsset({
           projectId: parsed.data.project_id,
           assetType: "final_video",
-          publicUrl: status.url,
+          publicUrl: durableUrl,
           mimeType: "video/mp4",
         });
         await updateProjectStatus(parsed.data.project_id, "ready");
 
-        captureServer(session.user.id, "video_ready", { project_id: parsed.data.project_id });
+        // 💰 Log the Shotstack render cost.
+        try {
+          const { COST } = await import("@/lib/costs");
+          const { createApiLog } = await import("@/lib/db/repository");
+          await createApiLog({
+            userId: userId, projectId: parsed.data.project_id,
+            provider: "shotstack", endpoint: "/api/assemble", model: "render",
+            // The local FFmpeg path costs nothing — logging Shotstack's price for
+            // it would inflate every measured video cost, which is what the whole
+            // pricing model now hangs on.
+            costUsd: (process.env.RENDER_ENGINE ?? "").toLowerCase() === "ffmpeg"
+              ? COST.ffmpeg_render()
+              : COST.shotstack_render(),
+            statusCode: 200,
+          });
+        } catch { /* never break on logging */ }
+
+        captureServer(userId, "video_ready", { project_id: parsed.data.project_id });
 
         // Send "video ready" email — fire and forget, never block the response
-        const detail = await getProjectDetail(parsed.data.project_id, session.user.id).catch(() => null);
-        if (detail && session.user.email) {
+        const detail = await getProjectDetail(parsed.data.project_id, userId).catch(() => null);
+        // Look the address up instead of reading it off the session: when the job
+        // worker finishes this there IS no session, and that's precisely the case
+        // where the email matters most — the user closed the tab an hour ago.
+        const owner = await getUserById(userId).catch(() => null);
+        if (detail && owner?.email) {
           sendVideoReadyEmail({
-            to: session.user.email,
-            userName: session.user.name ?? "Creador",
+            to: owner.email,
+            userName: owner.name ?? "Creador",
             projectTitle: detail.project.title,
             projectId: parsed.data.project_id,
-            videoUrl: status.url,
+            videoUrl: durableUrl,
           }).catch((err) => console.error("[email] video-ready failed:", err));
         }
+        return NextResponse.json({ success: true, ...status, url: durableUrl });
       }
 
       return NextResponse.json({ success: true, ...status });
     }
 
     // ── SUBMIT new assembly ───────────────────────────────────────────────────
-    const detail = await getProjectDetail(parsed.data.project_id, session.user.id);
+    const detail = await getProjectDetail(parsed.data.project_id, userId);
     if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
 
     // Effective tier = project's choice, clamped to the owner's plan.
-    const user = await getUserById(session.user.id).catch(() => null);
+    const user = await getUserById(userId).catch(() => null);
     const tier = resolveProjectTier(detail.project.animation_tier, user?.plan ?? "free");
     const videoAssets = detail.assets?.filter((a) => a.asset_type === "video") ?? [];
     const imageAssets = detail.assets?.filter((a) => a.asset_type === "image") ?? [];
 
-    // Ken Burns tier animates the static images (no Kling clips needed).
-    // Cinematic tier needs the Kling video clips. Fall back to images if no clips exist.
-    const useImages = tier === "kenburns" || videoAssets.length === 0;
+    // HYBRID-AWARE: decide per SCENE, not for the whole video. A scene uses its real
+    // animated clip when one exists, otherwise Ken Burns over its still. That's what
+    // lets the hook be animated while the rest stays free.
+    const videoBySceneId = new Map(videoAssets.filter((a) => a.scene_id).map((a) => [a.scene_id, a]));
+    const hasAnyClip = videoAssets.length > 0;
+    // Legacy path (clips for every scene, matched positionally) only when no clip
+    // carries a scene_id — otherwise we always match strictly by scene.
+    const clipsHaveSceneIds = videoBySceneId.size > 0;
+    const useImages = !hasAnyClip;
 
-    if (useImages && !imageAssets.length) {
+    if (!imageAssets.length && !hasAnyClip) {
       return NextResponse.json({ error: "Genera las imágenes primero" }, { status: 422 });
-    }
-    if (!useImages && !videoAssets.length) {
-      return NextResponse.json({ error: "Genera los videos animados primero" }, { status: 422 });
     }
 
     const audioAssets = detail.assets?.filter((a) => a.asset_type === "audio") ?? [];
@@ -103,7 +141,9 @@ export async function POST(req: NextRequest) {
 
     // Build scene list — prefer real audio duration + word timings when available
     const scenes = detail.scenes.map((scene, idx) => {
-      const video = videoAssets[idx] ?? videoAssets[0];
+      // Hybrid: this scene's OWN clip if it has one; positional only for legacy
+      // projects whose clips predate scene_id tagging.
+      const video = clipsHaveSceneIds ? videoBySceneId.get(scene.id) : (videoAssets[idx] ?? videoAssets[0]);
       const image = imageHasSceneIds ? imageBySceneId.get(scene.id) : imageAssets[idx];
       const audio = audioHasSceneIds ? audioBySceneId.get(scene.id) : audioAssets[idx];
 
@@ -121,18 +161,114 @@ export async function POST(req: NextRequest) {
         } catch { /* ignore malformed metadata */ }
       }
 
+      // Extra camera setups saved by the images step (metadata.shots) — the edit
+      // cuts between them inside this scene instead of holding one frame.
+      let shots: string[] | undefined;
+      if (image?.metadata) {
+        try {
+          const m = JSON.parse(image.metadata) as { shots?: unknown };
+          if (Array.isArray(m.shots) && m.shots.every((u) => typeof u === "string")) {
+            shots = m.shots as string[];
+          }
+        } catch { /* ignore malformed metadata */ }
+      }
+
+      // Per-scene choice: real clip when this scene has one, else its still image.
+      const clipUrl = video?.public_url || undefined;
       return {
         sceneNumber: scene.scene_number,
-        videoUrl: useImages ? undefined : (video?.public_url ?? ""),
-        imageUrl: useImages ? (image?.public_url ?? "") : undefined,
+        videoUrl: clipUrl,
+        imageUrl: clipUrl ? undefined : (image?.public_url ?? ""),
         audioUrl: audio?.public_url ?? undefined,
         narrationText: scene.narration_text,
         // Real spoken length keeps clip + voice + subtitles all in sync.
         // +0.35s tail so the clip doesn't cut the instant the voice ends.
         durationSeconds: audioDuration ? Math.min(maxDur, Math.max(2, audioDuration + 0.35)) : (scene.duration_seconds || 5),
         wordTimings,
+        emotion: scene.emotion ?? undefined,
+        shots,
       };
     });
+
+    // ── COLLAPSE NARRATIVE BLOCKS ────────────────────────────────────────────
+    // One clip can cover several scenes. Its asset carries the list; the lead
+    // scene absorbs the others' narration (played end to end over the block) and
+    // they drop out of the timeline. Without this the block's clip would play
+    // once and the scenes it already covers would render AGAIN as stills — the
+    // story would stutter and repeat.
+    const sceneNumberById = new Map(detail.scenes.map((sc) => [sc.id, sc.scene_number]));
+    const blockMembers = new Map<number, number[]>();
+    // Clips whose characters speak for themselves: their own track is the audio,
+    // and their transcript is the caption source.
+    const nativeAudio = new Map<number, { wordTimings?: Array<{ word: string; start: number; end: number }> }>();
+    for (const a of videoAssets) {
+      if (!a.metadata) continue;
+      try {
+        const m = JSON.parse(a.metadata) as {
+          block?: number[];
+          native_audio?: boolean;
+          wordTimings?: Array<{ word: string; start: number; end: number }>;
+        };
+        const lead = sceneNumberById.get(a.scene_id ?? "");
+        if (!lead) continue;
+        if (Array.isArray(m.block) && m.block.length > 1) blockMembers.set(lead, m.block);
+        if (m.native_audio) nativeAudio.set(lead, { wordTimings: m.wordTimings });
+      } catch { /* metadata without a block */ }
+    }
+
+    const absorbed = new Set<number>();
+    for (const [lead, members] of blockMembers) {
+      for (const n of members) if (n !== lead) absorbed.add(n);
+    }
+
+    const timeline = blockMembers.size
+      ? scenes
+          .filter((sc) => !absorbed.has(sc.sceneNumber))
+          .map((sc) => {
+            const members = blockMembers.get(sc.sceneNumber);
+            if (!members) return sc;
+            const covered = members
+              .map((n) => scenes.find((x) => x.sceneNumber === n))
+              .filter((x): x is typeof sc => Boolean(x));
+            // Word timings shift by however much narration precedes them, or the
+            // burned captions of scenes 2..N would all start at zero.
+            let offset = 0;
+            const merged: Array<{ word: string; start: number; end: number }> = [];
+            for (const c of covered) {
+              for (const w of c.wordTimings ?? []) {
+                merged.push({ word: w.word, start: w.start + offset, end: w.end + offset });
+              }
+              offset += c.durationSeconds ?? 0;
+            }
+            const native = nativeAudio.get(sc.sceneNumber);
+            if (native) {
+              // The clip already carries the performance. Handing the assembler an
+              // audioUrl here would dub a narrator back over the characters — the
+              // exact thing this pipeline exists to stop.
+              return {
+                ...sc,
+                audioUrl: undefined,
+                audioUrls: undefined as string[] | undefined,
+                durationSeconds: undefined,        // let the clip's own length rule
+                wordTimings: native.wordTimings ?? undefined,
+                shots: undefined as string[] | undefined,
+              };
+            }
+            return {
+              ...sc,
+              audioUrls: covered.map((c) => c.audioUrl).filter((u): u is string => Boolean(u)),
+              durationSeconds: covered.reduce((n, c) => n + (c.durationSeconds ?? 0), 0),
+              wordTimings: merged.length ? merged : sc.wordTimings,
+              // A block already cuts between camera setups inside itself; the
+              // still-image shot list would fight it.
+              shots: undefined as string[] | undefined,
+            };
+          })
+      : scenes;
+
+    if (blockMembers.size) {
+      console.log(`[blocks] montaje: ${scenes.length} escenas → ${timeline.length} segmentos`);
+    }
 
     // Free-tier videos carry a watermark (viral marketing + upgrade nudge).
     // Any paid plan removes it.
@@ -154,9 +290,42 @@ export async function POST(req: NextRequest) {
     // niche + the story's music_mood. Off → AUTO_MUSIC=off. Never blocks the render.
     let musicUrl: string | null = null;
     try {
-      const totalDur = scenes.reduce((n, s) => n + (s.durationSeconds ?? 0), 0) || 30;
+      const totalDur = timeline.reduce((n, s) => n + (s.durationSeconds ?? 0), 0) || 30;
       musicUrl = await generateStoryMusic(detail.project.niche, detail.story?.music_mood ?? null, totalDur);
     } catch { /* render continues without music */ }
+
+    // ── RENDER ENGINE: local FFmpeg ($0, no Shotstack) — RENDER_ENGINE=ffmpeg ──
+    // Renders synchronously on the server and stores straight to R2. No polling.
+    if ((process.env.RENDER_ENGINE ?? "").toLowerCase() === "ffmpeg") {
+      const { assembleWithFfmpeg } = await import("@/services/ffmpeg/assembler");
+      const ff = await assembleWithFfmpeg({
+        scenes: timeline.map((s) => ({
+          imageUrl: s.imageUrl || undefined,
+          videoUrl: s.videoUrl || undefined,
+          audioUrl: s.audioUrl,
+          audioUrls: (s as { audioUrls?: string[] }).audioUrls,
+          durationSeconds: s.durationSeconds,
+          wordTimings: parsed.data.add_subtitles ? s.wordTimings : undefined,
+          emotion: s.emotion,
+          shots: s.shots,
+        })),
+        musicUrl,
+        cta: detail.story?.cta ?? null,
+        watermark,
+        niche: detail.project.niche,
+        sfxWhooshUrl,
+        sfxImpactUrl,
+      });
+      await upsertAsset({
+        projectId: parsed.data.project_id,
+        assetType: "final_video",
+        publicUrl: ff.url,
+        mimeType: "video/mp4",
+      });
+      await updateProjectStatus(parsed.data.project_id, "ready");
+      // "done" render_id so the client's check loop resolves immediately.
+      return NextResponse.json({ success: true, render_id: "ffmpeg-local", status: "done", url: ff.url, engine: "ffmpeg" });
+    }
 
     const result = await submitAssembly({
       scenes,

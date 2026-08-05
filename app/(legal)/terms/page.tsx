@@ -19,11 +19,11 @@ export default function TermsPage() {
       <Section title="2. Descripción del Servicio">
         <p>{COMPANY} es una plataforma de generación de contenido audiovisual mediante inteligencia artificial que permite a los usuarios:</p>
         <ul>
-          <li>Generar guiones de microseries virales mediante IA (OpenAI GPT-4)</li>
-          <li>Producir narración de voz en off mediante síntesis de voz (ElevenLabs)</li>
-          <li>Generar imágenes para cada escena mediante IA generativa (Flux)</li>
-          <li>Animar escenas en clips de video (Kling AI)</li>
-          <li>Ensamblar el video final con subtítulos (Shotstack)</li>
+          <li>Generar guiones de microseries virales mediante IA (Anthropic Claude)</li>
+          <li>Producir narración de voz, música y efectos (ElevenLabs)</li>
+          <li>Generar y editar imágenes de cada escena mediante IA generativa (Fal.ai)</li>
+          <li>Animar escenas en clips de video (ByteDance Seedance, vía Fal.ai)</li>
+          <li>Ensamblar el video final con subtítulos quemados</li>
         </ul>
         <p>El Servicio opera bajo un sistema de créditos. Cada proyecto consume créditos según el plan contratado.</p>
       </Section>
@@ -62,7 +62,7 @@ export default function TermsPage() {
 
       <Section title="6. Propiedad intelectual del contenido generado">
         <p><strong>6.1 Contenido del usuario.</strong> Eres el propietario de las premisas, ideas y prompts que introduces en el Servicio.</p>
-        <p><strong>6.2 Contenido generado por IA.</strong> El contenido generado por las IAs integradas (guiones, imágenes, audio, video) se te cede bajo licencia no exclusiva para uso comercial y personal, sujeta a los términos de los proveedores de IA subyacentes (OpenAI, ElevenLabs, Flux, Kling, Shotstack). Te recomendamos revisar sus políticas de uso.</p>
+        <p><strong>6.2 Contenido generado por IA.</strong> El contenido generado por las IAs integradas (guiones, imágenes, audio, video) se te cede bajo licencia no exclusiva para uso comercial y personal, sujeta a los términos de los proveedores de IA subyacentes (Anthropic, OpenAI, ElevenLabs, Fal.ai, ByteDance). Te recomendamos revisar sus políticas de uso.</p>
         <p><strong>6.3 Marca y plataforma.</strong> El nombre, logo, interfaz y código fuente de {COMPANY} son propiedad exclusiva nuestra y están protegidos por las leyes de propiedad intelectual aplicables.</p>
         <p><strong>6.4 Datos de entrenamiento.</strong> No utilizamos el contenido que generas para entrenar nuestros modelos de IA. El contenido generado es procesado únicamente para entregarte el resultado solicitado.</p>
       </Section>

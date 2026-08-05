@@ -13,6 +13,7 @@ import {
 import type { StoryOutput } from "@/lib/validators/story.schema";
 import type { HookVariant } from "@/app/api/generate/hooks/route";
 import { CREDIT_COST_BY_TIER } from "@/lib/config";
+import { CinematicLoader } from "@/components/ui/CinematicLoader";
 
 interface CastCharacterOption {
   name: string;
@@ -65,15 +66,62 @@ const TRENDING = [
 ];
 
 const GEN_STEPS = [
-  { key: "story",   label: "Construyendo el arco narrativo…",       pct: 20, icon: "✍️" },
-  { key: "scenes",  label: "Diseñando el ritmo por escenas…",        pct: 45, icon: "🎬" },
-  { key: "prompts", label: "Creando imágenes cinematográficas…",     pct: 68, icon: "🖼️" },
-  { key: "seo",     label: "Optimizando para viralidad…",            pct: 88, icon: "📈" },
-  { key: "done",    label: "¡Tu historia está lista!",               pct: 100, icon: "⚡" },
+  { key: "story",   label: "Encendiendo la chispa de la historia…",  pct: 20, icon: "✍️" },
+  { key: "scenes",  label: "Dirigiendo el ritmo de cada escena…",     pct: 45, icon: "🎬" },
+  { key: "prompts", label: "Pintando cada cuadro como cine…",         pct: 68, icon: "🎨" },
+  { key: "seo",     label: "Afilando el gancho viral…",               pct: 88, icon: "🪝" },
+  { key: "done",    label: "¡La obra está lista!",                     pct: 100, icon: "✨" },
 ];
 
-// Wizard journey — 5 steps. "Elenco" is the casting selection screen (new Phase 2).
-const WIZARD_STEPS = ["Universo", "Historia", "Visión", "Elenco", "Gancho"];
+// Wizard journey — 5 steps. Cada paso es un acto de la creación.
+const WIZARD_STEPS = ["El Universo", "La Trama", "El Estilo", "El Reparto", "El Estreno"];
+
+// Real AI-generated reference frame per visual style — the SAME scene rendered in
+// each style so the user sees exactly how their microseries will look.
+// Images live in /public/style-previews (generated once via fal). Fallback bg shows
+// while the image loads.
+const STYLE_THUMB: Record<string, { img: string; bg: string }> = {
+  cinematic: { img: "/style-previews/cinematic.jpg", bg: "#0f3a47" },
+  anime:     { img: "/style-previews/anime.jpg",     bg: "#1e2740" },
+  realistic: { img: "/style-previews/realistic.jpg", bg: "#8a96a3" },
+  cartoon:   { img: "/style-previews/cartoon.jpg",   bg: "#f472b6" },
+  vintage:   { img: "/style-previews/vintage.jpg",   bg: "#9a8455" },
+};
+
+// Tiny aspect-ratio frame mock per platform (vertical phone vs widescreen).
+const PLATFORM_THUMB: Record<string, { ratio: string; tint: string; icon: string }> = {
+  tiktok:         { ratio: "9 / 16", tint: "linear-gradient(160deg,#25f4ee,#fe2c55)", icon: "🎵" },
+  instagram:      { ratio: "9 / 16", tint: "linear-gradient(160deg,#feda75,#d62976,#962fbf)", icon: "📸" },
+  youtube_shorts: { ratio: "9 / 16", tint: "linear-gradient(160deg,#ff4e45,#b31217)", icon: "▶️" },
+  youtube_long:   { ratio: "16 / 9", tint: "linear-gradient(160deg,#ff4e45,#b31217)", icon: "▶️" },
+};
+
+// When the user picks a niche, pre-select the matching emotion so they don't have to
+// choose the same genre twice (they can still override). Removes the nicho/tono overlap.
+const NICHE_DEFAULT_TONE: Record<string, string> = {
+  terror:       "horror",
+  romance:      "romance",
+  misterio:     "mystery",
+  inspiracional:"inspirational",
+  fantasia:     "fantasy",
+  historia:     "documentary",
+};
+
+// Each emotion gets a face + color so the tone picker feels alive — and because the
+// emotion now drives Claude's suggestions and the whole story's feeling.
+const TONE_VISUAL: Record<string, { emoji: string; sub: string; active: string }> = {
+  horror:        { emoji: "😱", sub: "Miedo real",     active: "bg-red-500/15 border-red-500/60 text-red-200" },
+  romance:       { emoji: "💗", sub: "Ternura",        active: "bg-pink-500/15 border-pink-500/60 text-pink-200" },
+  mystery:       { emoji: "🔍", sub: "Intriga",        active: "bg-blue-500/15 border-blue-500/60 text-blue-200" },
+  inspirational: { emoji: "💪", sub: "Motivación",     active: "bg-emerald-500/15 border-emerald-500/60 text-emerald-200" },
+  comedy:        { emoji: "😂", sub: "Risa",           active: "bg-amber-500/15 border-amber-500/60 text-amber-200" },
+  thriller:      { emoji: "😰", sub: "Adrenalina",     active: "bg-orange-500/15 border-orange-500/60 text-orange-200" },
+  documentary:   { emoji: "🎙️", sub: "Revelación",     active: "bg-teal-500/15 border-teal-500/60 text-teal-200" },
+  fantasy:       { emoji: "🐉", sub: "Maravilla",      active: "bg-violet-500/15 border-violet-500/60 text-violet-200" },
+  drama:         { emoji: "💔", sub: "Un nudo",        active: "bg-rose-500/15 border-rose-500/60 text-rose-200" },
+  chisme:        { emoji: "🤫", sub: "Te cuento algo",  active: "bg-pink-500/15 border-pink-500/60 text-pink-200" },
+  confesion:     { emoji: "😶‍🌫️", sub: "Nunca lo dije",   active: "bg-slate-500/15 border-slate-500/60 text-slate-200" },
+};
 
 // Hook type metadata for UI display
 const HOOK_META: Record<string, { icon: string; color: string; bg: string; border: string }> = {
@@ -176,6 +224,10 @@ function NewProjectForm() {
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [savedCharacters, setSavedCharacters] = useState<Array<{ id: string; name: string; reference_image_url: string | null }>>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
+  // Claude story suggestions based on the chosen emotion (Historia step)
+  const [aiSuggestions, setAiSuggestions] = useState<Array<{ emoji: string; title: string; premise: string }>>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const [userPlan, setUserPlan] = useState<string>("free");
   // Single premium tier — every video is the high-end "talking" obra de arte.
   const [tier] = useState<"kenburns" | "cinematic" | "talking">("talking");
@@ -191,6 +243,34 @@ function NewProjectForm() {
     videoUrl: string | null;
     projectId: string | null;
   } | null>(null);
+  // Live scene previews — images fill in as the AI generates them (scene_number → url).
+  const [scenePreviews, setScenePreviews] = useState<Record<number, string>>({});
+
+  // Poll the project while it's producing so generated scene images appear LIVE.
+  useEffect(() => {
+    if (!prod?.active || !prod.projectId) return;
+    if (!["voice", "images", "clips"].includes(prod.phase)) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/projects/${prod.projectId}`);
+        if (!r.ok) return;
+        const d = await r.json() as { scenes?: Array<{ id: string; scene_number: number }>; assets?: Array<{ asset_type: string; scene_id: string | null; public_url: string | null }> };
+        const sceneById = new Map((d.scenes ?? []).map(s => [s.id, s.scene_number]));
+        const map: Record<number, string> = {};
+        for (const a of d.assets ?? []) {
+          if (a.asset_type === "image" && a.public_url && a.scene_id) {
+            const n = sceneById.get(a.scene_id);
+            if (n) map[n] = a.public_url;
+          }
+        }
+        if (alive && Object.keys(map).length) setScenePreviews(prev => ({ ...prev, ...map }));
+      } catch { /* keep polling */ }
+    };
+    void poll();
+    const iv = setInterval(poll, 2500);
+    return () => { alive = false; clearInterval(iv); };
+  }, [prod?.active, prod?.phase, prod?.projectId]);
 
   useEffect(() => {
     fetch("/api/credits").then(r => r.json())
@@ -225,6 +305,32 @@ function NewProjectForm() {
     const next = (ideaIdx + 1) % nichoIdeas.length;
     setIdeaIdx(next);
     set("topic")(nichoIdeas[next] ?? "");
+  }
+
+  // Ask Claude for 3 fresh story premises tuned to the chosen emotion (tone).
+  async function suggestStories() {
+    if (suggestLoading) return;
+    setSuggestLoading(true);
+    setSuggestError(null);
+    try {
+      const res = await fetch("/api/generate/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          niche: form.niche || "drama",
+          tone: form.tone || "drama",
+          sub_niche: form.sub_niche || undefined,
+          language: form.language || "es",
+        }),
+      });
+      const data = await res.json() as { suggestions?: Array<{ emoji: string; title: string; premise: string }>; error?: string };
+      if (!res.ok || !data.suggestions?.length) throw new Error(data.error ?? "No se pudieron generar ideas");
+      setAiSuggestions(data.suggestions);
+    } catch (err) {
+      setSuggestError(err instanceof Error ? err.message : "Error al sugerir");
+    } finally {
+      setSuggestLoading(false);
+    }
   }
 
   function validateStep(s: number) {
@@ -368,6 +474,7 @@ function NewProjectForm() {
     const post = (url: string, body: object) =>
       fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     try {
+      setScenePreviews({});
       setProd({ active: true, phase: "voice", error: null, videoUrl: null, projectId });
 
       // Voice + images in parallel
@@ -386,20 +493,24 @@ function NewProjectForm() {
         let jobs = initial.filter(j => j.request_id);
         if (!jobs.length) throw new Error("La animación no se pudo enviar");
         const urls: Array<{ scene_number: number; video_url: string }> = [];
-        for (let i = 0; i < 150 && jobs.length; i++) {
+        for (let i = 0; i < 200 && jobs.length; i++) {
           await new Promise(r => setTimeout(r, 6000));
           const col = await (await post("/api/videos", { project_id: projectId, action: "collect", stage, jobs: jobs.map(j => ({ scene_number: j.scene_number, request_id: j.request_id })) })).json() as
             { all_done: boolean; scenes: Array<{ scene_number: number; status: string; url?: string }> };
           for (const s of col.scenes) if (s.status === "completed" && s.url) urls.push({ scene_number: s.scene_number, video_url: s.url });
-          if (col.all_done) break;
+          // RETURN, not break: breaking leaves the pending list populated and the
+          // check after the loop reads that as a timeout — so a fully successful
+          // animation reported failure and refunded a video that already existed.
+          if (col.all_done) return urls;
           jobs = jobs.filter(j => { const s = col.scenes.find(s => s.scene_number === j.scene_number); return s?.status !== "completed" && s?.status !== "failed"; });
         }
         if (jobs.length) throw new Error("La animación tardó demasiado. Intenta de nuevo en un momento.");
         return urls;
       };
 
-      // Clips (only cine/habla — kenburns skips video model)
-      if (animTier !== "kenburns") {
+      // Clips — the server decides: every scene, only the hero beats (hybrid), or
+      // none. It answers "skipped" when there's nothing to animate.
+      {
         setProd(p => p && { ...p, phase: "clips" });
         const subData = await (await post("/api/videos", { project_id: projectId, action: "submit" })).json() as
           { action?: string; pipeline?: string; jobs?: Array<{ scene_number: number; request_id: string; error?: string }> };
@@ -419,7 +530,7 @@ function NewProjectForm() {
       const subFinal = await (await post("/api/assemble", { project_id: projectId, action: "submit", add_subtitles: true })).json() as { render_id?: string; error?: string };
       if (!subFinal.render_id) throw new Error(subFinal.error ?? "No se pudo iniciar el montaje");
       let videoUrl: string | null = null;
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 96; i++) {
         await new Promise(r => setTimeout(r, 5000));
         const chk = await (await post("/api/assemble", { project_id: projectId, action: "check", render_id: subFinal.render_id })).json() as { status: string; url?: string };
         if (chk.status === "done" && chk.url) { videoUrl = chk.url; break; }
@@ -447,18 +558,12 @@ function NewProjectForm() {
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full blur-3xl opacity-10 pointer-events-none" style={{ background: "radial-gradient(circle, #7c3aed, transparent)" }} />
 
         <div className="relative z-10 max-w-sm w-full text-center space-y-8">
-          {/* Icon */}
-          <div className="relative mx-auto w-24 h-24">
-            <div className="w-24 h-24 rounded-3xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shadow-2xl">
-              <span className="text-4xl">{GEN_STEPS[genStep]?.icon}</span>
-            </div>
-            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-violet-500 animate-ping" />
-            <div className="absolute -bottom-1 -left-1 w-3 h-3 rounded-full bg-pink-500 animate-ping" style={{ animationDelay: "0.5s" }} />
-          </div>
+          {/* Cinematic 3D loader — rotating holographic cube + orbiting particles */}
+          <CinematicLoader icon={GEN_STEPS[genStep]?.icon} />
 
           <div>
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">VYNAVO está creando</p>
-            <h2 className="text-xl font-extrabold text-white">{GEN_STEPS[genStep]?.label}</h2>
+            <h2 className="text-xl font-extrabold text-white vy-glowtext">{GEN_STEPS[genStep]?.label}</h2>
           </div>
 
           {/* Progress bar */}
@@ -557,14 +662,11 @@ function NewProjectForm() {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
         <div className="relative max-w-sm w-full vy-glass rounded-3xl p-7 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-300 mb-3">VYNAVO está creando</p>
-          <div className="flex justify-center mb-4" style={{ perspective: "700px" }}>
-            <div className="relative w-28 h-28">
-              <div className="absolute -inset-2 rounded-full border-2 border-transparent border-t-violet-500 border-r-pink-500 vy-ring-spin" />
-              <div className="vy-flip3d w-28 h-28 rounded-2xl vy-grad-bg flex items-center justify-center text-5xl">{cur.emoji}</div>
-              <div className="absolute -bottom-1.5 -right-1.5 w-9 h-9 rounded-full bg-zinc-950 border-2 border-cyan-400 flex items-center justify-center vy-pulse-soft">
-                <span className="text-[11px] font-bold text-cyan-300">{pct}</span>
-              </div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-300 mb-1">VYNAVO está creando</p>
+          <div className="relative">
+            <CinematicLoader icon={cur.emoji} />
+            <div className="absolute top-2 right-1/2 translate-x-16 w-10 h-10 rounded-full bg-zinc-950 border-2 border-cyan-400 flex items-center justify-center vy-pulse-soft">
+              <span className="text-xs font-bold text-cyan-300">{pct}</span>
             </div>
           </div>
           <h2 className="text-lg font-bold vy-grad-text mb-1">{cur.label}…</h2>
@@ -579,6 +681,40 @@ function NewProjectForm() {
               </div>
             ))}
           </div>
+
+          {/* ── Preview EN VIVO de las escenas — aparecen al generarse ── */}
+          {(() => {
+            const total = result?.scenes?.length || Math.max(Object.keys(scenePreviews).length, 3);
+            const ready = Object.keys(scenePreviews).length;
+            return (
+              <div className="mt-5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Tus escenas</p>
+                  <p className="text-[10px] font-bold text-violet-300">{ready}/{total} listas</p>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {Array.from({ length: total }, (_, k) => {
+                    const n = k + 1;
+                    const url = scenePreviews[n];
+                    return (
+                      <div key={n} className="relative aspect-[9/16] rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900">
+                        {url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={url} alt={`Escena ${n}`} className="vy-pop w-full h-full object-cover" />
+                        ) : (
+                          <div className="absolute inset-0 vy-shimmer2 flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-zinc-600">{n}</span>
+                          </div>
+                        )}
+                        {url && <span className="absolute bottom-0.5 left-1 text-[8px] font-bold text-white/90 drop-shadow">{n}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <p className="text-[11px] text-zinc-600 mt-5">No cierres esta pantalla mientras se crea tu video</p>
         </div>
       </div>
@@ -1008,7 +1144,7 @@ function NewProjectForm() {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => { set("niche")(n.id); set("sub_niche")(""); setIdeaIdx(0); }}
+                    onClick={() => { set("niche")(n.id); set("sub_niche")(""); setIdeaIdx(0); const dt = NICHE_DEFAULT_TONE[n.id]; if (dt) set("tone")(dt); }}
                     className={`relative overflow-hidden rounded-2xl border p-4 text-left transition-all duration-300 group ${
                       active
                         ? `bg-gradient-to-br ${t.card} ${t.selected} shadow-xl scale-[1.02]`
@@ -1048,23 +1184,28 @@ function NewProjectForm() {
             </div>
           )}
 
-          {/* Tono */}
+          {/* Tono emocional — visual: cada emoción con su cara y color */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-3">Tono emocional <span className="text-red-400">*</span></p>
-            <div className="flex flex-wrap gap-2">
-              {TONES.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => set("tone")(t.id)}
-                  className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition-all ${
-                    form.tone === t.id
-                      ? `${theme.pill} scale-105 shadow-lg`
-                      : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <p className="text-xs font-bold text-zinc-400 mb-1">Tono emocional <span className="text-zinc-600 font-normal">· se ajusta solo, cámbialo si quieres</span></p>
+            <p className="text-[10px] text-zinc-600 mb-3">¿Qué quieres que SIENTA quien lo vea? Esto guía toda la historia.</p>
+            <div className="grid grid-cols-3 gap-2">
+              {TONES.map(t => {
+                const v = TONE_VISUAL[t.id] ?? { emoji: "🎬", sub: "", active: theme.pill };
+                const active = form.tone === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => set("tone")(t.id)}
+                    className={`flex flex-col items-center gap-0.5 px-2 py-2.5 rounded-xl border transition-all ${
+                      active ? `${v.active} scale-[1.04] shadow-lg` : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:scale-[1.02]"
+                    }`}
+                  >
+                    <span className={`text-xl transition-transform ${active ? "scale-110" : ""}`}>{v.emoji}</span>
+                    <span className={`text-[11px] font-bold ${active ? "" : "text-zinc-300"}`}>{t.label}</span>
+                    <span className={`text-[9px] leading-none ${active ? "opacity-80" : "text-zinc-600"}`}>{v.sub}</span>
+                  </button>
+                );
+              })}
             </div>
             {errors.tone && <p className="text-xs text-red-400 mt-1.5">{errors.tone}</p>}
           </div>
@@ -1105,6 +1246,58 @@ function NewProjectForm() {
             />
             {errors.topic && <p className="text-xs text-red-400 mt-1">{errors.topic}</p>}
             <p className="text-[10px] text-zinc-700 mt-1">Cuanto más específico, más viral. La IA construye el resto.</p>
+          </div>
+
+          {/* ── Claude sugiere historias según la emoción elegida ── */}
+          <div className="rounded-2xl border border-violet-800/40 bg-gradient-to-br from-violet-950/40 to-zinc-900/40 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg vy-grad-bg grid place-items-center text-sm shrink-0">✨</span>
+                <div>
+                  <p className="text-sm font-bold text-white leading-tight">¿No sabes qué contar?</p>
+                  <p className="text-[11px] text-zinc-400 leading-tight">Claude te sugiere historias de <span className="text-violet-300 font-semibold">{form.tone || "tu emoción"}</span></p>
+                </div>
+              </div>
+              <button
+                onClick={() => void suggestStories()}
+                disabled={suggestLoading}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold text-white vy-grad-bg vy-press disabled:opacity-50"
+              >
+                {suggestLoading
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Pensando…</>
+                  : <><Sparkles className="w-3.5 h-3.5" /> {aiSuggestions.length ? "Otra vez" : "Sugerir"}</>}
+              </button>
+            </div>
+
+            {suggestError && <p className="text-[11px] text-red-400 mt-2">{suggestError}</p>}
+
+            {aiSuggestions.length > 0 && (
+              <div className="space-y-2 mt-3">
+                {aiSuggestions.map((s, i) => {
+                  const active = form.topic === s.premise;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => set("topic")(s.premise)}
+                      style={{ animationDelay: `${i * 90}ms` }}
+                      className={`vy-fadeup opacity-0 w-full text-left rounded-xl border p-3 transition-all ${
+                        active ? `bg-gradient-to-r ${theme.card} ${theme.border}` : "bg-zinc-900/80 border-zinc-800 hover:border-violet-700/50"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <span className="text-lg shrink-0">{s.emoji}</span>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-bold leading-tight ${active ? "text-white" : "text-violet-200"}`}>{s.title}</p>
+                          <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">{s.premise}</p>
+                        </div>
+                        {active && <CheckCircle className="w-4 h-4 text-violet-300 shrink-0 ml-auto" />}
+                      </div>
+                    </button>
+                  );
+                })}
+                <p className="text-[10px] text-zinc-600 text-center">Toca una para usarla · puedes editarla arriba</p>
+              </div>
+            )}
           </div>
 
           {/* Quick ideas */}
@@ -1161,24 +1354,38 @@ function NewProjectForm() {
       {step === 2 && (
         <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-5 pb-32">
 
-          {/* Estilo visual */}
+          {/* Estilo visual — con mini frame cinematográfico de referencia */}
           <div>
             <p className="text-xs font-bold text-zinc-400 mb-3">Estilo visual</p>
-            <div className="grid grid-cols-3 gap-2">
-              {VISUAL_STYLES.map(v => (
-                <button
-                  key={v.id}
-                  onClick={() => set("visual_style")(v.id)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    form.visual_style === v.id
-                      ? `bg-gradient-to-br ${theme.card} ${theme.border}`
-                      : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
-                  }`}
-                >
-                  <p className={`text-xs font-extrabold ${form.visual_style === v.id ? "text-white" : "text-zinc-300"}`}>{v.label}</p>
-                  <p className="text-[10px] text-zinc-600 mt-0.5 leading-tight">{v.description}</p>
-                </button>
-              ))}
+            <div className="grid grid-cols-3 gap-2.5">
+              {VISUAL_STYLES.map(v => {
+                const active = form.visual_style === v.id;
+                const thumb = STYLE_THUMB[v.id] ?? STYLE_THUMB.cinematic!;
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => set("visual_style")(v.id)}
+                    className={`group rounded-xl border overflow-hidden text-left transition-all ${
+                      active ? `${theme.border} ring-2 ring-violet-500/40` : "border-zinc-800 hover:border-zinc-600"
+                    }`}
+                  >
+                    {/* Real AI reference frame — same scene in this style */}
+                    <div className="relative aspect-video overflow-hidden" style={{ background: thumb.bg }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumb.img} alt={`Estilo ${v.label}`} loading="lazy"
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      {/* letterbox bars = sello de cine */}
+                      <span className="absolute top-0 inset-x-0 h-1.5 bg-black/60" />
+                      <span className="absolute bottom-0 inset-x-0 h-1.5 bg-black/60" />
+                      {active && <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-violet-500 border-2 border-white/90 shadow-lg" />}
+                    </div>
+                    <div className={`px-2 py-1.5 ${active ? `bg-gradient-to-br ${theme.card}` : "bg-zinc-900"}`}>
+                      <p className={`text-[11px] font-extrabold leading-tight ${active ? "text-white" : "text-zinc-300"}`}>{v.label}</p>
+                      <p className="text-[9px] text-zinc-500 leading-tight truncate">{v.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1233,37 +1440,54 @@ function NewProjectForm() {
             <div>
               <p className="text-xs font-bold text-zinc-400 mb-2.5">Plataforma</p>
               <div className="space-y-1.5">
-                {PLATFORMS.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => set("target_platform")(p.id)}
-                    className={`w-full px-3 py-2.5 rounded-xl border text-xs font-medium text-left transition-all ${
-                      form.target_platform === p.id
-                        ? `${theme.pill} border font-bold`
-                        : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+                {PLATFORMS.map(p => {
+                  const active = form.target_platform === p.id;
+                  const t = PLATFORM_THUMB[p.id] ?? PLATFORM_THUMB.tiktok!;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => set("target_platform")(p.id)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl border text-xs font-medium text-left transition-all ${
+                        active ? `${theme.pill} border font-bold` : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                      }`}
+                    >
+                      {/* Mini frame con la proporción real de la plataforma */}
+                      <span className="relative h-7 grid place-items-center shrink-0" style={{ width: 28 }}>
+                        <span className="grid place-items-center rounded-[3px] text-[9px]"
+                          style={{ aspectRatio: t.ratio, height: t.ratio === "16 / 9" ? 16 : 28, background: t.tint }}>
+                          {t.icon}
+                        </span>
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block truncate">{p.label}</span>
+                        <span className={`block text-[9px] ${active ? "opacity-70" : "text-zinc-600"}`}>{p.aspect_ratio}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div>
               <p className="text-xs font-bold text-zinc-400 mb-2.5">Idioma</p>
               <div className="space-y-1.5">
-                {[{ value: "es", label: "🇪🇸 Español" }, { value: "en", label: "🇺🇸 English" }, { value: "pt", label: "🇧🇷 Português" }].map(l => (
-                  <button
-                    key={l.value}
-                    onClick={() => set("language")(l.value)}
-                    className={`w-full px-3 py-2.5 rounded-xl border text-xs font-medium text-left transition-all ${
-                      form.language === l.value
-                        ? `${theme.pill} border font-bold`
-                        : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
-                    }`}
-                  >
-                    {l.label}
-                  </button>
-                ))}
+                {[{ value: "es", flag: "🇲🇽", label: "Español", native: "Latino" }, { value: "en", flag: "🇺🇸", label: "English", native: "US" }, { value: "pt", flag: "🇧🇷", label: "Português", native: "Brasil" }].map(l => {
+                  const active = form.language === l.value;
+                  return (
+                    <button
+                      key={l.value}
+                      onClick={() => set("language")(l.value)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl border text-xs font-medium text-left transition-all ${
+                        active ? `${theme.pill} border font-bold` : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                      }`}
+                    >
+                      <span className="w-7 h-7 rounded-lg bg-zinc-950/60 grid place-items-center text-base shrink-0 border border-white/5">{l.flag}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block truncate">{l.label}</span>
+                        <span className={`block text-[9px] ${active ? "opacity-70" : "text-zinc-600"}`}>{l.native}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

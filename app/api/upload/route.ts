@@ -25,14 +25,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Formato no soportado (usa JPG, PNG o WEBP)" }, { status: 415 });
     }
 
-    const { fal } = await import("@fal-ai/client");
-    fal.config({ credentials: process.env.FAL_API_KEY });
-
     const ext = file.type.includes("png") ? "png" : file.type.includes("webp") ? "webp" : "jpg";
     const buffer = Buffer.from(await file.arrayBuffer());
-    const clean = new File([buffer], `upload.${ext}`, { type: file.type || "image/jpeg" });
 
-    const url = await fal.storage.upload(clean) as string;
+    // Unified storage: Cloudflare R2 when configured (durable, cheap, decoupled from
+    // fal balance), otherwise fal.storage. See services/storage.
+    const { uploadBuffer } = await import("@/services/storage");
+    const { url } = await uploadBuffer({ buffer, ext, contentType: file.type || "image/jpeg", folder: "uploads" });
     return NextResponse.json({ success: true, url });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

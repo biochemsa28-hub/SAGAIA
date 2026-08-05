@@ -305,21 +305,24 @@ export interface DbCastMember {
   role: string | null;
   voice_profile: string | null;
   reference_image_url: string | null;
+  bible_url: string | null;   // multi-view reference sheet (generated once, reused)
 }
 
 // Replace the whole cast for a project (idempotent — clears then inserts).
 export async function setProjectCast(
   projectId: string,
-  members: Array<{ name: string; role?: string | null; voice_profile?: string | null; reference_image_url?: string | null }>,
+  members: Array<{ name: string; role?: string | null; voice_profile?: string | null; reference_image_url?: string | null; bible_url?: string | null }>,
 ): Promise<void> {
   const db = getDb();
   await db.execute({ sql: "DELETE FROM project_cast WHERE project_id = ?", args: [projectId] });
   for (const m of members) {
     if (!m.name) continue;
     await db.execute({
-      sql: `INSERT INTO project_cast (id, project_id, name, role, voice_profile, reference_image_url)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [uuidv4(), projectId, m.name, m.role ?? null, m.voice_profile ?? null, m.reference_image_url ?? null],
+      // bible_url carries over from a previous episode so a series never pays to
+      // rebuild the same character sheet twice.
+      sql: `INSERT INTO project_cast (id, project_id, name, role, voice_profile, reference_image_url, bible_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [uuidv4(), projectId, m.name, m.role ?? null, m.voice_profile ?? null, m.reference_image_url ?? null, m.bible_url ?? null],
     });
   }
 }
@@ -331,6 +334,13 @@ export async function getProjectCast(projectId: string): Promise<DbCastMember[]>
     args: [projectId],
   });
   return res.rows as unknown as DbCastMember[];
+}
+
+// Persist a character's generated multi-view bible so every later scene — and every
+// later EPISODE — reuses the same reference instead of paying to rebuild it.
+export async function setCastBible(castId: string, bibleUrl: string): Promise<void> {
+  const db = getDb();
+  await db.execute({ sql: "UPDATE project_cast SET bible_url = ? WHERE id = ?", args: [bibleUrl, castId] });
 }
 
 export async function addCredits(userId: string, amount: number): Promise<number> {
@@ -418,6 +428,10 @@ export interface DbProject {
   character_id: string | null;
   animation_tier: string | null;
   reference_image_url: string | null;
+  reference_image_urls: string | null;  // JSON array of extra product images
+  series_id: string | null;             // groups all episodes of one story
+  episode_number: number;               // 1 for a standalone / first episode
+  parent_project_id: string | null;     // the episode this one continues
   created_at: string;
   updated_at: string;
   // joined fields
@@ -444,13 +458,17 @@ export async function createProject(params: {
   animationTier?: string | null;
   creditsSpent?: number;
   referenceImageUrl?: string | null;
+  referenceImageUrls?: string[] | null;
+  seriesId?: string | null;
+  episodeNumber?: number;
+  parentProjectId?: string | null;
 }): Promise<string> {
   const db = getDb();
   const id = uuidv4();
   await db.execute({
     sql: `INSERT INTO projects
-      (id, user_id, title, niche, sub_niche, topic, tone, duration_target, language, visual_style, status, ai_provider, animation_tier, credits_spent, reference_image_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
+      (id, user_id, title, niche, sub_niche, topic, tone, duration_target, language, visual_style, status, ai_provider, animation_tier, credits_spent, reference_image_url, reference_image_urls, series_id, episode_number, parent_project_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id, params.userId, params.title, params.niche,
       params.subNiche ?? null, params.topic, params.tone,
@@ -458,9 +476,70 @@ export async function createProject(params: {
       params.aiProvider, params.animationTier ?? null,
       Math.max(1, Math.floor(params.creditsSpent ?? 1)),
       params.referenceImageUrl ?? null,
+      params.referenceImageUrls?.length ? JSON.stringify(params.referenceImageUrls) : null,
+      // A standalone project starts its OWN series (series_id = its own id) so any
+      // project can spawn a Part 2 later without a migration step.
+      params.seriesId ?? id,
+      Math.max(1, Math.floor(params.episodeNumber ?? 1)),
+      params.parentProjectId ?? null,
     ],
   });
   return id;
+}
+
+// ── Series helpers ───────────────────────────────────────────────────────────
+
+// Everything the next episode needs to continue the story faithfully: the cast
+// (same faces + voices), the previous script, and where the cliffhanger left off.
+export async function getEpisodeContext(projectId: string, userId: string): Promise<{
+  project: DbProject;
+  cast: Array<{ name: string; role: string | null; voice_profile: string | null; reference_image_url: string | null; bible_url: string | null }>;
+  lastLines: string[];
+  cta: string | null;
+  nextEpisode: number;
+} | null> {
+  const db = getDb();
+  const p = await db.execute({
+    sql: "SELECT * FROM projects WHERE id = ? AND user_id = ? LIMIT 1",
+    args: [projectId, userId],
+  });
+  if (!p.rows.length) return null;
+  const project = p.rows[0] as unknown as DbProject;
+
+  const cast = (await db.execute({
+    sql: "SELECT name, role, voice_profile, reference_image_url, bible_url FROM project_cast WHERE project_id = ?",
+    args: [projectId],
+  })).rows as unknown as Array<{ name: string; role: string | null; voice_profile: string | null; reference_image_url: string | null; bible_url: string | null }>;
+
+  // The final beats — the next episode has to pick up exactly here.
+  const scenes = (await db.execute({
+    sql: "SELECT narration_text FROM scenes WHERE project_id = ? ORDER BY scene_number DESC LIMIT 3",
+    args: [projectId],
+  })).rows as Array<Record<string, unknown>>;
+  const lastLines = scenes.reverse().map((s) => String(s.narration_text ?? "")).filter(Boolean);
+
+  const story = await db.execute({ sql: "SELECT cta FROM stories WHERE project_id = ? LIMIT 1", args: [projectId] });
+  const cta = story.rows.length ? String((story.rows[0] as Record<string, unknown>).cta ?? "") || null : null;
+
+  // Next episode number = highest in the series + 1.
+  const seriesId = project.series_id ?? projectId;
+  const maxEp = await db.execute({
+    sql: "SELECT COALESCE(MAX(episode_number), 0) n FROM projects WHERE series_id = ? AND user_id = ?",
+    args: [seriesId, userId],
+  });
+  const nextEpisode = Number((maxEp.rows[0] as Record<string, unknown>)?.n ?? 1) + 1;
+
+  return { project, cast, lastLines, cta, nextEpisode };
+}
+
+// All episodes of a series, in order — powers the series view in the library.
+export async function getSeriesEpisodes(seriesId: string, userId: string): Promise<DbProject[]> {
+  const db = getDb();
+  const r = await db.execute({
+    sql: "SELECT * FROM projects WHERE series_id = ? AND user_id = ? ORDER BY episode_number ASC",
+    args: [seriesId, userId],
+  });
+  return r.rows as unknown as DbProject[];
 }
 
 // Delete a project and all its child rows. Ownership-checked: only removes when
@@ -765,4 +844,182 @@ export async function getUserStats(userId: string): Promise<{
     generating: Number(row?.["generating"] ?? 0),
     scenes: Number(sceneRow?.["cnt"] ?? 0),
   };
+}
+
+// ── Daily production kill-switch ─────────────────────────────────────────────
+// Atomically increments today's video-production counter and returns the new
+// count. Callers compare against MAX_DAILY_VIDEOS to block runaway spend.
+// Uses app_meta as a simple KV; the UPSERT is atomic so concurrent calls are safe.
+export async function bumpDailyVideoCount(): Promise<number> {
+  const db = getDb();
+  const day = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+  const key = `video_count_${day}`;
+  const res = await db.execute({
+    sql: `INSERT INTO app_meta (key, value) VALUES (?, '1')
+          ON CONFLICT(key) DO UPDATE SET value = CAST(app_meta.value AS INTEGER) + 1
+          RETURNING value`,
+    args: [key],
+  });
+  return Number((res.rows[0] as Record<string, unknown>)?.["value"] ?? 1) || 1;
+}
+
+// Read-only peek at today's count (for a status/health endpoint).
+export async function getDailyVideoCount(): Promise<number> {
+  const db = getDb();
+  const day = new Date().toISOString().slice(0, 10);
+  const r = await db.execute({ sql: "SELECT value FROM app_meta WHERE key = ?", args: [`video_count_${day}`] });
+  return Number((r.rows[0] as Record<string, unknown>)?.["value"] ?? 0) || 0;
+}
+
+// ─── Job queue ────────────────────────────────────────────────────────────────
+// Durable production jobs. The point of every function here is that a job survives
+// the process that started it: if the server dies mid-render, the row is still on
+// disk with enough state to be re-claimed instead of silently disappearing.
+
+export interface DbJob {
+  id: string;
+  project_id: string;
+  user_id: string;
+  job_type: string;
+  status: "queued" | "processing" | "done" | "failed";
+  payload: string;
+  result: string | null;
+  error_message: string | null;
+  stage: string | null;
+  attempts: number;
+  max_attempts: number;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  heartbeat_at: string | null;
+}
+
+// Enqueue production for a project. Idempotent per project: if one is already
+// queued or running we return it instead of paying twice for the same video.
+export async function enqueueJob(params: {
+  projectId: string;
+  userId: string;
+  jobType?: string;
+  payload?: Record<string, unknown>;
+}): Promise<{ job: DbJob; created: boolean }> {
+  const db = getDb();
+  const jobType = params.jobType ?? "produce";
+  const existing = await db.execute({
+    sql: `SELECT * FROM jobs WHERE project_id = ? AND job_type = ? AND status IN ('queued','processing')
+          ORDER BY created_at DESC LIMIT 1`,
+    args: [params.projectId, jobType],
+  });
+  if (existing.rows.length) return { job: existing.rows[0] as unknown as DbJob, created: false };
+
+  const id = uuidv4();
+  await db.execute({
+    sql: `INSERT INTO jobs (id, project_id, user_id, job_type, status, payload)
+          VALUES (?, ?, ?, ?, 'queued', ?)`,
+    args: [id, params.projectId, params.userId, jobType, JSON.stringify(params.payload ?? {})],
+  });
+  const r = await db.execute({ sql: "SELECT * FROM jobs WHERE id = ?", args: [id] });
+  return { job: r.rows[0] as unknown as DbJob, created: true };
+}
+
+// Atomically take the oldest queued job. The UPDATE ... WHERE status='queued'
+// RETURNING is the whole lock: two workers racing for the same row, only one
+// UPDATE matches, so the loser gets zero rows and moves on. No advisory locks,
+// no window between read and write.
+export async function claimNextJob(): Promise<DbJob | null> {
+  const db = getDb();
+  const next = await db.execute({
+    sql: "SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1",
+    args: [],
+  });
+  const id = (next.rows[0] as Record<string, unknown> | undefined)?.["id"] as string | undefined;
+  if (!id) return null;
+
+  const claimed = await db.execute({
+    sql: `UPDATE jobs SET status = 'processing', attempts = attempts + 1,
+            started_at = COALESCE(started_at, datetime('now')), heartbeat_at = datetime('now')
+          WHERE id = ? AND status = 'queued' RETURNING *`,
+    args: [id],
+  });
+  return claimed.rows.length ? (claimed.rows[0] as unknown as DbJob) : null;
+}
+
+// Proof of life. A job whose heartbeat stops is a job whose process died.
+export async function heartbeatJob(jobId: string, stage?: string): Promise<void> {
+  const db = getDb();
+  await db.execute({
+    sql: stage
+      ? "UPDATE jobs SET heartbeat_at = datetime('now'), stage = ? WHERE id = ?"
+      : "UPDATE jobs SET heartbeat_at = datetime('now') WHERE id = ?",
+    args: stage ? [stage, jobId] : [jobId],
+  });
+}
+
+export async function completeJob(jobId: string, result?: Record<string, unknown>): Promise<void> {
+  const db = getDb();
+  await db.execute({
+    sql: `UPDATE jobs SET status = 'done', stage = 'done', completed_at = datetime('now'), result = ?
+          WHERE id = ?`,
+    args: [result ? JSON.stringify(result) : null, jobId],
+  });
+}
+
+// A failure is only terminal once the job is out of attempts. Below that it goes
+// back to 'queued' and another pass picks it up — most production failures are a
+// timed-out upstream call, not a broken project.
+// `opts.terminal` forces the failure to be final regardless of attempts left —
+// for errors where a retry provably cannot succeed (a continuity block reads the
+// same idempotent images again and fails identically).
+export async function failJob(jobId: string, error: string, opts?: { terminal?: boolean }): Promise<{ terminal: boolean }> {
+  const db = getDb();
+  const r = await db.execute({ sql: "SELECT attempts, max_attempts FROM jobs WHERE id = ?", args: [jobId] });
+  const row = r.rows[0] as Record<string, unknown> | undefined;
+  const attempts = Number(row?.["attempts"] ?? 0);
+  const max = Number(row?.["max_attempts"] ?? 3);
+  const terminal = opts?.terminal === true || attempts >= max;
+  await db.execute({
+    sql: terminal
+      ? `UPDATE jobs SET status = 'failed', error_message = ?, completed_at = datetime('now') WHERE id = ?`
+      : `UPDATE jobs SET status = 'queued', error_message = ? WHERE id = ?`,
+    args: [error.slice(0, 500), jobId],
+  });
+  return { terminal };
+}
+
+// Re-queue jobs whose worker died. Called on boot and periodically: a row stuck in
+// 'processing' with no heartbeat for `staleSeconds` cannot be running anywhere.
+export async function requeueStaleJobs(staleSeconds = 300): Promise<number> {
+  const db = getDb();
+  const r = await db.execute({
+    sql: `UPDATE jobs SET status = 'queued'
+          WHERE status = 'processing'
+            AND attempts < max_attempts
+            AND (heartbeat_at IS NULL OR heartbeat_at < datetime('now', ?))
+          RETURNING id`,
+    args: [`-${Math.max(60, staleSeconds)} seconds`],
+  });
+  // Out of attempts and abandoned → terminal, so it stops occupying the queue.
+  await db.execute({
+    sql: `UPDATE jobs SET status = 'failed', error_message = COALESCE(error_message, 'El worker murió sin terminar'),
+            completed_at = datetime('now')
+          WHERE status = 'processing' AND attempts >= max_attempts
+            AND (heartbeat_at IS NULL OR heartbeat_at < datetime('now', ?))`,
+    args: [`-${Math.max(60, staleSeconds)} seconds`],
+  });
+  return r.rows.length;
+}
+
+export async function countProcessingJobs(): Promise<number> {
+  const db = getDb();
+  const r = await db.execute({ sql: "SELECT COUNT(*) n FROM jobs WHERE status = 'processing'", args: [] });
+  return Number((r.rows[0] as Record<string, unknown>)?.["n"] ?? 0);
+}
+
+// What the UI polls: the newest job for a project, owned by this user.
+export async function getJobForProject(projectId: string, userId: string): Promise<DbJob | null> {
+  const db = getDb();
+  const r = await db.execute({
+    sql: "SELECT * FROM jobs WHERE project_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1",
+    args: [projectId, userId],
+  });
+  return r.rows.length ? (r.rows[0] as unknown as DbJob) : null;
 }

@@ -24,17 +24,20 @@ export interface GenerateStoryResult {
 function humanizeError(raw?: string): string {
   if (!raw) return "No se pudo generar la historia. Intenta de nuevo.";
   const e = raw.toLowerCase();
+  // Provider-agnostic: works whether the engine is Claude (anthropic) or OpenAI.
+  const isAnthropic = e.includes("anthropic") || e.includes("claude");
+  const provider = isAnthropic ? "Claude" : "OpenAI";
 
-  if (e.includes("insufficient_quota") || e.includes("exceeded your current quota") || e.includes("billing"))
-    return "La cuenta de OpenAI no tiene saldo. Agrega crédito en platform.openai.com/billing.";
-  if (e.includes("invalid_api_key") || e.includes("incorrect api key") || (e.includes("401") && e.includes("api")))
-    return "La clave de OpenAI es inválida. Revisa OPENAI_API_KEY en Vercel.";
+  if (e.includes("insufficient_quota") || e.includes("exceeded your current quota") || e.includes("billing") || e.includes("credit balance"))
+    return `La cuenta de ${provider} no tiene saldo. Recarga crédito para continuar.`;
+  if (e.includes("invalid_api_key") || e.includes("incorrect api key") || e.includes("authentication") || (e.includes("401") && e.includes("api")))
+    return `La clave de ${provider} es inválida. Revisa la configuración.`;
   if (e.includes("rate limit") || e.includes("429"))
-    return "OpenAI está saturado (rate limit). Espera unos segundos e intenta de nuevo.";
+    return `${provider} está saturado (rate limit). Espera unos segundos e intenta de nuevo.`;
   if (e.includes("model") && (e.includes("does not exist") || e.includes("not found")))
-    return "El modelo de OpenAI configurado no existe. Revisa OPENAI_MODEL en Vercel.";
+    return `El modelo de ${provider} configurado no existe. Revisa la configuración.`;
   if (e.includes("timeout") || e.includes("etimedout") || e.includes("econnreset"))
-    return "OpenAI tardó demasiado en responder. Intenta de nuevo.";
+    return `${provider} tardó demasiado en responder. Intenta de nuevo.`;
   // Validation failures (AI returned malformed/incomplete JSON)
   if (e.includes(":") && (e.includes("required") || e.includes("expected") || e.includes("invalid") || e.includes("min") || e.includes("max")))
     return `La IA devolvió una historia incompleta (${raw.slice(0, 120)}). Intenta de nuevo.`;

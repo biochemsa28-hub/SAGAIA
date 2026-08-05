@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { buildProjectZip } from "@/services/export/zip-exporter";
 import { StoryOutputSchema } from "@/lib/validators/story.schema";
+import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // Auth gate: building a ZIP burns CPU/memory — never let anonymous callers do it.
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const rl = rateLimit(`export:${getClientIp(req)}`, { limit: 30, windowSecs: 3600 });
+    if (!rl.allowed) return NextResponse.json({ error: "Demasiadas exportaciones. Espera un momento." }, { status: 429 });
+
     const { id: projectId } = await params;
     const body: unknown = await req.json();
 

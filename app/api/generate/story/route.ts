@@ -13,7 +13,9 @@ import { captureServer } from "@/lib/analytics/posthog";
 import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Reel pacing means many more scenes per story, so generation takes longer than
+// the old 60s ceiling allowed (a 60s video = 10-14 scenes ≈ 2 min of generation).
+export const maxDuration = 300;
 
 const BodySchema = z.object({
   title: z.string().optional(),
@@ -30,6 +32,11 @@ const BodySchema = z.object({
   animation_tier: z.enum(["kenburns", "cinematic", "talking"]).optional(),
   format: z.enum(["story", "ad"]).optional(), // "ad" = UGC advertising video
   reference_image_url: z.string().url().optional(), // user-uploaded product/creative image
+  reference_image_urls: z.array(z.string().url()).max(4).optional(), // multiple product angles
+  // Series wiring — set when this project continues another one ("Parte N").
+  series_id: z.string().optional(),
+  episode_number: z.number().int().positive().optional(),
+  parent_project_id: z.string().uuid().optional(),
 
   // The cast chosen on the "Elenco" screen: each character's name, voice archetype
   // and the portrait the user selected. Persisted so production gives each scene's
@@ -39,6 +46,9 @@ const BodySchema = z.object({
     role: z.string().max(40).optional(),
     voice_profile: z.string().max(30).optional(),
     reference_image_url: z.string().url().optional(),
+    // Multi-view sheet inherited from a previous episode — kept so a series pays
+    // to build the bible once instead of once per episode.
+    bible_url: z.string().url().optional(),
   })).max(4).optional(),
 });
 
@@ -103,10 +113,14 @@ export async function POST(req: NextRequest) {
         durationTarget: parsed.data.duration_target,
         language: parsed.data.language,
         visualStyle: parsed.data.visual_style,
-        aiProvider: isMock ? "mock" : "openai",
+        aiProvider: isMock ? "mock" : (process.env.ANTHROPIC_API_KEY ? "anthropic" : "openai"),
         animationTier,
         creditsSpent: creditCost,
-        referenceImageUrl: parsed.data.reference_image_url ?? null,
+        referenceImageUrl: parsed.data.reference_image_url ?? parsed.data.reference_image_urls?.[0] ?? null,
+        referenceImageUrls: parsed.data.reference_image_urls ?? null,
+        seriesId: parsed.data.series_id ?? null,
+        episodeNumber: parsed.data.episode_number ?? 1,
+        parentProjectId: parsed.data.parent_project_id ?? null,
       });
       await updateProjectStatus(projectId, "generating");
       // Link a saved recurring character so all scenes reuse its locked-in look.
@@ -120,7 +134,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Generate ──────────────────────────────────────────────────────────────
-    const result = await storyGeneratorService.generate(parsed.data);
+    // Pass the EFFECTIVE tier so the prompt can skip fields this tier won't use
+    // (Ken Burns ignores animation_prompt → generating it is pure latency).
+    const result = await storyGeneratorService.generate({ ...parsed.data, animation_tier: animationTier });
     const durationMs = Date.now() - t0;
 
     if (!result.success) {
@@ -203,7 +219,8 @@ export async function GET() {
   const isMock = process.env.FORCE_MOCK_AI === "true" || (!hasOpenAI && !hasAnthropic);
   return NextResponse.json({
     status: "ok",
-    provider: isMock ? "mock" : hasOpenAI ? "openai" : "anthropic",
+    // Mirror the adapter's priority: Claude (anthropic) preferred when available.
+    provider: isMock ? "mock" : hasAnthropic ? "anthropic" : "openai",
     mock_mode: isMock,
   });
 }

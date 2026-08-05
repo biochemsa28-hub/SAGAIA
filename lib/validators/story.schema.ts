@@ -16,6 +16,10 @@ export const StoryInputSchema = z.object({
     "documentary",
     "fantasy",
     "drama",
+    // Formatos que dominan el feed hispanohablante y que el guion trata distinto:
+    // el chisme es confesional y cómplice, la confesión es íntima y sin redención.
+    "chisme",
+    "confesion",
   ]),
   duration_target: z.enum(["30s", "60s", "3-5min", "10-20min"]),
   language: z.enum(["es", "en", "pt"]).default("es"),
@@ -25,6 +29,10 @@ export const StoryInputSchema = z.object({
   target_platform: z
     .enum(["tiktok", "instagram", "youtube_shorts", "youtube_long"])
     .default("youtube_shorts"),
+  // Lets the prompt skip fields the chosen tier will never use (e.g. the Ken Burns
+  // tier never calls a video model, so animation_prompt would be generated and
+  // thrown away — pure latency for nothing).
+  animation_tier: z.enum(["kenburns", "cinematic", "talking"]).optional(),
   // Holds the user's notes PLUS the injected cast design + chosen hook, so the
   // ceiling must fit several character bios — not just a short note.
   additional_instructions: z.string().max(3000).optional(),
@@ -142,11 +150,27 @@ export function validateStoryOutput(
     try {
       parsed = JSON.parse(repaired);
     } catch {
-      return {
-        success: false,
-        error: "JSON parse failed after repair attempt",
-        raw,
-      };
+      // Step 3b: last resort — slice out the outermost {...} block. Models sometimes
+      // wrap the JSON in prose, or emit a stray token before/after the object.
+      const start = repaired.indexOf("{");
+      const end = repaired.lastIndexOf("}");
+      let recovered: unknown = null;
+      if (start >= 0 && end > start) {
+        try { recovered = JSON.parse(repaired.slice(start, end + 1)); } catch { /* truly broken */ }
+      }
+      if (recovered === null) {
+        // Truncation is the usual culprit (response hit max_tokens mid-object) —
+        // say so, because "parse failed" alone sends you hunting in the wrong place.
+        const looksTruncated = !repaired.trimEnd().endsWith("}");
+        return {
+          success: false,
+          error: looksTruncated
+            ? "La historia llegó incompleta (respuesta truncada). Intenta de nuevo o reduce la duración."
+            : "JSON parse failed after repair attempt",
+          raw,
+        };
+      }
+      parsed = recovered;
     }
   }
 

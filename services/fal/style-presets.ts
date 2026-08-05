@@ -13,25 +13,29 @@ export interface StyleConfig {
   loras: Array<{ path: string; scale: number }>;
   numInferenceSteps: number;
   guidanceScale: number;
+  // True for drawn styles (anime/cartoon). The generator flips to an illustrated
+  // negative-prompt set — the photographic one bans "anime/cartoon/illustration"
+  // and would fight the very style we're asking for.
+  illustrated: boolean;
 }
 
 // ── Per-niche cinematic signature ────────────────────────────────────────────
 // Distinct lighting / palette / lens / mood per niche
 const NICHE_SIGNATURE: Record<string, string> = {
   terror:
-    "dark moody cinematography, deep crushed shadows, cold desaturated palette, volumetric fog, low-key dramatic lighting, eerie unsettling atmosphere, horror film still, anamorphic lens flare, subtle film grain",
+    "terrifying horror cinematography, pitch-black crushed shadows swallowing half the frame, something barely visible lurking in the darkness, cold sickly desaturated palette, heavy volumetric fog, harsh single-source low-key lighting from below, oppressive claustrophobic framing, visceral primal dread, unsettling wrongness, A24 psychological horror film still, anamorphic lens flare, heavy film grain",
   horror:
-    "dark moody cinematography, deep crushed shadows, cold desaturated palette, volumetric fog, low-key dramatic lighting, eerie unsettling atmosphere, horror film still, anamorphic lens flare, subtle film grain",
+    "terrifying horror cinematography, pitch-black crushed shadows swallowing half the frame, something barely visible lurking in the darkness, cold sickly desaturated palette, heavy volumetric fog, harsh single-source low-key lighting from below, oppressive claustrophobic framing, visceral primal dread, unsettling wrongness, A24 psychological horror film still, anamorphic lens flare, heavy film grain",
   romance:
-    "soft warm golden-hour lighting, shallow depth of field, dreamy creamy bokeh, tender warm pastel palette, intimate framing, gentle rim backlight, 85mm portrait lens, romantic cinematic still",
+    "stunningly attractive magnetic leads, sensual warm golden lighting caressing the skin, glowing luminous skin tones, intimate close framing with faces and bodies near each other, charged romantic tension, soft rim backlight tracing shoulders and jawline, shallow depth of field with creamy bokeh, warm amber and rose palette, silk and soft fabrics, dim candlelit ambience, 85mm portrait lens, breathtaking romantic cinematic still, palpable chemistry",
   misterio:
-    "neo-noir lighting, high-contrast chiaroscuro, cold teal and warm amber palette, dramatic hard shadows, atmospheric haze, mysterious tense mood, 35mm film, cinematic thriller still",
+    "gripping neo-noir mystery, high-contrast chiaroscuro carving the face, cold teal clashing with warm amber, hard shadows swallowing half the frame, atmospheric haze, one unexplained detail catching the eye, unsettling tension, 35mm film, cinematic thriller still",
   mystery:
-    "neo-noir lighting, high-contrast chiaroscuro, cold teal and warm amber palette, dramatic hard shadows, atmospheric haze, mysterious tense mood, 35mm film, cinematic thriller still",
+    "gripping neo-noir mystery, high-contrast chiaroscuro carving the face, cold teal clashing with warm amber, hard shadows swallowing half the frame, atmospheric haze, one unexplained detail catching the eye, unsettling tension, 35mm film, cinematic thriller still",
   inspiracional:
-    "epic golden-hour sunlight, warm uplifting glow, soft lens flare, sweeping heroic composition, vibrant hopeful palette, dynamic energy, motivational cinematic still, shallow depth",
+    "triumphant epic golden-hour sunlight breaking through, warm glow on a weathered determined face, soft lens flare, low heroic angle, hard-earned dignity, hopeful palette rising out of grey, goosebump-inducing motivational cinematic still, shallow depth",
   inspirational:
-    "epic golden-hour sunlight, warm uplifting glow, soft lens flare, sweeping heroic composition, vibrant hopeful palette, dynamic energy, motivational cinematic still, shallow depth",
+    "triumphant epic golden-hour sunlight breaking through, warm glow on a weathered determined face, soft lens flare, low heroic angle, hard-earned dignity, hopeful palette rising out of grey, goosebump-inducing motivational cinematic still, shallow depth",
   fantasia:
     "ethereal magical lighting, glowing floating particles, rich saturated jewel tones, volumetric god rays, epic fantasy cinematography, otherworldly atmosphere, highly detailed fantasy concept art",
   fantasy:
@@ -39,7 +43,7 @@ const NICHE_SIGNATURE: Record<string, string> = {
   historia:
     "documentary cinematography, period-accurate detail, soft natural window light, muted earthy tones, gentle sepia warmth, textured authentic atmosphere, historical film still",
   drama:
-    "intimate cinematic drama, naturalistic soft lighting, muted emotional palette, shallow depth of field, expressive close-up framing, restrained film grain, festival-film aesthetic",
+    "devastating emotional drama, raw grief visible on the face, glassy welling eyes, trembling restraint, cold grey overcast light through a window, desaturated muted palette with one dying warm accent, small lonely figure in a large empty frame, heavy negative space, intimate expressive close-up, shallow depth of field, quiet unbearable stillness, restrained film grain, award-winning festival-film aesthetic",
   default:
     "cinematic lighting, balanced dramatic composition, professional color grading, shallow depth of field, atmospheric mood, film still",
 };
@@ -51,7 +55,11 @@ const STYLE_MODIFIER: Record<string, string> = {
   realistic:
     "hyperrealistic, photorealistic, ultra-detailed, razor-sharp focus, lifelike skin and textures, 8k photography",
   anime:
-    "anime style, Studio Ghibli inspired, clean cel shading, vibrant detailed anime illustration, expressive linework",
+    "premium modern anime, theatrical anime film quality, Makoto Shinkai and Kyoto Animation aesthetic, " +
+    "beautiful expressive anime faces with large emotive eyes and detailed catchlights, " +
+    "crisp confident linework, rich cel shading with soft gradients, dramatic anime lighting with god rays and lens flare, " +
+    "lush hand-painted detailed backgrounds, cinematic composition, vibrant saturated color grading, " +
+    "emotional atmosphere, anime key visual, masterpiece anime illustration",
   cartoon:
     "stylized 3D render, Pixar-quality CGI, polished and colorful, expressive characters, soft global illumination",
   vintage:
@@ -65,9 +73,17 @@ const STYLE_MODIFIER: Record<string, string> = {
 // Default is "cinematic" (flux/dev, 28 steps): the image IS the whole vertical frame,
 // so quality here is the single biggest driver of how the video looks. Set
 // FLUX_QUALITY=fast to drop back to schnell (4 steps) for ultra-cheap volume.
-function getQualityTier(): "fast" | "cinematic" {
+function getQualityTier(): "fast" | "cinematic" | "ultra" {
   const q = (process.env.FLUX_QUALITY ?? "cinematic").toLowerCase();
-  return q === "fast" ? "fast" : "cinematic";
+  if (q === "fast") return "fast";
+  if (q === "ultra") return "ultra";
+  return "cinematic";
+}
+
+// Premium base model for the "ultra" tier — sharper, more cinematic than flux/dev.
+// Override with IMAGE_MODEL (e.g. fal-ai/imagen4/preview, fal-ai/recraft-v3).
+function getUltraModel(): string {
+  return process.env.IMAGE_MODEL ?? "fal-ai/flux-pro/v1.1-ultra";
 }
 
 // Read opt-in LoRA from env for a given niche, e.g. FLUX_LORA_TERROR=https://...
@@ -106,10 +122,15 @@ export function getStyleConfig(niche: string, visualStyle: string): StyleConfig 
   const loras = [...getNicheLora(niche), ...getRealismLora(visualStyle)];
   const tier = getQualityTier();
 
-  // If a LoRA is configured, we must use the flux-lora endpoint (flux-dev base).
-  // Otherwise honor the quality tier: schnell (fast) or flux/dev (cinematic).
-  const model =
-    loras.length > 0
+  // "ultra" tier uses a premium endpoint (Flux 1.1 Pro Ultra / Imagen) that does NOT
+  // support LoRAs — so we drop them and let the model's native quality carry it.
+  const useUltra = tier === "ultra";
+  // If a LoRA is configured (and not ultra), use the flux-lora endpoint (flux-dev base).
+  // Otherwise honor the quality tier: ultra | schnell (fast) | flux/dev (cinematic).
+  const effectiveLoras = useUltra ? [] : loras;
+  const model = useUltra
+    ? getUltraModel()
+    : effectiveLoras.length > 0
       ? "fal-ai/flux-lora"
       : tier === "fast"
         ? "fal-ai/flux/schnell"
@@ -127,24 +148,45 @@ export function getStyleConfig(niche: string, visualStyle: string): StyleConfig 
 
   // Pro cinematography layer — the "this looks like a real film" production value
   // that makes viewers go "wow, this was made with AI". Photographic styles only.
+  // Tuned for HIGH VISUAL IMPACT: bold contrast, striking light, vivid yet graded.
   const cinematic = photographic
-    ? ", shot on professional cinema camera, 35mm anamorphic lens, cinematic color grading, soft volumetric lighting, motivated key light with gentle rim light, shallow cinematic depth of field with creamy bokeh, balanced film contrast, professional cinematography, movie still"
-    : "";
+    ? ", shot on ARRI Alexa with 35mm anamorphic lens, master cinematographer framing, " +
+      // PRODUCTION DESIGN — this is what separates a "photo" from a "film frame":
+      // a set that looks built, dressed and lived-in rather than an empty backdrop.
+      "meticulous production design, richly dressed lived-in set with layered props and texture, " +
+      "deep layered composition with distinct foreground, midground and background elements, " +
+      "atmospheric depth with haze catching the light, practical lights visible in frame, " +
+      // LIGHTING — motivated, sculpted, high dynamic range.
+      "dramatic motivated key light sculpting the face, strong rim light separating subject from background, " +
+      "deep rich blacks with luminous specular highlights, sophisticated cinematic color grade, " +
+      // SUBJECT PRESENCE — striking, magnetic, screen-worthy.
+      "striking magnetic screen presence, expressive detailed face, immaculate wardrobe and styling, " +
+      "shallow cinematic depth of field with creamy anamorphic bokeh, epic emotionally charged atmosphere, " +
+      "award-winning cinematography, breathtaking museum-quality movie still, visually stunning, tack-sharp on the subject"
+    // Illustrated styles get their OWN production layer — the anime equivalent of
+    // art direction. Without this they were the only styles receiving no quality
+    // boost at all, which is why they looked flatter than the photographic ones.
+    : ", theatrical anime film production quality, meticulously detailed hand-painted background art, " +
+      "layered depth with foreground framing elements, dramatic anime cinematography and camera angles, " +
+      "expressive emotional character acting, beautiful atmospheric lighting with bloom and light rays, " +
+      "detailed hair and fabric rendering, rich color script, studio-grade key visual, breathtaking anime frame";
 
   // Realism LoRA trigger word (e.g. "Super Realism" for strangerzonehf's LoRA).
   // Only added when a realism LoRA is active AND a trigger is configured — it
   // activates the LoRA's trained style. Placed at the FRONT for strongest effect.
+  // Skip the trigger word on ultra (no realism LoRA active there).
   const realismTrigger =
-    photographic && getRealismLora(visualStyle).length > 0 && process.env.FLUX_REALISM_TRIGGER
+    !useUltra && photographic && getRealismLora(visualStyle).length > 0 && process.env.FLUX_REALISM_TRIGGER
       ? `${process.env.FLUX_REALISM_TRIGGER}, `
       : "";
 
   return {
     model,
     promptSuffix: `${realismTrigger}${sig}, ${mod}${realism}${cinematic}, masterpiece, ultra detailed, 8k, high dynamic range`,
-    loras,
+    loras: effectiveLoras,
     // schnell is distilled to 4 steps; dev/lora need ~28 for full quality
     numInferenceSteps: isSchnell ? 4 : 28,
     guidanceScale: isSchnell ? 3.5 : 3.5,
+    illustrated: !photographic,
   };
 }

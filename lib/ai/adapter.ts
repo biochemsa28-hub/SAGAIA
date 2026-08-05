@@ -67,7 +67,7 @@ class OpenAIAdapter implements AIAdapter {
           { role: "user", content: userPrompt },
         ],
         temperature: 0.9,
-        max_tokens: Number(process.env.OPENAI_MAX_TOKENS ?? 8192),
+        max_tokens: Number(process.env.OPENAI_MAX_TOKENS ?? 16000),
         response_format: { type: "json_object" },
       });
 
@@ -140,7 +140,9 @@ class ClaudeAdapter implements AIAdapter {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: Number(process.env.ANTHROPIC_MAX_TOKENS ?? 8096),
+        // Reel pacing means 12-18 scenes, each with a ~150-word English image_prompt
+        // plus animation direction. 8096 truncated the JSON mid-object → parse errors.
+        max_tokens: Number(process.env.ANTHROPIC_MAX_TOKENS ?? 32000),
         system: systemPrompt + "\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code blocks, no text before or after the JSON object.",
         messages: [{ role: "user", content: userPrompt }],
       }),

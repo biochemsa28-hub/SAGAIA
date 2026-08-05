@@ -1,137 +1,129 @@
-# 🚀 Desplegar VYNAVO (sin Vercel) — Hetzner + Coolify
+# Desplegar VYNAVO en contenedor
 
-Guía paso a paso para poner VYNAVO en producción en un VPS barato (~€4/mes)
-con una capa tipo Vercel (Coolify) y SSL gratis. La app ya está lista:
-`output: standalone` + `Dockerfile` incluidos.
+Serverless no puede correr esta app: el worker de la cola es un proceso vivo, FFmpeg
+es un binario que se usa en cuatro puntos, y un video tarda 3-6 minutos. Cualquier
+host que corra un contenedor Docker sirve.
 
----
+## 1. Elegir host (15 min)
 
-## 0) Antes de empezar (lo que necesitas tener a mano)
-- [ ] Tarjeta para el VPS (Hetzner ~€4/mes)
-- [ ] Un dominio (Namecheap/Cloudflare ~$10/año)
-- [ ] Tus API keys: OpenAI, ElevenLabs, fal, Shotstack, Stripe (live), Turso
-- [ ] **Regenera las llaves de Stripe expuestas** antes de usarlas en producción
-- [ ] **Recarga saldo en fal.ai y Shotstack** (sin esto no se produce nada)
+**Railway** — el camino más corto. Conectás el repo de GitHub, detecta el
+Dockerfile, y despliega. ~$5-20/mes según uso.
+Alternativas equivalentes: Fly.io, Render, o un VPS (Hetzner ~$6/mes) con Coolify
+o Dokploy, que es lo que el Dockerfile ya contempla.
 
----
+Lo único que NO sirve: Vercel, Netlify, Cloudflare Workers — todos serverless.
 
-## 1) Crear el VPS (Hetzner)
-1. Entra a https://console.hetzner.cloud → New Project → "vynavo".
-2. Add Server:
-   - Location: el más cercano a tus usuarios.
-   - Image: **Ubuntu 24.04**.
-   - Type: **CX22** (2 vCPU / 4 GB) — suficiente para empezar.
-   - SSH key: agrega tu llave pública (o usa contraseña).
-3. Crea el servidor y **anota la IP pública**.
+## 2. Variables de entorno
 
----
+Copiá desde tu `.env.local`, MENOS lo que se indica. Nunca las subas al repo.
 
-## 2) Instalar Coolify (el "Vercel self-hosted")
-Conéctate por SSH y corre el instalador oficial:
+### Obligatorias — sin esto no arranca
+
+| Variable | Nota |
+|---|---|
+| `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` | **Crítico.** Sin Turso la base sería un archivo dentro del contenedor y se borra en cada despliegue |
+| `NEXTAUTH_SECRET` | **GENERAR UNO NUEVO** — el local es de desarrollo |
+| `NEXTAUTH_URL` | La URL pública real, ej. `https://vynavo.com` |
+| `INTERNAL_JOB_SECRET` | **GENERAR UNO NUEVO.** Sin esto `/api/produce` devuelve 503 a propósito |
+| `APP_BASE_URL` | `http://127.0.0.1:3000` — el worker se llama a sí mismo por loopback |
+| `FAL_API_KEY` | |
+| `ANTHROPIC_API_KEY` | **ROTAR** — se expuso en pantalla |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` | **ROTAR el token** |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | **ROTAR ambos** |
+
+Generar los secretos:
+
 ```bash
-ssh root@TU_IP
-curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
-```
-Cuando termine, abre en el navegador:
-```
-http://TU_IP:8000
-```
-Crea tu cuenta de admin (la primera cuenta es la dueña).
-
----
-
-## 3) Conectar el dominio + SSL
-1. En tu proveedor DNS (recomendado **Cloudflare**, gratis):
-   - Registro **A**: `@` → `TU_IP`
-   - Registro **A**: `www` → `TU_IP`
-   - (Cloudflare) deja el proxy en **DNS only** (nube gris) durante el primer
-     deploy para que Coolify pueda emitir el certificado; luego puedes activar
-     el proxy naranja para CDN.
-2. En Coolify asignarás el dominio en el paso 4 → SSL (Let's Encrypt) automático.
-
----
-
-## 4) Desplegar la app
-1. En Coolify: **Sources** → conecta tu GitHub (repo `SAGAIA`).
-2. **+ New Resource** → **Application** → elige el repo y la rama (`main`).
-3. Build Pack: **Dockerfile** (Coolify detecta el `Dockerfile` del repo).
-4. **Domains**: pon `https://tudominio.com` → Coolify emite el SSL solo.
-5. **Environment Variables**: pega las del bloque de abajo.
-6. **Deploy**. En cada `git push` se redesplega automáticamente.
-
----
-
-## 5) Variables de entorno (pégalas en Coolify)
-
-### Imprescindibles
-```
-NEXTAUTH_SECRET=          # genera: openssl rand -base64 32
-NEXTAUTH_URL=https://tudominio.com
-TURSO_DATABASE_URL=
-TURSO_AUTH_TOKEN=
-OPENAI_API_KEY=
-ELEVENLABS_API_KEY=
-FAL_API_KEY=
-SHOTSTACK_API_KEY=
-STRIPE_SECRET_KEY=sk_live_...        # ⚠️ regenerada
-STRIPE_WEBHOOK_SECRET=whsec_...      # ⚠️ del webhook nuevo (paso 6)
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### Pipeline creativo
-```
-FLUX_QUALITY=cinematic
-FLUX_REALISM_LORA=strangerzonehf/Flux-Super-Realism-LoRA
-FLUX_REALISM_TRIGGER=Super Realism
-CHARACTER_CONSISTENCY=on
-VIDEO_MODEL=fal-ai/bytedance/seedance/v1/pro/image-to-video
-LIPSYNC_MODEL=veed/fabric-1.0
-AUTO_SFX=on
-AUTO_MUSIC=on
-CASTING_OPTIONS=2
-```
+### De producción — la configuración que define calidad y costo
 
-### Opcionales (recomendadas para lanzar)
 ```
-RESEND_API_KEY=                 # emails (recibos, recuperar cuenta)
-NEXT_PUBLIC_POSTHOG_KEY=        # analítica
-ANTHROPIC_API_KEY=             # alternativa de guion a OpenAI
+RENDER_ENGINE=ffmpeg
+FORCE_TIER=kenburns
+NATIVE_AUDIO=on
+NARRATIVE_BLOCKS=on
+BLOCK_TARGET_SECONDS=10
+HOOK_BLOCK_SECONDS=12
+MAX_VIDEO_SECONDS=60
+MAX_DAILY_VIDEOS=40
+MAX_CONCURRENT_JOBS=2
+ADMIN_EMAILS=tu@email.com
 ```
 
-### Para activar el pipeline PRO (después de validarlo en vivo)
+`MAX_DAILY_VIDEOS` es el kill-switch de gasto. `MAX_CONCURRENT_JOBS` multiplica por
+réplica: 2 réplicas × 2 = 4 videos simultáneos de gasto real.
+
+### Faltantes hoy en producción
+
 ```
-PRO_PIPELINE=on
-VIDEO_LIPSYNC_MODEL=fal-ai/sync-lipsync
+RESEND_API_KEY          sin esto no llega el aviso "tu video está listo"
+NEXT_PUBLIC_POSTHOG_KEY sin esto no podés medir retención ni conversión
 ```
 
----
+### NO copiar
 
-## 6) Configurar el webhook de Stripe
-1. En https://dashboard.stripe.com → Developers → Webhooks → Add endpoint.
-2. URL: `https://tudominio.com/api/stripe/webhook`
-3. Eventos: `checkout.session.completed`, `customer.subscription.updated`,
-   `customer.subscription.deleted` (y los que use tu integración).
-4. Copia el **Signing secret** (`whsec_...`) → ponlo en `STRIPE_WEBHOOK_SECRET`
-   en Coolify → redeploy.
+`DATABASE_PATH`, `FORCE_MOCK_*`, y cualquier `VERCEL_*`.
 
----
+## 3. Desplegar
 
-## 7) Checklist post-deploy (verificar que todo vive)
-- [ ] `https://tudominio.com` carga el landing
-- [ ] `https://tudominio.com/api/health` → todas las claves en `true`
-- [ ] Registrarte crea cuenta y da los NAVOS de bienvenida
-- [ ] Crear un video real → sale el MP4 (requiere saldo fal + Shotstack)
-- [ ] Compra de prueba en Stripe (modo test primero) → suma NAVOS
-- [ ] Webhook de Stripe responde 200 en el dashboard de Stripe
+Railway/Render/Fly detectan el `Dockerfile` solos. No hace falta configurar build.
 
----
+El contenedor expone el 3000 y trae healthcheck contra `/api/health`.
 
-## Notas importantes
-- **Almacenamiento:** `/app/storage` del contenedor es efímero (se borra al
-  redesplegar) — está bien: los videos finales viven en fal.storage.
-- **Base de datos:** Turso es remoto, funciona igual desde el VPS. No pierdes
-  datos en redeploys.
-- **Jobs largos:** en VPS no hay timeout de función (a diferencia de Vercel),
-  así que la producción de minutos corre sin problema.
-- **Escalar:** cuando tengas volumen, mueve los jobs de video a una cola +
-  worker para que el servidor web quede liviano.
+## 4. Verificar (5 min, hacelo siempre)
+
+```bash
+curl https://TU-DOMINIO/api/health
+```
+
+Mirá el bloque `production`:
+
+```json
+"queue_worker_configured": true,   ← si es false, falta INTERNAL_JOB_SECRET
+"render_engine": "ffmpeg",         ← si dice shotstack, falta RENDER_ENGINE
+"native_audio": true,
+"max_video_seconds": 60,
+"cost_usd_per_video": 1.25
+```
+
+Y en los logs del contenedor, al arrancar:
+
+```
+[worker] iniciado — hasta 2 trabajos en paralelo
+```
+
+**Si esa línea no aparece, la cola no está corriendo** y los videos se van a quedar
+encolados para siempre.
+
+## 5. Stripe
+
+El webhook apunta a la URL vieja. En el dashboard de Stripe cambiá el endpoint a
+`https://TU-DOMINIO/api/stripe/webhook` y copiá el `whsec_...` nuevo a
+`STRIPE_WEBHOOK_SECRET`.
+
+## 6. Primer video
+
+Generá uno y revisá los logs:
+
+```
+[anclas] 14 escenas → 7 imágenes (6 bloques)
+[continuity] 7 escenas revisadas, sin bloqueos
+[blocks] 14 escenas → 6 bloques
+[nativo] escena 1: "…" (N palabras)
+[worker] job xxxxxxxx done
+```
+
+Después leé el costo real en `api_logs` y actualizá `TIER_COST_USD` en
+`lib/config.ts` — el precio de los planes se recalcula solo desde ahí.
+
+## Errores que vas a ver si algo falta
+
+| Síntoma | Causa |
+|---|---|
+| `/api/produce` → 503 | Falta `INTERNAL_JOB_SECRET` |
+| Job queda en `queued` | El worker no arrancó — revisá el log de boot |
+| "El render final falló" | Falta ffmpeg — no estás usando el Dockerfile |
+| Sesión no persiste | `NEXTAUTH_URL` no coincide con el dominio real |
+| Datos que desaparecen | Falta Turso: la base vive dentro del contenedor |

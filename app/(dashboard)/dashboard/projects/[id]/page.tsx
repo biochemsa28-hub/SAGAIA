@@ -100,6 +100,8 @@ function ProjectDetail() {
   const searchParams = useSearchParams();
   const autostart = searchParams.get("autostart") === "1";
   const autostartFired = useRef(false);
+  // Guards the one-shot "is a job already running for this project?" check.
+  const resumeChecked = useRef(false);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
@@ -111,6 +113,10 @@ function ProjectDetail() {
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [tipIdx, setTipIdx] = useState(0);
+  // Series continuation ("Crear Parte N")
+  const [creatingNext, setCreatingNext] = useState(false);
+  const [nextError, setNextError] = useState<string | null>(null);
+  const nextEpisodeNumber = (detail?.project.episode_number ?? 1) + 1;
   // "kenburns" = animate static images (cheap/fast, no Kling) | "cinematic" = Kling clips
   const [animationTier, setAnimationTier] = useState<"kenburns" | "cinematic" | "talking">("kenburns");
   const { toast } = useToast();
@@ -156,6 +162,26 @@ function ProjectDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autostart, detail, stepStatus.final]);
 
+  // Re-attach to a production that is already running on the server. This is the
+  // whole point of moving the pipeline out of the tab: reload the page mid-render
+  // and you land back on the progress bar instead of on a project that looks idle
+  // while its video is quietly being built (or worse, producing it a second time).
+  useEffect(() => {
+    if (!detail || producing || resumeChecked.current) return;
+    resumeChecked.current = true;
+    void (async () => {
+      try {
+        const r = await fetch(`/api/produce?project_id=${id}`);
+        if (!r.ok) return;
+        const { job } = await r.json() as { job: null | { status: string; stage: string | null } };
+        if (!job || (job.status !== "queued" && job.status !== "processing")) return;
+        setStepStatus(stageToSteps(job.stage));
+        await produceAll({ resume: true });
+      } catch { /* nothing running, or offline — leave the page as it is */ }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail]);
+
   // While producing: poll the project so generated scene images appear live
   // as thumbnails (the wait feels alive instead of a blank progress bar).
   useEffect(() => {
@@ -180,6 +206,40 @@ function ProjectDetail() {
     setStepStatus((p) => ({ ...p, [step]: status }));
   }
 
+  // Continue the series: pull the cast + cliffhanger from THIS episode, generate the
+  // next one, and land the user straight in its production screen.
+  async function createNextEpisode() {
+    if (creatingNext) return;
+    setCreatingNext(true);
+    setNextError(null);
+    try {
+      const ctxRes = await fetch("/api/series/next", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id }),
+      });
+      const ctx = await ctxRes.json() as { payload?: Record<string, unknown>; cast?: unknown[]; error?: string };
+      if (!ctxRes.ok || !ctx.payload) throw new Error(ctx.error ?? "No se pudo preparar el episodio");
+
+      const genRes = await fetch("/api/generate/story", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...ctx.payload, cast: ctx.cast }),
+      });
+      if (genRes.status === 402) {
+        const e = await genRes.json() as { required?: number };
+        throw new Error(`Necesitas ${e.required ?? ""} NAVOS para el siguiente episodio.`);
+      }
+      const gen = await genRes.json() as { project_id?: string; error?: string };
+      if (!genRes.ok || !gen.project_id) throw new Error(gen.error ?? "No se pudo crear el episodio");
+
+      track("series_episode_created", { from_project: id, project_id: gen.project_id });
+      router.push(`/dashboard/projects/${gen.project_id}?autostart=1`);
+    } catch (err) {
+      setNextError(err instanceof Error ? err.message : "Error al crear el episodio");
+    } finally {
+      setCreatingNext(false);
+    }
+  }
+
   async function runVoice() {
     setStep("voice", "running");
     const res = await fetch("/api/voice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: id }) });
@@ -200,7 +260,7 @@ function ProjectDetail() {
   async function pollClipStage(initial: Array<{ scene_number: number; request_id: string }>, stage?: "motion" | "lipsync") {
     let jobs = initial.filter((j) => j.request_id);
     const urls: Array<{ scene_number: number; video_url: string }> = [];
-    for (let i = 0; i < 150 && jobs.length; i++) {
+    for (let i = 0; i < 200 && jobs.length; i++) {
       await new Promise((r) => setTimeout(r, 6000));
       const collectRes = await fetch("/api/videos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: id, action: "collect", stage, jobs: jobs.map((j) => ({ scene_number: j.scene_number, request_id: j.request_id })) }) });
       const collectData = await collectRes.json() as { all_done: boolean; scenes: Array<{ scene_number: number; status: string; url?: string }> };
@@ -249,7 +309,7 @@ function ProjectDetail() {
     const submitRes = await fetch("/api/assemble", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: id, action: "submit", add_subtitles: true }) });
     const submitData = await submitRes.json() as { render_id?: string; error?: string };
     if (!submitRes.ok || !submitData.render_id) { setStep("final", "error"); throw new Error(submitData.error); }
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 96; i++) {
       await new Promise((r) => setTimeout(r, 5000));
       const checkRes = await fetch("/api/assemble", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: id, action: "check", render_id: submitData.render_id }) });
       const checkData = await checkRes.json() as { status: string; url?: string; error?: string };
@@ -301,7 +361,7 @@ function ProjectDetail() {
       if (!job) throw new Error(subData.jobs?.[0]?.error ?? subData.error ?? "No se pudo regenerar el clip");
 
       let done = false;
-      for (let i = 0; i < 150 && !done; i++) {
+      for (let i = 0; i < 200 && !done; i++) {
         await new Promise((r) => setTimeout(r, 6000));
         const colRes = await fetch("/api/videos", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -358,23 +418,73 @@ function ProjectDetail() {
     }
   }
 
-  async function produceAll() {
-    track("production_started", { project_id: id });
+  // Background production: kick off the whole pipeline on the server and leave.
+  // The user can close the tab / create more videos — we notify when it's ready.
+  async function produceBackground() {
+    track("production_started_bg", { project_id: id });
+    try {
+      const res = await fetch("/api/produce", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id }),
+      });
+      if (!res.ok) { const e = await res.json() as { error?: string }; throw new Error(e.error ?? "Error"); }
+      toast("🎬 Tu video se está creando en segundo plano. Te avisamos cuando esté listo — ya puedes cerrar o crear otro.", "success");
+      router.push("/dashboard/library");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "No se pudo iniciar la producción", "error");
+    }
+  }
+
+  // The job's server-side stage → the four steps this screen already draws, so the
+  // progress bar keeps working while the SERVER owns the pipeline.
+  function stageToSteps(stage: string | null): Record<StepId, StepStatus> {
+    switch (stage) {
+      case "voice_images": return { voice: "running", images: "running", clips: "pending", final: "pending" };
+      case "animation":    return { voice: "done", images: "done", clips: "running", final: "pending" };
+      case "render":       return { voice: "done", images: "done", clips: "done", final: "running" };
+      case "done":         return { voice: "done", images: "done", clips: "done", final: "done" };
+      default:             return { voice: "pending", images: "pending", clips: "pending", final: "pending" };
+    }
+  }
+
+  // Production now runs on the SERVER as a queued job, and this function just
+  // watches it. The difference that matters: the work no longer lives in this tab.
+  // Close it, reload it, lose the wifi — the job keeps going and this screen picks
+  // the state back up from the database instead of starting over.
+  // `resume: true` skips the enqueue and just re-attaches to a job that is already
+  // running — what happens when the page is reloaded mid-production. Passing an
+  // options object (rather than a boolean) keeps it safe to use as an onClick
+  // handler, where React would hand us its event as the first argument.
+  async function produceAll(opts?: { resume?: boolean }) {
+    if (!opts?.resume) track("production_started", { project_id: id });
     setProducing(true);
     setHasError(false);
     setErrorDetail(null);
     try {
-      // Voice + images are independent → run them in parallel (big speedup).
-      // Clips need images; the clip step also reads voice timing, so both must
-      // finish before clips start — hence the Promise.all gate.
-      await Promise.all([
-        stepStatus.voice  !== "done" ? runVoice()  : Promise.resolve(),
-        stepStatus.images !== "done" ? runImages() : Promise.resolve(),
-      ]);
-      // Ken Burns tier skips Kling entirely — Shotstack animates the still images.
-      if (animationTier !== "kenburns" && stepStatus.clips !== "done") await runClips();
-      await runFinal();
-      // Refetch so scene thumbnails + assets are available (no hard reload)
+      if (!opts?.resume) {
+        const res = await fetch("/api/produce", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: id }),
+        });
+        if (!res.ok) {
+          const e = await res.json() as { error?: string };
+          throw new Error(e.error ?? "No se pudo iniciar la producción");
+        }
+      }
+
+      // Poll the job, not the pipeline. Each tick is one indexed row.
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const jr = await fetch(`/api/produce?project_id=${id}`);
+        if (!jr.ok) continue;                       // transient — the job is safe
+        const { job } = await jr.json() as { job: null | { status: string; stage: string | null; error: string | null } };
+        if (!job) continue;
+
+        setStepStatus(stageToSteps(job.stage));
+        if (job.status === "failed") throw new Error(job.error ?? "La producción falló");
+        if (job.status === "done") break;
+      }
+
       try {
         const r = await fetch(`/api/projects/${id}`);
         if (r.ok) setDetail(await r.json() as ProjectDetail);
@@ -389,8 +499,9 @@ function ProjectDetail() {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setHasError(true);
       setErrorDetail(msg);
-      // Production failed → automatically give the credit back (server-side guarded,
-      // safe + idempotent). Keeps trust and avoids chargebacks.
+      // The worker already refunds on terminal failure. This is only a safety net
+      // for the case where we never got a job started at all — and it's idempotent
+      // server-side, so a double call can't hand back two credits.
       try {
         const r = await fetch("/api/credits/refund", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -569,6 +680,20 @@ function ProjectDetail() {
                 >
                   ↗ Ver en pantalla completa
                 </a>
+
+                {/* Continuar la serie — el bucle de retención: el video prometió una
+                    Parte 2 en su CTA, así que aquí es donde se crea (mismo elenco,
+                    retoma el cliffhanger). Máxima intención: acaba de ver su video. */}
+                <button
+                  onClick={() => void createNextEpisode()}
+                  disabled={creatingNext}
+                  className="flex items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-600/50 text-amber-300 font-bold py-2.5 rounded-xl transition-all text-xs w-full disabled:opacity-50"
+                >
+                  {creatingNext
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Preparando…</>
+                    : <>🎬 Crear Parte {nextEpisodeNumber}</>}
+                </button>
+                {nextError && <p className="text-[11px] text-red-400 text-center">{nextError}</p>}
               </div>
             </div>
 
@@ -872,13 +997,19 @@ function ProjectDetail() {
                   </div>
                 )}
                 <button
-                  onClick={produceAll}
+                  onClick={() => void produceAll()}
                   className="inline-flex items-center gap-3 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-bold text-base px-8 py-4 rounded-2xl transition-all shadow-lg shadow-violet-900/40 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <Sparkles className="w-5 h-5" />
-                  {hasError ? "Reintentar" : "Crear mi video"}
+                  {hasError ? "Reintentar" : "Crear y ver en vivo"}
                 </button>
-                <p className="text-xs text-zinc-600 mt-4">{animationTier === "kenburns" ? "~1-2 minutos" : "~7 minutos"} · Completamente automático</p>
+                <button
+                  onClick={produceBackground}
+                  className="mt-3 inline-flex items-center justify-center gap-2 border border-violet-700/50 text-violet-300 hover:bg-violet-950/40 font-semibold text-sm px-6 py-3 rounded-2xl transition-all"
+                >
+                  🎬 Producir en segundo plano · puedes cerrar
+                </button>
+                <p className="text-xs text-zinc-600 mt-4">~minutos · Completamente automático · te avisamos cuando esté listo</p>
               </div>
             </div>
           </div>

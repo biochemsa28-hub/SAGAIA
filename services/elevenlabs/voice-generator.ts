@@ -1,5 +1,5 @@
 import { writeFileSync, mkdirSync } from "fs";
-import { join } from "path";
+import { join, isAbsolute, resolve } from "path";
 
 // ─── Voice Map by NICHE (primary) then tone (fallback) ───────────────────────
 // Each niche gets a voice that matches its emotional world
@@ -146,17 +146,27 @@ const EMOTION_SETTINGS: Record<string, VoiceSettings> = {
   // Mystery/suspense: mid stability, controlled expression
   mystery:    { stability: 0.45, similarity_boost: 0.75, style: 0.50, use_speaker_boost: true },
   suspense:   { stability: 0.40, similarity_boost: 0.78, style: 0.55, use_speaker_boost: true },
-  // Warm/positive emotions: higher stability = more consistent, softer style
-  hope:       { stability: 0.65, similarity_boost: 0.72, style: 0.30, use_speaker_boost: true },
-  wonder:     { stability: 0.60, similarity_boost: 0.70, style: 0.35, use_speaker_boost: true },
-  joy:        { stability: 0.65, similarity_boost: 0.70, style: 0.40, use_speaker_boost: true },
-  love:       { stability: 0.70, similarity_boost: 0.68, style: 0.25, use_speaker_boost: true },
-  // Sadness/grief: very stable = controlled, low style = subdued
-  sadness:    { stability: 0.72, similarity_boost: 0.65, style: 0.20, use_speaker_boost: false },
-  grief:      { stability: 0.75, similarity_boost: 0.65, style: 0.18, use_speaker_boost: false },
-  // Default: balanced
-  default:    { stability: 0.50, similarity_boost: 0.75, style: 0.40, use_speaker_boost: true },
+  // Warm/positive emotions: still expressive — a hopeful line that is "consistent"
+  // is a line being read, not felt.
+  hope:       { stability: 0.42, similarity_boost: 0.72, style: 0.55, use_speaker_boost: true },
+  wonder:     { stability: 0.40, similarity_boost: 0.70, style: 0.58, use_speaker_boost: true },
+  joy:        { stability: 0.38, similarity_boost: 0.70, style: 0.65, use_speaker_boost: true },
+  love:       { stability: 0.40, similarity_boost: 0.68, style: 0.55, use_speaker_boost: true },
+  // Sadness/grief. These used to be the MOST stable settings in the table, which
+  // is exactly backwards: high stability flattens the voice, and a flat voice
+  // reading a devastating line is the definition of "sounds narrated". Grief is
+  // the least controlled a person ever sounds — the delivery should break.
+  sadness:    { stability: 0.32, similarity_boost: 0.68, style: 0.62, use_speaker_boost: true },
+  grief:      { stability: 0.28, similarity_boost: 0.68, style: 0.70, use_speaker_boost: true },
+  // Default: leans performed, not neutral. Every line here is a character speaking.
+  default:    { stability: 0.38, similarity_boost: 0.75, style: 0.58, use_speaker_boost: true },
 };
+
+// eleven_v3 is the expressive model — it ACTS the line instead of reading it,
+// which is the whole complaint about the narration sounding narrated. Verified
+// against the with-timestamps endpoint (200 + full character alignment), so the
+// karaoke subtitles keep working. Override with ELEVEN_MODEL if it ever regresses.
+const VOICE_MODEL = process.env.ELEVEN_MODEL ?? "eleven_v3";
 
 function getVoice(niche: string, tone: string, voiceProfile?: string | null) {
   // A scene that knows WHO speaks wins: use the character's archetype voice.
@@ -249,7 +259,6 @@ export interface SceneVoiceResult extends VoiceGenerationResult {
 function getStorageDir(): string {
   if (process.env.VERCEL) return "/tmp/storage";
   const raw = process.env.STORAGE_PATH ?? "./storage";
-  const { isAbsolute, resolve } = require("path") as typeof import("path");
   return isAbsolute(raw) ? raw : resolve(process.cwd(), raw);
 }
 
@@ -296,7 +305,7 @@ async function generateReal(params: {
     {
       method: "POST",
       headers: { "xi-api-key": apiKey, "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ text: narration, model_id: "eleven_multilingual_v2", voice_settings: settings }),
+      body: JSON.stringify({ text: narration, model_id: VOICE_MODEL, voice_settings: settings }),
     }
   );
 

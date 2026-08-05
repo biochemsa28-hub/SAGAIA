@@ -17,10 +17,52 @@ export interface AssemblyScene {
   narrationText?: string;
   durationSeconds: number;
   wordTimings?: WordTiming[];  // real per-word timing for synced subtitles
+  emotion?: string;            // primary emotion → drives Ken Burns direction
 }
 
-// Ken Burns effects rotated per scene for dynamic motion on static images.
-const KENBURNS_EFFECTS = ["zoomIn", "zoomOut", "slideLeft", "slideRight", "slideUp", "slideDown"];
+// Ken Burns effects mapped per emotional beat — slow push for dread/tension,
+// zoom-out for revelation/shock, slide for action/urgency.
+const EMOTION_KENBURNS: Record<string, string> = {
+  // Terror / dread — slow creep in = unease builds
+  terror: "zoomIn", miedo: "zoomIn", dread: "zoomIn", suspenso: "zoomIn",
+  shock: "zoomIn", unsettling: "zoomIn",
+  // Revelation / betrayal / discovery — pull back = world expands with info
+  revelacion: "zoomOut", sorpresa: "zoomOut", traicion: "zoomOut",
+  shock_reveal: "zoomOut", discovery: "zoomOut",
+  // Action / urgency / run — lateral slide = movement, escape
+  accion: "slideLeft", urgencia: "slideLeft", escape: "slideLeft", correr: "slideRight",
+  // Sadness / tenderness / memory — slow upward tilt = emotional lift
+  tristeza: "slideUp", ternura: "slideUp", nostalgia: "slideUp", memoria: "slideUp",
+  // Hope / triumph / inspiration
+  esperanza: "slideUp", triunfo: "slideUp", inspiracion: "slideUp",
+  // Romance / intimacy
+  amor: "zoomIn", intimidad: "zoomIn", romance: "zoomIn",
+  // Mystery / clue reveal
+  misterio: "zoomIn", pista: "zoomIn",
+  // Default fallback sequence (varied so consecutive unknowns don't repeat)
+};
+const KENBURNS_FALLBACK = ["zoomIn", "zoomOut", "slideLeft", "slideRight", "slideUp"];
+
+function kenBurnsForScene(emotion: string | undefined, index: number): string {
+  if (emotion) {
+    const key = emotion.toLowerCase().trim();
+    if (EMOTION_KENBURNS[key]) return EMOTION_KENBURNS[key]!;
+  }
+  return KENBURNS_FALLBACK[index % KENBURNS_FALLBACK.length]!;
+}
+
+// Scene-to-scene transition driven by emotion → real editing rhythm, not a flat fade.
+// Shotstack valid: fade, reveal, wipeLeft/Right, slideLeft/Right/Up/Down, zoom, carouselLeft…
+const EMOTION_TRANSITION: Record<string, string> = {
+  terror: "fade", miedo: "fade", dread: "fade", suspenso: "fade", tristeza: "fade", drama: "fade", duelo: "fade",
+  revelacion: "zoom", sorpresa: "zoom", shock: "zoom", traicion: "zoom", giro: "zoom",
+  accion: "slideLeft", urgencia: "slideLeft", escape: "slideLeft", thriller: "slideLeft", adrenalina: "slideLeft",
+  esperanza: "slideUp", triunfo: "slideUp", inspiracion: "slideUp", amor: "reveal", ternura: "reveal", romance: "reveal",
+};
+function transitionForScene(emotion: string | undefined): string {
+  const key = emotion?.toLowerCase().trim();
+  return (key && EMOTION_TRANSITION[key]) || "fade";
+}
 
 export interface AssemblyResult {
   success: boolean;
@@ -236,9 +278,10 @@ function buildTimeline(params: {
       : dur + TRANSITION_OVERLAP;
 
     // Visual clip — Kling video (cinematic) OR Ken Burns over the static image (fast/cheap).
-    // Shotstack valid transitions: "fade", "reveal", "wipeLeft", etc. — NOT "crossDissolveIn"
+    // Transition IN is driven by the scene's emotion → varied editing rhythm.
+    const inTrans = transitionForScene(scene.emotion);
     const transition = !isFirst
-      ? { in: "fade", out: isLast ? "fade" : undefined }
+      ? { in: inTrans, out: isLast ? "fade" : undefined }
       : { out: isLast ? "fade" : undefined };
 
     if (scene.videoUrl) {
@@ -257,7 +300,7 @@ function buildTimeline(params: {
         start: clipStart,
         length: clipLength,
         fit: "cover",  // fill the 9:16 frame
-        effect: KENBURNS_EFFECTS[i % KENBURNS_EFFECTS.length],
+        effect: kenBurnsForScene(scene.emotion, i),
         transition,
       });
     }
@@ -342,10 +385,10 @@ function buildTimeline(params: {
     });
   }
 
-  // Background music — low volume under narration (URL already verified reachable)
+  // Background music — low volume under narration (ducked), smooth fade in AND out.
   if (musicUrl && totalDuration > 0) {
     musicClips.push({
-      asset: { type: "audio", src: musicUrl, volume: 0.12, effect: "fadeOut" },
+      asset: { type: "audio", src: musicUrl, volume: 0.12, effect: "fadeInFadeOut" },
       start: 0,
       length: totalDuration,
     });

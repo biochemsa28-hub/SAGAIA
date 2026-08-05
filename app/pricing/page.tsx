@@ -5,6 +5,15 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Zap, Check, ArrowLeft, Clock, Shield, X, ChevronDown, TrendingUp, Video, Mic, Image, Film } from "lucide-react";
 import { track } from "@/components/providers/PostHogProvider";
+import { creditCostForTier, getAnimationTier } from "@/lib/config";
+
+// How many videos a NAVO bundle buys. The number MUST come from the server:
+// FORCE_TIER only exists in the server environment, so calling getAnimationTier()
+// in this client component silently returns the default tier and the page
+// advertises a count the credit engine will not honour. /api/pricing reads the
+// same constant the engine deducts with; the import below is only the fallback
+// used for the first paint.
+const FALLBACK_NAVOS_PER_VIDEO = creditCostForTier(getAnimationTier());
 
 // ─── Plans data (decoy strategy: Creador is bad value to push Pro) ────────────
 const PLANS = [
@@ -21,7 +30,9 @@ const PLANS = [
     glow: "",
     badge: null as string | null,
     badgeColor: "",
-    features: ["1 video premium / mes", "Personajes que HABLAN (lip-sync)", "Elenco IA + voz por personaje", "Subtítulos karaoke + kit de publicación"],
+    // Only advertise lip-sync when the effective tier actually produces it —
+    // FORCE_TIER=kenburns does not, and a plan card is a promise.
+    features: ["Elenco IA + voz por personaje", "Subtítulos karaoke + kit de publicación"],
     locked: ["Más volumen", "Soporte prioritario"],
     cta: "Comenzar",
     ctaStyle: "bg-zinc-700 hover:bg-zinc-600 text-white",
@@ -39,7 +50,7 @@ const PLANS = [
     glow: "",
     badge: null as string | null,
     badgeColor: "",
-    features: ["3 videos premium / mes", "Personajes recurrentes guardados", "Sube tu producto a los anuncios", "Todo lo de Starter"],
+    features: ["Personajes recurrentes guardados", "Sube tu producto a los anuncios", "Todo lo de Starter"],
     locked: ["Soporte prioritario"],
     cta: "Elegir Creador",
     ctaStyle: "bg-blue-700 hover:bg-blue-600 text-white",
@@ -57,7 +68,7 @@ const PLANS = [
     glow: "shadow-[0_0_40px_rgba(139,92,246,0.35)]",
     badge: "⚡ MÁS ELEGIDO",
     badgeColor: "bg-violet-600 text-white",
-    features: ["5 videos premium / mes", "Máxima calidad visual y de voz", "Personajes y anuncios UGC", "Soporte prioritario + acceso anticipado"],
+    features: ["Máxima calidad visual y de voz", "Personajes y anuncios UGC", "Soporte prioritario + acceso anticipado"],
     locked: [] as string[],
     cta: "Empezar con Pro",
     ctaStyle: "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-lg shadow-violet-900/50",
@@ -75,7 +86,7 @@ const PLANS = [
     glow: "",
     badge: null as string | null,
     badgeColor: "",
-    features: ["11 videos premium / mes", "Máximo volumen, misma calidad", "Soporte 24/7 + facturación empresarial", "Acceso API (próximamente)"],
+    features: ["Máximo volumen, misma calidad", "Soporte 24/7 + facturación empresarial", "Acceso API (próximamente)"],
     locked: [] as string[],
     cta: "Elegir Estudio",
     ctaStyle: "bg-amber-700 hover:bg-amber-600 text-white",
@@ -109,6 +120,19 @@ export default function PricingPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [annual, setAnnual] = useState(false);
+  // Authoritative price per video, from the server. Starts at the compile-time
+  // fallback so the first paint isn't blank, then corrects itself.
+  const [navosPerVideo, setNavosPerVideo] = useState(FALLBACK_NAVOS_PER_VIDEO);
+  const [tier, setTier] = useState<string>(getAnimationTier());
+  useEffect(() => {
+    fetch("/api/pricing")
+      .then((r) => r.ok ? r.json() as Promise<{ navos_per_video?: number; tier?: string }> : null)
+      .then((d) => {
+        if (d?.navos_per_video) setNavosPerVideo(d.navos_per_video);
+        if (d?.tier) setTier(d.tier);
+      })
+      .catch(() => { /* keep the fallback */ });
+  }, []);
   const [loading, setLoading] = useState<string | null>(null);
   const { h, m, s, active } = useCountdown();
 
@@ -132,7 +156,14 @@ export default function PricingPage() {
   }
 
   const price = (plan: typeof PLANS[0]) => annual ? plan.annual : plan.monthly;
-  const perVideo = (plan: typeof PLANS[0]) => annual ? plan.perVideo.annual : plan.perVideo.monthly;
+  const videosFor = (navos: number) => Math.floor(navos / navosPerVideo);
+  const tierTagline = tier === "talking"
+    ? "Elenco IA · Voz por personaje · Lip-sync · Video MP4 listo para publicar"
+    : "Elenco IA · Voz por personaje · Gancho animado · Video MP4 listo para publicar";
+  const perVideo = (plan: typeof PLANS[0]) => {
+    const n = videosFor(plan.navos);
+    return n > 0 ? ((annual ? plan.annual : plan.monthly) / n).toFixed(2) : "—";
+  };
 
   return (
     <div className="bg-zinc-950 flex flex-col">
@@ -164,7 +195,7 @@ export default function PricingPage() {
         <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-1">
           Elige tu plan — crea sin límites
         </h1>
-        <p className="text-sm text-zinc-500">Elenco IA · Voz por personaje · Lip-sync · Video MP4 listo para publicar</p>
+        <p className="text-sm text-zinc-500">{tierTagline}</p>
 
         {/* Monthly / Annual toggle */}
         <div className="flex items-center justify-center gap-3 mt-5">
@@ -245,12 +276,12 @@ export default function PricingPage() {
 
                 {/* Video count */}
                 <p className="text-[11px] text-zinc-400 mb-3 -mt-1">
-                  <span className="font-bold text-zinc-200">{plan.videos}</span> {plan.videos === 1 ? "video premium" : "videos premium"} / mes
+                  <span className="font-bold text-zinc-200">{videosFor(plan.navos)}</span> {videosFor(plan.navos) === 1 ? "video premium" : "videos premium"} / mes
                 </p>
 
                 {/* Features */}
                 <ul className="space-y-1.5 flex-1">
-                  {plan.features.slice(2).map((f) => (
+                  {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-1.5">
                       <Check className={`w-3 h-3 shrink-0 mt-0.5 ${isHero ? "text-violet-400" : "text-emerald-600"}`} />
                       <span className={`text-[11px] leading-snug ${isHero ? "text-zinc-200" : "text-zinc-400"}`}>{f}</span>

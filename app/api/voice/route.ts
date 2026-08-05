@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { resolveRequestUserId } from "@/lib/internal-auth";
 import { getProjectDetail, updateProjectStatus, upsertAsset } from "@/lib/db/repository";
 import { generateProjectVoice } from "@/services/elevenlabs/voice-generator";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
+import { NATIVE_AUDIO_ON } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 120; // voice generation takes time
@@ -15,25 +15,52 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const body: unknown = await req.json();
+    // Either a browser session, or the job worker carrying the internal secret —
+    // production has to keep running after the user closes the tab.
+    const body: unknown = await req.json().catch(() => null);
+    const userId = await resolveRequestUserId(req, body);
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "project_id requerido" }, { status: 400 });
 
     await initDb();
-    const detail = await getProjectDetail(parsed.data.project_id, session.user.id);
+
+    // With native character audio the clips speak for themselves. Short-circuit
+    // HERE rather than in each caller: the browser "new story" flow, the project
+    // screen and the job worker all hit this route, and one of them forgetting
+    // would silently pay ElevenLabs for a track that gets discarded downstream.
+    if (NATIVE_AUDIO_ON) {
+      return NextResponse.json({
+        success: true, skipped: true, reason: "native_audio",
+        total: 0, succeeded: 0, failed: 0,
+      });
+    }
+    const detail = await getProjectDetail(parsed.data.project_id, userId);
     if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     if (!detail.story) return NextResponse.json({ error: "El proyecto no tiene historia generada" }, { status: 422 });
 
     await updateProjectStatus(parsed.data.project_id, "voice_pending");
 
+    // Skip scenes that ALREADY have audio → don't re-spend ElevenLabs on a retry.
+    const sceneNumById = new Map(detail.scenes.map((s) => [s.id, s.scene_number]));
+    const existingAudio = new Set<number>(
+      (detail.assets ?? [])
+        .filter((a) => a.asset_type === "audio" && a.public_url && a.scene_id)
+        .map((a) => sceneNumById.get(a.scene_id!))
+        .filter((n): n is number => typeof n === "number")
+    );
+    const scenesToVoice = detail.scenes.filter((s) => !existingAudio.has(s.scene_number));
+
+    // All scenes already voiced → nothing to spend.
+    if (!scenesToVoice.length) {
+      return NextResponse.json({ success: true, total: 0, succeeded: 0, failed: 0, skipped_all: true });
+    }
+
     const results = await generateProjectVoice({
       projectId: parsed.data.project_id,
       niche: detail.project.niche,
       tone: detail.project.tone,
-      scenes: detail.scenes.map((s) => ({
+      scenes: scenesToVoice.map((s) => ({
         scene_number: s.scene_number,
         narration_text: s.narration_text,
         emotion: s.emotion,
@@ -92,6 +119,22 @@ export async function POST(req: NextRequest) {
         })
     );
 
+    // ElevenLabs spend was the one step that never reached api_logs, so every
+    // "measured" cost per video was silently missing the voice. With the pricing
+    // model now derived from that measurement, an unlogged step is a mispriced plan.
+    try {
+      const { estimateVoice } = await import("@/lib/costs");
+      const { createApiLog } = await import("@/lib/db/repository");
+      const chars = scenesToVoice.reduce((n: number, sc) => n + (sc.narration_text?.length ?? 0), 0);
+      if (chars > 0) {
+        await createApiLog({
+          userId, projectId: parsed.data.project_id,
+          provider: "elevenlabs", endpoint: "/api/voice", model: "tts",
+          costUsd: estimateVoice(chars), statusCode: 200,
+        });
+      }
+    } catch { /* nunca romper la producción por el registro */ }
+
     await updateProjectStatus(
       parsed.data.project_id,
       failed.length === 0 ? "voice_done" : failed.length < results.length ? "voice_done" : "failed",
@@ -99,7 +142,10 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({
-      success: true,
+      // Only a real success if at least ONE scene got voiced — otherwise the flow
+      // must STOP here (not proceed to lip-sync with no audio).
+      success: succeeded.length > 0,
+      error: succeeded.length === 0 ? "No se pudo generar la voz de ninguna escena." : undefined,
       total: results.length,
       succeeded: succeeded.length,
       failed: failed.length,
