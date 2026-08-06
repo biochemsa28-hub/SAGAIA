@@ -110,7 +110,9 @@ REGLAS DE HIERRO:
 - EXCEPCIÓN, y no es negociable en los dos sentidos: hay nichos que son monólogo POR DISEÑO (confesión, documental) y otros donde el contrapunto no habla sino que se CITA (chisme) o calla a propósito (terror). Cada nicho trae su propia línea "ESTRUCTURA:" en la guía de tono que dice QUIÉN contesta y QUÉ cambia entre escenas. Esa línea manda sobre esta regla. Forzar un segundo hablante en una confesión la arruina igual que dejar un monólogo en un drama.
 - En la escena de confrontación el speaker DEBE alternar: A, luego B, luego A.
 - La respuesta del antagonista tiene que APORTAR ALGO NUEVO — una acusación, una verdad peor, una justificación que duele. Nunca "no es lo que parece" a secas.
-- El image_prompt de las escenas donde alternan las voces tiene que mostrar A LOS DOS personajes en cuadro.
+- IMAGEN — ESTO DECIDE SI SE VE LA INTERACCIÓN: mientras dos personajes estén juntos en la escena, el image_prompt de TODAS esas escenas debe mostrar A LOS DOS en cuadro, no solo el de la escena donde habla el segundo. No alcanza con que uno esté "sugerido" o de espaldas: los dos visibles, en el mismo encuadre, reaccionando el uno al otro (plano de dos, o sobre el hombro con la cara del otro visible).
+- Motivo técnico, no estético: el video se genera a partir de la imagen de la PRIMERA escena de cada bloque. Si a esa le tocó un personaje solo, el clip entero muestra a una persona hablando sola por más que el guion tenga dos voces. Poniendo a los dos en todas las escenas de la secuencia, la interacción se ve caiga donde caiga el corte de bloque.
+- Nunca más de DOS personajes hablando en la misma secuencia: con tres el modelo pierde las caras y ninguno queda consistente.
 
 ════════════════════════════════════════
 REGLA #2 — FRAMEWORK DE ESCRITURA CINEMATOGRÁFICA (OBLIGATORIO PARA CADA ESCENA)
