@@ -25,6 +25,19 @@ const FFPROBE = process.env.FFPROBE_PATH ?? "ffprobe";
 // error de ffmpeg, "frame= 0" en todas las escenas. Acotar los hilos cuesta algo
 // de velocidad por escena; no acotarlos costaba el video entero.
 const X264_THREADS = ["-threads", String(Math.max(1, Number(process.env.FFMPEG_THREADS ?? 1) || 1))];
+
+// Sumidero de ffmpeg para pasadas de solo-analisis. En Alpine es /dev/null; en
+// Windows es NUL, y pasarle el equivocado hace fallar la deteccion en silencio.
+const NULL_SINK = process.platform === "win32" ? "NUL" : "/dev/null";
+
+// Cola muda: cuanto silencio final hace falta para recortar, y cuanto se DEJA
+// igual (el CTA de "Parte 2" está quemado ahi — cortar al ras lo borraria).
+const SILENCE_DB = -45;
+const TAIL_MIN = Math.max(1, Number(process.env.TAIL_SILENCE_MIN ?? 2.5) || 2.5);
+const TAIL_KEEP = Math.max(0.5, Number(process.env.TAIL_SILENCE_KEEP ?? 2) || 2);
+// Objetivo de sonoridad. Las plataformas normalizan alrededor de -14/-16 LUFS;
+// un video medido a -28 dB de media suena flojo contra todo lo demas del feed.
+const LOUDNORM_LUFS = Number(process.env.LOUDNORM_LUFS ?? -16) || -16;
 // Living-atmosphere pass over still frames (grain that moves every frame). Off via
 // ATMOSPHERE=off if you ever want perfectly clean stills.
 // Ken Burns oversamples so the zoom does not pixelate. 2x (4K per scene) needs
@@ -555,6 +568,64 @@ export async function assembleWithFfmpeg(params: {
     } catch (e) {
       // Never lose the video over an audio-sweetening failure.
       console.error("[ffmpeg] sound design skipped:", e instanceof Error ? e.message.slice(0, 150) : e);
+    }
+
+    // 3.5) VOLUMEN + COLA MUDA ────────────────────────────────────────────────
+    // VOLUMEN: medido sobre un video real, -28.1 dB de media cuando las
+    // plataformas normalizan a ~-14/-16 LUFS. Sonaba flojo contra cualquier otro
+    // video del feed. Esto sí actúa siempre.
+    //
+    // COLA: el mismo video terminaba con ~6s (20% del total) sin una sola línea
+    // de diálogo — solo una mano en un picaporte. OJO: ese tramo NO está en
+    // silencio. Medido, la cola da -29.5 dB de media contra -28.1 dB del video
+    // entero, porque la música y el ambiente siguen sonando; silencedetect no
+    // encuentra nada ni bajando el umbral a -30 dB.
+    //
+    // Así que este recorte solo actúa sobre colas realmente MUDAS (un clip sin
+    // pista de audio, un fallo de la música). Para la cola sin DIÁLOGO hace falta
+    // otra señal: los tiempos de palabra que ya devuelve transcribeClip — el fin
+    // de la última palabra del último bloque. Eso vive en el metadata del asset y
+    // todavía no llega hasta acá.
+    //
+    // Se conservan TAIL_KEEP segundos a propósito: el CTA de "Parte 2" está
+    // quemado ahí y recortar al ras lo borraría.
+    try {
+      const totalDur = await probeDuration(finalOut);
+      const { stderr: sdErr } = await exec(
+        FFMPEG,
+        ["-i", finalOut, "-af", `silencedetect=n=${SILENCE_DB}dB:d=${TAIL_MIN.toFixed(2)}`, "-f", "null", NULL_SINK],
+        { maxBuffer: 1 << 26 },
+      ).catch((e: { stderr?: string }) => ({ stderr: e?.stderr ?? "" }));
+
+      // El ultimo silencio SIN cierre es el que llega hasta el final del video.
+      let cutAt = 0;
+      const starts = [...String(sdErr ?? "").matchAll(/silence_start:\s*([0-9.]+)/g)].map((m) => Number(m[1]));
+      const ends = [...String(sdErr ?? "").matchAll(/silence_end:\s*([0-9.]+)/g)].map((m) => Number(m[1]));
+      const lastStart = starts.length ? starts[starts.length - 1]! : null;
+      if (lastStart !== null && (ends.length < starts.length) && totalDur > 0) {
+        const colaMuda = totalDur - lastStart;
+        if (colaMuda > TAIL_MIN) cutAt = Math.min(totalDur, lastStart + TAIL_KEEP);
+      }
+
+      const necesitaCorte = cutAt > 0 && totalDur - cutAt > 0.4;
+      const recortado = join(dir, "tail.mp4");
+      const args = ["-y", "-i", finalOut];
+      if (necesitaCorte) args.push("-t", cutAt.toFixed(2));
+      args.push(
+        "-map", "0:v", "-map", "0:a?",
+        "-c:v", "copy",
+        "-af", `loudnorm=I=${LOUDNORM_LUFS}:TP=-1.5:LRA=11`,
+        ...X264_THREADS, "-c:a", "aac", "-b:a", "192k", recortado,
+      );
+      await exec(FFMPEG, args, { maxBuffer: 1 << 26 });
+      finalOut = recortado;
+      console.log(
+        `[cola] ${necesitaCorte ? `recortados ${(totalDur - cutAt).toFixed(1)}s de silencio final (${totalDur.toFixed(1)}s → ${cutAt.toFixed(1)}s)` : "sin cola muda"}` +
+        ` · volumen normalizado a ${LOUDNORM_LUFS} LUFS`,
+      );
+    } catch (e) {
+      // Igual que el diseño sonoro: nunca perder el video por un retoque de audio.
+      console.error("[cola] omitido:", e instanceof Error ? e.message.slice(0, 150) : e);
     }
 
     // 4) Upload to durable R2.

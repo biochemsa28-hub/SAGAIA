@@ -110,6 +110,40 @@ Antes de escribir cada escena, define INTERNAMENTE (no lo incluyas en el JSON, p
   7. FRASE GANCHO FINAL — la última palabra de la escena que deja al espectador con una pregunta quemándole la mente
 
 ════════════════════════════════════════
+REGLA #2.5 — CAUSALIDAD: "POR LO TANTO" / "PERO" (NUNCA "Y DESPUÉS")
+════════════════════════════════════════
+Cada escena debe ser CONSECUENCIA de la anterior, no la que viene después en la lista.
+
+Antes de escribir cada escena, comprobá internamente que se conecta con la anterior por UNA de estas dos palabras:
+  · "…POR LO TANTO…" → lo que pasó obliga al personaje a hacer esto
+  · "…PERO…" → algo se interpone y cambia el rumbo
+
+❌ PROHIBIDO — escenas encadenadas con "Y DESPUÉS":
+  Escena 1: descubre la traición · Escena 2: llora · Escena 3: recuerda · Escena 4: grita
+  → Cuatro momentos fuertes que no se empujan. Es una galería, no una historia.
+
+✅ OBLIGATORIO — encadenadas con POR LO TANTO / PERO:
+  Escena 1: encuentra la camisa · POR LO TANTO 2: la enfrenta · PERO 3: la otra tiene una prueba peor
+  · POR LO TANTO 4: entiende que la engañaron los dos
+
+REGLA DE HIERRO: si podés reordenar dos escenas sin que la historia se rompa, la cadena está mal. Reescribila.
+
+════════════════════════════════════════
+REGLA #2.6 — CADA ESCENA CAMBIA ALGO (NO ES UN DISCURSO PARTIDO EN PLANOS)
+════════════════════════════════════════
+El error más grave y más frecuente: escribir UN monólogo largo y cortarlo en escenas. Se ve bien escrito y no cuenta nada, porque nada CAMBIA entre una escena y la siguiente.
+
+Entre una escena y la siguiente tiene que cambiar AL MENOS UNA de estas cosas:
+  · EL LUGAR — otra habitación, afuera, otro edificio
+  · EL TIEMPO — más tarde, al día siguiente, un recuerdo
+  · QUIÉN ESTÁ PRESENTE — alguien entra, alguien se va, alguien llama
+  · LO QUE EL PERSONAJE SABE — se entera de un hecho nuevo que antes ignoraba
+
+Si las escenas transcurren todas en el mismo lugar, en el mismo minuto, con la misma persona hablando sin parar y sin enterarse de nada nuevo → NO es una historia. Reescribila.
+
+Prohibido que las 6 escenas sean la misma conversación continua.
+
+════════════════════════════════════════
 REGLA #3 — ELOCUENCIA Y SUBTEXTO (EL ALMA DEL GUION)
 ════════════════════════════════════════
 NUNCA digas directamente "está triste", "tiene miedo" o "está enamorado". MUÉSTRALO:
@@ -144,12 +178,18 @@ LA ESCENOGRAFÍA HABLA (el lugar ES la emoción):
 ════════════════════════════════════════
 REGLA #4 — ESTRUCTURA DE RETENCIÓN (BEATS)
 ════════════════════════════════════════
-- BEAT 0 (escena 1, primeros 3s): GANCHO. Una imagen + frase que DETIENE el scroll. Directo al nervio, sin contexto.
-- BEAT 1 (3–8s): contexto MÍNIMO en una línea. Solo lo indispensable.
-- BEAT 2 (8–20s): conflicto en marcha. Algo concreto se rompe/revela.
-- BEAT 3 (20–35s): escalada. Las stakes suben. El espectador no puede soltar.
-- BEAT 4 (35–50s): GIRO que recontextualiza todo lo anterior.
-- BEAT 5 (escena final): CLIFFHANGER emocional. Pregunta abierta que obliga a querer la Parte 2.
+El video se produce en ~6 bloques de ~10s cada uno (60s como máximo absoluto). Repartí los beats sobre ESA duración — no sobre un video largo:
+
+- BEAT 0 (0–10s): GANCHO. Una imagen + frase que DETIENE el scroll. Directo al nervio, sin contexto.
+- BEAT 1 (10–20s): conflicto en marcha. Algo concreto se rompe o se revela. El contexto va aquí, en una sola línea, mientras pasa algo.
+- BEAT 2 (20–30s): escalada. Las stakes suben.
+- BEAT 3 (30–40s): GIRO que recontextualiza todo lo anterior.
+- BEAT 4 (40–50s): la consecuencia del giro. El personaje actúa distinto porque ahora sabe.
+- BEAT 5 (50–60s): CLIFFHANGER emocional. Pregunta abierta que obliga a querer la Parte 2.
+
+EL GIRO VA EN EL BEAT 3, a mitad del video — NO al final. Antes estaba calibrado para los 35–50s de un formato más largo y llegaba cuando el video ya casi había terminado: el espectador se iba sin recibirlo. Después del giro TIENE que pasar algo; si el giro es la última línea, no hay historia después de la sorpresa.
+
+LA ÚLTIMA LÍNEA HABLADA VA EN EL BLOQUE FINAL. Nada de terminar el diálogo antes y dejar segundos mudos: el silencio al final desinfla todo lo anterior.
 
 ════════════════════════════════════════
 REGLA #5 — CALIDAD CINEMATOGRÁFICA
@@ -182,6 +222,11 @@ REGLA #7 — VALIDACIÓN FINAL (REESCRIBE SI FALLA ALGUNA)
 ☑ El subtexto reemplaza la emoción declarada — se MUESTRA, no se dice
 ☑ La escenografía refleja el estado emocional del personaje
 ☑ Hay al menos una frase quotable / piel de gallina
+☑ Cada escena se conecta con la anterior por "POR LO TANTO" o "PERO" — nunca por "y después"
+☑ Entre escenas cambia el lugar, el tiempo, quién está presente o lo que el personaje sabe
+☑ NO es un solo monólogo cortado en planos: algo ocurre entre una escena y la otra
+☑ El giro cae a mitad del video, y después del giro todavía pasa algo
+☑ La última línea hablada está en la escena final — el video no termina en silencio
 ☑ El giro recontextualiza lo anterior (ganas de re-ver)
 ☑ El cliffhanger provoca "necesito la Parte 2"
 ☑ Se siente REAL: "esto me puede pasar a mí"
