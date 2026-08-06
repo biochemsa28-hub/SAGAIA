@@ -191,6 +191,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── ¿EL GUION DA LA DURACIÓN PEDIDA? ──────────────────────────────────────
+    // El video dura lo que los personajes tardan en hablar — no hay narrador que
+    // rellene. Un guion de líneas cortas produce un video corto, y eso se descubría
+    // recién al verlo terminado, con los clips ya pagados.
+    //
+    // El prompt ahora lleva un presupuesto de caracteres, pero una instrucción no es
+    // una garantía: acá se MIDE. A ~14 caracteres por segundo en español.
+    if (result.data?.scenes?.length) {
+      const chars = result.data.scenes.reduce((n, s) => n + (s.narration_text ?? "").trim().length, 0);
+      const segundos = Math.round(chars / 14);
+      const pedidos = { "15s": 15, "30s": 30, "60s": 60 }[parsed.data.duration_target] ?? 60;
+      const pct = Math.round((segundos / pedidos) * 100);
+      if (segundos < pedidos * 0.8) {
+        console.warn(
+          `[duracion] el guion da ~${segundos}s hablados de los ${pedidos}s pedidos (${pct}%) — el video va a salir corto`,
+        );
+      } else {
+        console.log(`[duracion] ~${segundos}s hablados de ${pedidos}s pedidos (${pct}%)`);
+      }
+    }
+
     // ── REPARAR LOS NOMBRES ANTES DE GUARDARLOS ───────────────────────────────
     // La instrucción del prompt es tajante, pero una instrucción no es una
     // garantía: el modelo igual escribe "Valeria" donde el elenco dice "Valentina".

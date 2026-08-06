@@ -248,6 +248,7 @@ REGLA #7 — VALIDACIÓN FINAL (REESCRIBE SI FALLA ALGUNA)
 ☑ NO es un solo monólogo cortado en planos: algo ocurre entre una escena y la otra
 ☑ El giro cae a mitad del video, y después del giro todavía pasa algo
 ☑ La última línea hablada está en la escena final — el video no termina en silencio
+☑ Sumaste los caracteres de TODOS los narration_text y llegan al presupuesto de duración
 ☑ El giro recontextualiza lo anterior (ganas de re-ver)
 ☑ El cliffhanger provoca "necesito la Parte 2"
 ☑ Se siente REAL: "esto me puede pasar a mí"
@@ -335,6 +336,28 @@ NICHO: ${input.niche}${input.sub_niche ? ` › ${input.sub_niche}` : ""}
 PREMISA: ${input.topic}
 TONO: ${input.tone} — ${toneGuide}
 DURACIÓN: ${input.duration_target} (${duration.seconds} segundos)
+
+⏱️ PRESUPUESTO DE TEXTO HABLADO — NO ES UNA SUGERENCIA
+El video dura exactamente lo que los personajes TARDAN EN HABLAR. No hay narrador
+que rellene ni planos de recurso: si el diálogo suma 35 segundos, el video dura 35
+segundos y no llega al mínimo que las plataformas piden para monetizar.
+
+En español se habla a ~14 caracteres por segundo. Para ${duration.seconds} segundos:
+· TOTAL de todos los narration_text sumados: ~${Math.round(duration.seconds * 14)} caracteres
+· Con ${duration.max} escenas son ~${Math.round((duration.seconds * 14) / duration.max)} caracteres por escena — unas ${Math.round((duration.seconds * 14) / duration.max / 5.5)} palabras, NO cuatro sueltas
+
+Antes de cerrar el JSON, SUMÁ los caracteres de todos los narration_text: si no
+llegan a ~${Math.round(duration.seconds * 14)}, volvé y alargá los parlamentos.
+
+CÓMO alargar sin rellenar — esto es lo que importa:
+❌ NO repitas la idea con otras palabras, no agregues muletillas ni "eh…"
+✅ El personaje da UN detalle concreto más: un nombre, una fecha, un objeto, una cifra
+✅ Se interrumpe y se corrige ("Yo… no. No fue eso. Fue peor.")
+✅ Contesta al otro citando lo que le acaban de decir
+✅ Dice en voz alta la pregunta que el espectador se está haciendo
+
+Cada segundo agregado trae información nueva. Alargar repitiendo es PEOR que
+quedarse corto: el espectador se va.
 ESTILO VISUAL: ${input.visual_style}
 PLATAFORMA: ${input.target_platform ?? "tiktok"}
 ${chosenHook ? `HOOK ELEGIDO POR EL USUARIO (ÚSALO EXACTAMENTE COMO ESTÁ): "${chosenHook}"` : ""}
