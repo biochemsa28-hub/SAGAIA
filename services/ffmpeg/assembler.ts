@@ -19,6 +19,14 @@ const FFMPEG = process.env.FFMPEG_PATH ?? "ffmpeg";
 const FFPROBE = process.env.FFPROBE_PATH ?? "ffprobe";
 // Living-atmosphere pass over still frames (grain that moves every frame). Off via
 // ATMOSPHERE=off if you ever want perfectly clean stills.
+// Ken Burns oversamples so the zoom does not pixelate. 2x (4K per scene) needs
+// more memory than a small container has, and every segment died with a bare
+// "Command failed" — the render worked on a laptop and could not work in
+// production. 1.5x keeps the zoom clean at a third of the pixels.
+const OVERSAMPLE = Math.max(1, Math.min(2, Number(process.env.KENBURNS_OVERSAMPLE ?? 1.5) || 1.5));
+const OVERSAMPLE_W = Math.round(1080 * OVERSAMPLE / 2) * 2;
+const OVERSAMPLE_H = Math.round(1920 * OVERSAMPLE / 2) * 2;
+
 const ATMOSPHERE_ON = (process.env.ATMOSPHERE ?? "on").toLowerCase() !== "off";
 
 export interface FfScene {
@@ -313,7 +321,7 @@ async function buildSceneClip(
         await exec(FFMPEG, [
           "-y", "-loop", "1", "-i", shotImg,
           "-filter_complex",
-          `[0:v]scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,` +
+          `[0:v]scale=${OVERSAMPLE_W}:${OVERSAMPLE_H}:force_original_aspect_ratio=increase,crop=${OVERSAMPLE_W}:${OVERSAMPLE_H},` +
           `zoompan=z='${smo.z}':x='${smo.x}':y='${smo.y}':d=${perFrames}:s=1080x1920:fps=30,setsar=1${atmo}[v]`,
           "-map", "[v]", "-t", per.toFixed(3),
           "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg,
@@ -344,7 +352,7 @@ async function buildSceneClip(
       // it for texture — do not mistake it for making the shot feel alive. Real
       // aliveness needs a video model (see ANIMATE_HERO_SCENES).
       const atmo = ATMOSPHERE_ON ? `,noise=alls=6:allf=t+u` : "";
-      const kb = `[0:v]scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,` +
+      const kb = `[0:v]scale=${OVERSAMPLE_W}:${OVERSAMPLE_H}:force_original_aspect_ratio=increase,crop=${OVERSAMPLE_W}:${OVERSAMPLE_H},` +
         `zoompan=z='${mo.z}':x='${mo.x}':y='${mo.y}':d=${frames}:s=1080x1920:fps=30,setsar=1${atmo}${subFilter}${transition}[v]`;
       const args = ["-y", "-loop", "1", "-i", img];
       if (hasAudio) args.push("-i", audioPath);
@@ -358,7 +366,12 @@ async function buildSceneClip(
     }
     return out;
   } catch (e) {
-    console.error(`[ffmpeg] scene ${i} failed:`, e instanceof Error ? e.message.slice(0, 160) : e);
+    // Include ffmpeg's OWN stderr, not just the wrapper's "Command failed": the
+    // useful line (out of memory, invalid filter, missing codec) lives there, and
+    // truncating to 160 chars threw it away every time.
+    const detalle = (e as { stderr?: string })?.stderr;
+    console.error(`[ffmpeg] scene ${i} failed:`, (e instanceof Error ? e.message : String(e)).slice(0, 200));
+    if (detalle) console.error(`[ffmpeg] scene ${i} stderr:`, String(detalle).slice(-400));
     return null;
   }
 }
