@@ -314,7 +314,13 @@ export const NATIVE_AUDIO_LANGUAGE = process.env.NATIVE_AUDIO_LANGUAGE ?? "es";
 // and then renders only the frames the clips will actually consume.
 //
 // Off restores per-scene images, which the Ken Burns path still needs.
+// Depende TAMBIÉN de los bloques, y no es un detalle: sin bloques cada escena
+// necesita su propia imagen para animarse, y la ruta por escena descarta las que
+// no la tienen. Atado solo al audio nativo, apagar NARRATIVE_BLOCKS dejaba 14
+// escenas con 4 imágenes y por lo tanto 4 clips — un modo roto que parecía una
+// decisión de configuración.
 export const ANCHOR_IMAGES_ONLY = NATIVE_AUDIO_ON
+  && NARRATIVE_BLOCKS_ON
   && (process.env.ANCHOR_IMAGES_ONLY ?? "on").toLowerCase() !== "off";
 
 // ── HARD LENGTH CEILING ──────────────────────────────────────────────────────

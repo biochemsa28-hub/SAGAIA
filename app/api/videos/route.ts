@@ -285,6 +285,25 @@ export async function POST(req: NextRequest) {
         })
         .filter((s) => s.image_url);
 
+      // ── TECHO DE GASTO ─────────────────────────────────────────────────────
+      // La rama de bloques recorta por MAX_BLOCKS_PER_VIDEO; ésta no tenía NADA.
+      // Con NARRATIVE_BLOCKS apagado se factura un clip por escena sin límite, así
+      // que un guion que vuelve con 20 escenas cuesta 20 clips — la forma más
+      // grande de sobregasto que tiene el pipeline, y la única rama donde el tope
+      // de 60s no llegaba a aplicarse. Se corta por segundos acumulados, no por
+      // cantidad, porque lo que se vende es duración.
+      let acumulado = 0;
+      const dentroDelTope = scenes.filter((s) => {
+        if (acumulado >= MAX_VIDEO_SECONDS) return false;
+        acumulado += s.duration_seconds ?? 5;
+        return true;
+      });
+      if (dentroDelTope.length < scenes.length) {
+        console.warn(`[escenas] recortado a ${dentroDelTope.length} de ${scenes.length} clips (tope ${MAX_VIDEO_SECONDS}s)`);
+      }
+      scenes.length = 0;
+      scenes.push(...dentroDelTope);
+
       // ── HOOK BLOCK ─────────────────────────────────────────────────────────
       // For the hero beat, swap the single still for a 2x2 storyboard sheet and
       // ask the model to PLAY it: one call yields three real camera setups with
