@@ -62,6 +62,10 @@ export async function POST(req: NextRequest) {
           image_url: "planned",          // the planner only checks for presence
           narration_text: sc.narration_text,
           duration_seconds: sc.duration_seconds,
+          // El hablante cambia la agrupación (un bloque = una voz), así que sin
+          // esto las anclas que se dibujan acá no coinciden con los clips que se
+          // piden después — y volveríamos a pagar imágenes que nadie usa.
+          speaker: sc.speaker,
         })),
         BLOCK_TARGET_SECONDS,
       );

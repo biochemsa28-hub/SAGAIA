@@ -20,6 +20,8 @@ export interface BlockScene {
   narration_text?: string | null;
   audio_seconds?: number | null;
   duration_seconds?: number | null;
+  /** Quién habla. Un bloque NUNCA mezcla hablantes — ver planNarrativeBlocks. */
+  speaker?: string | null;
 }
 
 export interface NarrativeBlock {
@@ -109,10 +111,23 @@ export function planNarrativeBlocks(
     acc = 0;
   };
 
+  const quien = (s: BlockScene) => (s.speaker ?? "").trim().toLowerCase();
+
   for (const s of scenes) {
     const dur = sceneSeconds(s);
+    // UN BLOQUE, UN HABLANTE. Medido en un video real: un bloque agrupaba escenas
+    // de Vale y de su hermana, los parlamentos de las dos se le pasaban juntos al
+    // modelo de video, y el personaje que estaba en cuadro decía TODAS las líneas
+    // — incluidas las que le hablaban a él. En pantalla la misma mujer decía "Vale,
+    // te lo juro" (la hermana pidiendo perdón) y "él y tú, mi marido y mi hermana"
+    // (Vale acusando), una detrás de la otra.
+    //
+    // Agrupar por duración era un ahorro; agrupar voces distintas rompe la escena.
+    // Cortar cuando cambia el hablante cuesta algún clip más y es la única forma de
+    // que cada personaje diga lo suyo.
+    const cambiaHablante = current.length > 0 && quien(s) !== quien(current[0]!);
     // Close the block BEFORE overflowing, unless it would leave it empty.
-    if (current.length && (acc + dur > targetSeconds || current.length >= maxScenesPerBlock)) flush();
+    if (current.length && (cambiaHablante || acc + dur > targetSeconds || current.length >= maxScenesPerBlock)) flush();
     current.push(s);
     acc += dur;
   }
@@ -123,7 +138,11 @@ export function planNarrativeBlocks(
   if (blocks.length > 1) {
     const last = blocks[blocks.length - 1]!;
     const prev = blocks[blocks.length - 2]!;
-    if (last.scenes.length === 1 && last.seconds < 3 && prev.scenes.length < maxScenesPerBlock) {
+    // Solo se repliega si además comparten hablante: juntarlos por ahorro es lo
+    // que hacía que un personaje dijera la línea del otro.
+    const mismoHablante = quien(scenes.find((s) => s.scene_number === last.leadScene) ?? {} as BlockScene)
+      === quien(scenes.find((s) => s.scene_number === prev.leadScene) ?? {} as BlockScene);
+    if (mismoHablante && last.scenes.length === 1 && last.seconds < 3 && prev.scenes.length < maxScenesPerBlock) {
       prev.scenes.push(...last.scenes);
       prev.beats.push(...last.beats);
       prev.seconds += last.seconds;

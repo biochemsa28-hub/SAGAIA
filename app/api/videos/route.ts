@@ -171,6 +171,9 @@ export async function POST(req: NextRequest) {
         narration_text: sc.narration_text,
         audio_seconds: audioDurBySceneId.get(sc.id) ?? null,
         duration_seconds: sc.duration_seconds,
+        // Sin esto el planificador no puede saber cuándo cambia la voz, y agrupa
+        // parlamentos de dos personajes en un mismo clip.
+        speaker: sc.speaker,
       }));
 
       if (NARRATIVE_BLOCKS_ON && !parsed.data.scene_number) {
@@ -469,6 +472,7 @@ export async function POST(req: NextRequest) {
                 narration_text: sc.narration_text,
                 audio_seconds: audioDur.get(sc.id) ?? null,
                 duration_seconds: sc.duration_seconds,
+                speaker: sc.speaker,
               })),
               BLOCK_TARGET_SECONDS,
             );
