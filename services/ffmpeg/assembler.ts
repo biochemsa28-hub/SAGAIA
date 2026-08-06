@@ -259,6 +259,12 @@ async function download(url: string, path: string): Promise<void> {
   // filters configure, and zero frames ever appear. Naming the real format turns
   // that into a one-line diagnosis instead of hours of guessing.
   const nombre = path.split(/[/]/).pop() ?? path;
+  // Solo las IMAGENES. El chequeo marcaba cada clip descargado como
+  // "NO es jpeg/png -> avif/heic" porque 'ftyp' es tambien la firma de un MP4
+  // sano: cuatro alarmas rojas por render, todas falsas, justo en los logs que
+  // usamos para diagnosticar. Un diagnostico que grita cuando no pasa nada
+  // entrena a ignorarlo.
+  if (/\.(mp4|mov|webm|m4v|mp3|m4a|aac|wav)$/i.test(nombre)) return;
   const m = buf.subarray(0, 12);
   const tipo =
     m[0] === 0xff && m[1] === 0xd8 ? "jpeg" :
@@ -612,17 +618,29 @@ export async function assembleWithFfmpeg(params: {
       // ultima escena que tenga texto, llevada a tiempo absoluto con boundaries.
       // Whisper ya devolvio estos tiempos al recolectar cada clip, asi que el dato
       // esta y no cuesta nada — solo no llegaba hasta aca.
+      // SOLO el ULTIMO segmento decide. Recorrer hacia atras buscando "el ultimo
+      // que tenga transcripcion" destruyo un video real: los segmentos finales no
+      // llevaban wordTimings, el bucle retrocedio hasta el PRIMERO, y tomo sus
+      // 7.4s como fin del dialogo — 36.2s quedaron en 9.4s. Un dato faltante no
+      // es evidencia de silencio, y la respuesta correcta ante la duda es no
+      // tocar nada: un video con cola de mas se publica, uno mutilado no.
+      const ultimo = params.scenes[params.scenes.length - 1];
+      const tFinal = ultimo?.wordTimings;
       let finDialogo = 0;
-      for (let s = params.scenes.length - 1; s >= 0; s--) {
-        const t = params.scenes[s]?.wordTimings;
-        if (!t?.length) continue;
-        const ultima = t.reduce((mx: number, w) => (Number.isFinite(w.end) && w.end > mx ? w.end : mx), 0);
-        if (ultima > 0) { finDialogo = (boundaries[s] ?? 0) + ultima; break; }
+      if (tFinal?.length) {
+        const ultima = tFinal.reduce((mx: number, w) => (Number.isFinite(w.end) && w.end > mx ? w.end : mx), 0);
+        if (ultima > 0) finDialogo = (boundaries[params.scenes.length - 1] ?? 0) + ultima;
       }
 
       let cutAt = 0;
       if (finDialogo > 0 && totalDur > 0 && totalDur - finDialogo > TAIL_MIN) {
         cutAt = Math.min(totalDur, finDialogo + TAIL_KEEP);
+      }
+      // Tope de seguridad: por muy convencido que este el calculo, nunca borrar
+      // mas de un tercio del video. Un recorte asi es un sintoma, no una mejora.
+      if (cutAt > 0 && cutAt < totalDur * 0.66) {
+        console.warn(`[cola] recorte a ${cutAt.toFixed(1)}s de ${totalDur.toFixed(1)}s descartado por excesivo — revisar wordTimings del ultimo segmento`);
+        cutAt = 0;
       }
 
       const necesitaCorte = cutAt > 0 && totalDur - cutAt > 0.4;
