@@ -375,14 +375,15 @@ async function buildSceneClip(
       // Progress lines (frame= fps= size=) are 95% of ffmpeg stderr and say
       // nothing. Showing the tail buried the one line that matters — the parse
       // error or the resource failure — under a wall of "frame= 0".
-      const util = String(detalle)
-        .split(/?
-/)
-        .filter((l) => l.trim() && !/^s*(frame=|video:|size=|Press [q])/.test(l))
-        .filter((l) => /error|invalid|failed|no such|cannot|unable|undefined|killed|memory/i.test(l))
+      const lineas = String(detalle).split(String.fromCharCode(10));
+      const util = lineas
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0)
+        .filter((l) => !l.startsWith("frame=") && !l.startsWith("video:") && !l.startsWith("size="))
+        .filter((l) => /error|invalid|failed|no such|cannot|unable|undefined|killed|memory|Conversion/i.test(l))
         .slice(-6);
-      console.error(`[ffmpeg] scene ${i} causa:`, util.length ? util.join(" | ") : String(detalle).split(/?
-/).filter((l)=>l.trim()).slice(-3).join(" | "));
+      const fallback = lineas.map((l) => l.trim()).filter((l) => l.length > 0).slice(-4);
+      console.error("[ffmpeg] scene " + i + " causa:", (util.length ? util : fallback).join(" | "));
     }
     return null;
   }
