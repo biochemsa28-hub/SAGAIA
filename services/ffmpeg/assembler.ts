@@ -26,13 +26,9 @@ const FFPROBE = process.env.FFPROBE_PATH ?? "ffprobe";
 // de velocidad por escena; no acotarlos costaba el video entero.
 const X264_THREADS = ["-threads", String(Math.max(1, Number(process.env.FFMPEG_THREADS ?? 1) || 1))];
 
-// Sumidero de ffmpeg para pasadas de solo-analisis. En Alpine es /dev/null; en
-// Windows es NUL, y pasarle el equivocado hace fallar la deteccion en silencio.
-const NULL_SINK = process.platform === "win32" ? "NUL" : "/dev/null";
-
-// Cola muda: cuanto silencio final hace falta para recortar, y cuanto se DEJA
-// igual (el CTA de "Parte 2" está quemado ahi — cortar al ras lo borraria).
-const SILENCE_DB = -45;
+// Cola sin dialogo: cuantos segundos mudos al final hacen falta para recortar, y
+// cuantos se DEJAN igual (el CTA de "Parte 2" está quemado ahi — cortar al ras
+// lo borraria).
 const TAIL_MIN = Math.max(1, Number(process.env.TAIL_SILENCE_MIN ?? 2.5) || 2.5);
 const TAIL_KEEP = Math.max(0.5, Number(process.env.TAIL_SILENCE_KEEP ?? 2) || 2);
 // Objetivo de sonoridad. Las plataformas normalizan alrededor de -14/-16 LUFS;
@@ -70,8 +66,19 @@ export interface FfScene {
 
 // ── CapCut-style burned subtitles via an ASS file ────────────────────────────
 // Caption chunking: keep lines SHORT so they never overflow the 1080px frame.
-const MAX_CHARS_PER_LINE = 18;   // hard cap — at 88px Arial Black this fits with margin
-const MAX_WORDS_PER_CHUNK = 3;
+const MAX_CHARS_PER_LINE = 28;   // ahora libass parte solo (WrapStyle 0): entran dos renglones
+const MAX_WORDS_PER_CHUNK = 5;
+
+// Palabras con las que un subtitulo NO puede terminar. Medido sobre un video
+// real: con el limite anterior de 3 palabras salian "ESA RISA, LA", "LOS QUERIA
+// A", "CONOZCO DE TODA" — cortes a mitad de sintagma que obligan a leer dos
+// carteles para entender uno. El espectador no relee: se va.
+const COLGANTES = new Set(
+  ("a ante bajo con contra de del desde durante en entre hacia hasta mediante para por segun sin sobre tras " +
+   "el la los las lo un una unos unas al " +
+   "mi mis tu tus su sus nuestro nuestra nuestros nuestras " +
+   "y e o u ni que qui quien como cuando donde porque si no se me te le les nos os muy mas tan").split(" "),
+);
 const MAX_CHUNK_SECONDS = 1.6;   // never hold one caption longer than this (keeps sync tight)
 
 // Niche-flavoured highlight color (ASS uses &HBBGGRR — reversed from hex RGB).
@@ -157,7 +164,11 @@ function buildAssContent(
 ): string {
   const hi = NICHE_COLOR[(opts?.niche ?? "").toLowerCase()] ?? NICHE_COLOR.default;
   const header =
-    "[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 2\n\n" +
+    // WrapStyle 0, NO 2. Con 2 libass no parte las lineas nunca — solo respeta un
+    // \N explicito — asi que el estilo CTA se salia del cuadro por los dos lados y
+    // se leia "RTE 2 SI QUIERES SABER QUE H...". El comentario de los margenes de
+    // abajo decia "wraps instead" y era falso: la cabecera lo impedia.
+    "[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 0\n\n" +
     "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV\n" +
     // Cap: heavy Arial Black, thick outline + drop shadow, wide side margins so a
     // long line NEVER runs off the 1080px frame (it wraps instead).
@@ -165,7 +176,10 @@ function buildAssContent(
     // Pop: same but in the niche's highlight color — used for the punch word.
     `Style: Pop,${SUBTITLE_FONT},90,${hi},&H00000000,&H00000000,-1,0,1,8,4,2,110,110,400\n` +
     "Style: Mark,Arial,38,&H60FFFFFF,&H60000000,&H00000000,-1,0,1,2,0,8,40,40,60\n" +
-    `Style: CTA,Arial Black,74,${hi},&H00000000,&H00000000,-1,0,1,7,3,5,90,90,0\n\n` +
+    // 74px no entraba: un CTA de hasta 60 caracteres a ese cuerpo mide bastante
+    // mas que los 900px utiles. Con WrapStyle 0 ya parte solo, pero bajarlo a 58
+    // evita que un cierre largo se coma media pantalla en tres renglones.
+    `Style: CTA,Arial Black,58,${hi},&H00000000,&H00000000,-1,0,1,7,3,5,80,80,0\n\n` +
     "[Events]\nFormat: Layer, Start, End, Style, MarginL, MarginR, Effect, Text\n";
 
   const lines: string[] = [];
@@ -193,13 +207,15 @@ function buildAssContent(
     const gapToNext = next ? next.start - w.end : 0;
     const spanTooLong = w.end - cur[0]!.start >= MAX_CHUNK_SECONDS;
     const endsSentence = /[.!?…]$/.test(raw);
-    if (
-      text.length >= MAX_CHARS_PER_LINE ||
-      cur.length >= MAX_WORDS_PER_CHUNK ||
-      spanTooLong ||
-      endsSentence ||
-      gapToNext > 0.45          // a real pause in the delivery → cut the caption here
-    ) flush();
+    // Puntuacion y pausa mandan siempre: son limites reales del habla.
+    const corteDuro = endsSentence || gapToNext > 0.45 || spanTooLong;
+    // Los limites de tamaño, en cambio, son estéticos — y no valen un corte a
+    // mitad de sintagma. Si la ultima palabra es un articulo o una preposicion,
+    // se estira hasta la que la completa.
+    const limite = text.length >= MAX_CHARS_PER_LINE || cur.length >= MAX_WORDS_PER_CHUNK;
+    const quedaColgando =
+      next && COLGANTES.has(raw.toLowerCase().replace(/[^\p{L}]/gu, "")) && text.length < MAX_CHARS_PER_LINE + 12;
+    if (corteDuro || (limite && !quedaColgando)) flush();
   }
   flush();
 
@@ -591,20 +607,22 @@ export async function assembleWithFfmpeg(params: {
     // quemado ahí y recortar al ras lo borraría.
     try {
       const totalDur = await probeDuration(finalOut);
-      const { stderr: sdErr } = await exec(
-        FFMPEG,
-        ["-i", finalOut, "-af", `silencedetect=n=${SILENCE_DB}dB:d=${TAIL_MIN.toFixed(2)}`, "-f", "null", NULL_SINK],
-        { maxBuffer: 1 << 26 },
-      ).catch((e: { stderr?: string }) => ({ stderr: e?.stderr ?? "" }));
 
-      // El ultimo silencio SIN cierre es el que llega hasta el final del video.
+      // Fin del DIALOGO, no del silencio: la ultima palabra transcrita de la
+      // ultima escena que tenga texto, llevada a tiempo absoluto con boundaries.
+      // Whisper ya devolvio estos tiempos al recolectar cada clip, asi que el dato
+      // esta y no cuesta nada — solo no llegaba hasta aca.
+      let finDialogo = 0;
+      for (let s = params.scenes.length - 1; s >= 0; s--) {
+        const t = params.scenes[s]?.wordTimings;
+        if (!t?.length) continue;
+        const ultima = t.reduce((mx: number, w) => (Number.isFinite(w.end) && w.end > mx ? w.end : mx), 0);
+        if (ultima > 0) { finDialogo = (boundaries[s] ?? 0) + ultima; break; }
+      }
+
       let cutAt = 0;
-      const starts = [...String(sdErr ?? "").matchAll(/silence_start:\s*([0-9.]+)/g)].map((m) => Number(m[1]));
-      const ends = [...String(sdErr ?? "").matchAll(/silence_end:\s*([0-9.]+)/g)].map((m) => Number(m[1]));
-      const lastStart = starts.length ? starts[starts.length - 1]! : null;
-      if (lastStart !== null && (ends.length < starts.length) && totalDur > 0) {
-        const colaMuda = totalDur - lastStart;
-        if (colaMuda > TAIL_MIN) cutAt = Math.min(totalDur, lastStart + TAIL_KEEP);
+      if (finDialogo > 0 && totalDur > 0 && totalDur - finDialogo > TAIL_MIN) {
+        cutAt = Math.min(totalDur, finDialogo + TAIL_KEEP);
       }
 
       const necesitaCorte = cutAt > 0 && totalDur - cutAt > 0.4;
@@ -620,7 +638,9 @@ export async function assembleWithFfmpeg(params: {
       await exec(FFMPEG, args, { maxBuffer: 1 << 26 });
       finalOut = recortado;
       console.log(
-        `[cola] ${necesitaCorte ? `recortados ${(totalDur - cutAt).toFixed(1)}s de silencio final (${totalDur.toFixed(1)}s → ${cutAt.toFixed(1)}s)` : "sin cola muda"}` +
+        `[cola] ${necesitaCorte
+          ? `recortados ${(totalDur - cutAt).toFixed(1)}s sin diálogo (${totalDur.toFixed(1)}s → ${cutAt.toFixed(1)}s, última palabra en ${finDialogo.toFixed(1)}s)`
+          : `sin cola muerta (diálogo hasta ${finDialogo.toFixed(1)}s de ${totalDur.toFixed(1)}s)`}` +
         ` · volumen normalizado a ${LOUDNORM_LUFS} LUFS`,
       );
     } catch (e) {
