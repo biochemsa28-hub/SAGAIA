@@ -44,6 +44,24 @@ const NICHE_SIGNATURE: Record<string, string> = {
     "documentary cinematography, period-accurate detail, soft natural window light, muted earthy tones, gentle sepia warmth, textured authentic atmosphere, historical film still",
   drama:
     "devastating emotional drama, raw grief visible on the face, glassy welling eyes, trembling restraint, cold grey overcast light through a window, desaturated muted palette with one dying warm accent, small lonely figure in a large empty frame, heavy negative space, intimate expressive close-up, shallow depth of field, quiet unbearable stillness, restrained film grain, award-winning festival-film aesthetic",
+  // Estos nichos no tenían firma visual y caían al genérico, así que salían con la
+  // misma cara que cualquier otro video: iluminación "cinematográfica" y nada más.
+  // La firma por nicho es lo que hace que un chisme se vea como un chisme antes de
+  // que se diga una palabra.
+  thriller:
+    "relentless thriller cinematography, urgent handheld energy, cold blue-steel palette with one hot practical light, hard directional shadows, something approaching just out of frame, tight claustrophobic framing on hands and eyes, shallow depth of field, restless composition, 35mm film, high-contrast contemporary thriller still",
+  chisme:
+    "candid intimate realism, everyday domestic setting with real lived-in clutter, warm practical lamplight and kitchen fluorescents, phone-video immediacy but beautifully composed, faces close to camera as if confiding, slight overexposure near the window, natural skin texture, contemporary and relatable, documentary-style still",
+  confesion:
+    "unflinching intimate portrait, one soft source from a single direction, deep quiet shadow filling the rest of the frame, very shallow depth of field, the face large and centred, no set dressing competing for attention, muted desaturated palette, honest unretouched skin, stillness, festival-film confessional still",
+  comedia:
+    "bright warm comedic cinematography, even flattering light, saturated cheerful palette, wide framing that keeps the absurdity visible in the background, crisp focus throughout, expressive faces caught mid-reaction, contemporary sitcom-film look",
+  comedy:
+    "bright warm comedic cinematography, even flattering light, saturated cheerful palette, wide framing that keeps the absurdity visible in the background, crisp focus throughout, expressive faces caught mid-reaction, contemporary sitcom-film look",
+  documental:
+    "observational documentary cinematography, available natural light, neutral honest color, slightly imperfect handheld framing, real textures and real locations, subject aware of the camera, restrained and credible, photojournalistic still",
+  documentary:
+    "observational documentary cinematography, available natural light, neutral honest color, slightly imperfect handheld framing, real textures and real locations, subject aware of the camera, restrained and credible, photojournalistic still",
   default:
     "cinematic lighting, balanced dramatic composition, professional color grading, shallow depth of field, atmospheric mood, film still",
 };

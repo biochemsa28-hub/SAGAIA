@@ -21,6 +21,15 @@ const NICHE_MUSIC_MOOD: Record<string, string> = {
   fantasy:       "magical orchestral fantasy score, wonder, sweeping strings, ethereal, instrumental",
   drama:         "emotional dramatic cinematic score, deep piano, melancholic strings, instrumental",
   historia:      "epic grand cinematic score, orchestral, documentary feel, instrumental",
+  // Faltaban y caían al genérico: un chisme con banda de thriller o una confesión
+  // con música épica desmienten el tono en el primer segundo, que es justo donde
+  // se decide si alguien sigue mirando.
+  chisme:        "light playful gossip underscore, plucked strings, soft percussion, curious and complicit, low intensity, instrumental",
+  confesion:     "sparse intimate piano, single sustained notes, long silences, fragile and restrained, very quiet, instrumental",
+  comedia:       "light comedic underscore, bouncy pizzicato strings, playful woodwinds, warm, instrumental",
+  comedy:        "light comedic underscore, bouncy pizzicato strings, playful woodwinds, warm, instrumental",
+  documental:    "restrained documentary underscore, steady pulse, understated strings, authoritative, instrumental",
+  documentary:   "restrained documentary underscore, steady pulse, understated strings, authoritative, instrumental",
   publicidad:    "upbeat modern commercial background, clean, energetic, positive, light percussion, instrumental",
   default:       "subtle cinematic background score, emotional, instrumental, modern",
 };

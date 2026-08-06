@@ -102,6 +102,18 @@ const NICHE_COLOR: Record<string, string> = {
   inspirational: "&H0080FF80",
   drama: "&H0000E5FF",
   publicidad: "&H0000E5FF",
+  // Los nichos que se agregaron después caían al amarillo genérico, así que un
+  // chisme y un video de terror se veían iguales. El color del subtítulo es la
+  // primera señal de tono que recibe el espectador, antes de leer una palabra.
+  chisme: "&H00FF8AE0",       // magenta — cómplice, de cotilleo
+  confesion: "&H00E0E0E0",    // gris casi blanco — sobrio, sin adorno
+  comedia: "&H0000D7FF",      // ámbar vivo
+  comedy: "&H0000D7FF",
+  documental: "&H00FFFFFF",   // blanco puro — autoridad, tipo informativo
+  documentary: "&H00FFFFFF",
+  fantasia: "&H00FFC080",     // lavanda
+  fantasy: "&H00FFC080",
+  historia: "&H0060C0FF",     // sepia dorado
   default: "&H0000E5FF",
 };
 
