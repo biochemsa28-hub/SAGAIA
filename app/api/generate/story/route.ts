@@ -207,12 +207,41 @@ export async function POST(req: NextRequest) {
         console.warn(
           `[duracion] el guion da ~${segundos}s hablados de los ${pedidos}s pedidos (${pct}%) — el video va a salir corto`,
         );
-      } else if (segundos > pedidos * 1.25) {
-        // Pasarse no es inofensivo: los bloques que no entran se descartan y la
-        // historia termina cortada. Lo que sobra tendría que ser la Parte 2.
+      } else if (segundos > pedidos * 1.15) {
+        // ── SE REESCRIBE, NO SE AVISA ──────────────────────────────────────────
+        // Avisar no alcanzaba: medido, el guion pedía 10 bloques para 60 segundos
+        // elegidos y el sistema descartaba 4 — la historia terminaba cortada y el
+        // video salía de 93s cuando se habían pedido 60.
+        //
+        // Regenerar el guion cuesta centavos; descubrirlo después cuesta los clips
+        // y las imágenes de un video entero. Se reintenta UNA vez, con el número
+        // medido en la instrucción: un modelo corrige mucho mejor con "te pasaste
+        // 32 segundos" que con "sé breve".
         console.warn(
-          `[duracion] el guion da ~${segundos}s hablados y se pidieron ${pedidos}s (${pct}%) — va a sobrar y la historia se va a cortar. Debería cerrar dentro de la duración elegida y dejar el resto para la Parte 2.`,
+          `[duracion] el guion da ~${segundos}s y se pidieron ${pedidos}s (${pct}%) — regenerando una vez con la corrección`,
         );
+        const objetivo = Math.round(pedidos * 14);
+        const correccion =
+          `\n[CORRECCIÓN DE DURACIÓN] El guion anterior sumaba ~${segundos} segundos hablados y se pidieron ${pedidos}. ` +
+          `Te pasaste ${segundos - pedidos} segundos. Reescribilo COMPLETO para que el total de todos los narration_text ` +
+          `no supere ~${objetivo} caracteres. NO comprimas la historia entera ni la cuentes a las apuradas: ` +
+          `contá MENOS historia. Cerrá el primer tramo en el punto de máxima tensión y dejá el resto para la Parte 2.`;
+        const reintento = await storyGeneratorService.generate({
+          ...parsed.data,
+          additional_instructions: (instrucciones + correccion).slice(0, 3000),
+          animation_tier: animationTier,
+        });
+        const nuevos = reintento.success && reintento.data?.scenes?.length
+          ? Math.round(reintento.data.scenes.reduce((n, s) => n + (s.narration_text ?? "").trim().length, 0) / 14)
+          : 0;
+        // Solo se acepta si de verdad mejora: un reintento peor que el original
+        // sería cambiar un problema por otro más caro.
+        if (nuevos > 0 && Math.abs(nuevos - pedidos) < Math.abs(segundos - pedidos)) {
+          console.log(`[duracion] reintento aceptado: ~${nuevos}s de ${pedidos}s pedidos`);
+          result.data = reintento.data;
+        } else {
+          console.warn(`[duracion] el reintento no mejoró (~${nuevos}s) — se conserva el original`);
+        }
       } else {
         console.log(`[duracion] ~${segundos}s hablados de ${pedidos}s pedidos (${pct}%)`);
       }
@@ -220,7 +249,8 @@ export async function POST(req: NextRequest) {
       // Un parlamento más largo que un clip NO se puede animar entero: el video se
       // congela mientras el personaje sigue hablando. Se detecta acá, antes de
       // gastar, y se nombra la escena — que es lo único accionable.
-      const largas = result.data.scenes
+      // Se relee de result.data porque el reintento de duración pudo reemplazarlo.
+      const largas = (result.data?.scenes ?? [])
         .filter((s) => (s.narration_text ?? "").trim().length > 200)
         .map((s) => `${s.scene_number} (${(s.narration_text ?? "").trim().length} car.)`);
       if (largas.length) {

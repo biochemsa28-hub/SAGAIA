@@ -551,6 +551,13 @@ export async function POST(req: NextRequest) {
             : null;
           if (transcript) {
             console.log(`[nativo] escena ${r.scene_number}: "${transcript.text.slice(0, 70)}" (${transcript.words.length} palabras)`);
+          } else if (!NATIVE_AUDIO_ON) {
+            // Sin audio nativo no hay clip que transcribir, y los tiempos de
+            // palabra tienen que venir de la voz de ElevenLabs. Decirlo evita
+            // buscar el problema en Whisper cuando Whisper ni se llamó.
+            console.warn(`[nativo] escena ${r.scene_number}: NATIVE_AUDIO apagado — no se transcribe, los subtítulos dependen de la voz`);
+          } else {
+            console.warn(`[nativo] escena ${r.scene_number}: SIN transcripción — los subtítulos van a repartirse desde el guion (ver [transcribe] arriba)`);
           }
 
           await upsertAsset({

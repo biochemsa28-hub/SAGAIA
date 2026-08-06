@@ -131,7 +131,10 @@ export interface Transcribed {
 // Returns null on any failure — a video without captions still ships.
 export async function transcribeClip(clipUrl: string, language = "es"): Promise<Transcribed | null> {
   const apiKey = process.env.FAL_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.warn("[transcribe] sin FAL_API_KEY — no hay subtítulos medidos");
+    return null;
+  }
   try {
     fal.config({ credentials: apiKey });
     const model = process.env.TRANSCRIBE_MODEL ?? "fal-ai/whisper";
@@ -150,10 +153,27 @@ export async function transcribeClip(clipUrl: string, language = "es"): Promise<
       }))
       .filter((w) => w.word.length > 0);
     const text = String(d?.["text"] ?? "").trim();
-    if (!text && !words.length) return null;
+    // EL CAMINO SILENCIOSO. Esta rama devolvía null sin decir una palabra, y por
+    // eso "Whisper no transcribe nada" fue invisible durante toda una jornada: el
+    // que llama solo registra `[nativo]` cuando HAY transcripción, así que un
+    // fallo aquí no deja ningún rastro en ningún log. Un fallo que no se ve es el
+    // más caro de todos — el video se termina igual, con los subtítulos estirados.
+    if (!text && !words.length) {
+      console.warn(
+        "[transcribe] respuesta SIN texto ni palabras. Claves recibidas: " +
+        Object.keys(d ?? {}).join(", ") +
+        " — si no aparecen 'text' ni 'chunks', el modelo o su formato de salida cambió",
+      );
+      return null;
+    }
+    // Con texto pero sin palabras hay subtítulos, pero sin sincronía: conviene
+    // saberlo, porque el síntoma en pantalla es idéntico al fallo total.
+    if (text && !words.length) {
+      console.warn(`[transcribe] hay texto pero NO tiempos por palabra (chunk_level) — subtítulos sin sincronía fina`);
+    }
     return { text, words };
   } catch (e) {
-    console.error("[transcribe]", e instanceof Error ? e.message.slice(0, 160) : e);
+    console.error("[transcribe] falló:", e instanceof Error ? e.message.slice(0, 200) : e);
     return null;
   }
 }
