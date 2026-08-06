@@ -138,7 +138,11 @@ async function callFlux(prompt: string, style: StyleConfig, seed?: number): Prom
     const msg = e instanceof Error ? e.message : String(e);
     const body = (e as Record<string, unknown>)?.["body"];
     const status = (e as Record<string, unknown>)?.["status"];
-    console.error("[fal.ai callFlux error]", { status, msg, body: JSON.stringify(body).slice(0, 300) });
+    // JSON.stringify(undefined) returns undefined, so this line used to throw
+    // INSIDE the catch and replaced the real fal error with "cannot read slice
+    // of undefined" — an error handler that crashes destroys the only evidence
+    // you had, and the log then blames fal for our own null.
+    console.error("[fal.ai callFlux error]", { status, msg, body: String(JSON.stringify(body) ?? "").slice(0, 300) });
     return null;
   }
 }
@@ -318,7 +322,12 @@ export async function generateSceneImage(params: {
 // The AI always opens image_prompt with "[Character name, physical traits], [palette X, Y, Z]"
 // — we grab the first ~120 chars and prepend them to scenes 2+ so Flux sees the same
 // character reference on every generation.
-function extractCharacterAnchor(firstPrompt: string): string {
+// Tolerates a missing prompt: a scene whose image_prompt came back empty used to
+// crash EVERY image in the batch with "cannot read slice of undefined". The
+// anchor is read from the FIRST scene of the batch, so one bad scene took down
+// all fourteen — and the log blamed fal for our own null.
+function extractCharacterAnchor(firstPrompt: string | null | undefined): string {
+  if (!firstPrompt) return "";
   // Grab up to 120 chars, stopping at a sentence boundary if possible
   const snippet = firstPrompt.slice(0, 140);
   const stopAt = Math.max(
