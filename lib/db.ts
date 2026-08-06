@@ -165,6 +165,9 @@ export async function initDb(): Promise<void> {
   // NUEVA fallaban con "no such table", tirando abajo initDb entero — y con eso
   // toda escritura de la app devolvía 500. En local nunca se vio porque las tablas
   // ya existían de antes.
+  // El ruido propio de cada escena (una puerta, un vidrio, pasos). Lo escribe el
+  // guion y lo mezcla el ensamblador en el segundo exacto de esa escena.
+  await runMigration(db, "ALTER TABLE scenes ADD COLUMN sfx_prompt TEXT");
   await runMigration(db, "ALTER TABLE project_cast ADD COLUMN bible_url TEXT");
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT");
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN stage TEXT");

@@ -499,6 +499,10 @@ export async function assembleWithFfmpeg(params: {
   niche?: string;             // drives the caption highlight color
   sfxWhooshUrl?: string | null;  // transition whoosh on every cut
   sfxImpactUrl?: string | null;  // impact hit on the opening hook
+  // El ruido propio de cada escena (puerta, vidrio, pasos), posicionado por índice
+  // dentro de `scenes` — no por scene_number, porque los bloques absorben escenas y
+  // los números dejan de ser correlativos con la línea de tiempo.
+  sceneSfx?: Array<{ sceneIndex: number; url: string }>;
 }): Promise<{ url: string; provider: "ffmpeg" }> {
   const dir = join(tmpdir(), `vynavo_${randomUUID()}`);
   mkdirSync(dir, { recursive: true });
@@ -565,6 +569,27 @@ export async function assembleWithFfmpeg(params: {
           filters.push(`[w${k}]adelay=${ms}|${ms},volume=0.38[wd${k}]`);
           mixLabels.push(`[wd${k}]`);
         });
+      }
+
+      // ── SONIDO DE CADA ESCENA ──────────────────────────────────────────────
+      // Suena DENTRO de la escena, no en el corte: la puerta se abre medio segundo
+      // después de que empieza el plano, no exactamente al entrar. Ese pequeño
+      // retraso es lo que lo hace sonar parte de la escena y no un efecto pegado.
+      //
+      // Volumen por debajo del whoosh: compite con el diálogo nativo, y una puerta
+      // que tapa una línea cuesta más de lo que aporta.
+      for (const s of params.sceneSfx ?? []) {
+        const i = params.scenes.findIndex((_, k) => k === s.sceneIndex);
+        if (i < 0 || !s.url) continue;
+        try {
+          const f = join(dir, `sfx_${i}.mp3`);
+          await download(s.url, f);
+          inputs.push("-i", f);
+          const ms = Math.max(0, Math.round(((boundaries[i] ?? 0) + 0.45) * 1000));
+          filters.push(`[${idx}:a]adelay=${ms}|${ms},volume=0.32[sx${i}]`);
+          mixLabels.push(`[sx${i}]`);
+          idx++;
+        } catch { /* un efecto que no baja no vale el render entero */ }
       }
 
       // Impact on the opening beat — the "stop scrolling" punch.

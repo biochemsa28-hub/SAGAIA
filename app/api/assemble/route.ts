@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveRequestUserId } from "@/lib/internal-auth";
 import { getProjectDetail, updateProjectStatus, upsertAsset, getUserById } from "@/lib/db/repository";
 import { submitAssembly, checkAssembly } from "@/services/shotstack/assembler";
-import { generateStorySfx } from "@/services/elevenlabs/sfx-generator";
+import { generateStorySfx, generateSceneSfx } from "@/services/elevenlabs/sfx-generator";
 import { generateStoryMusic } from "@/services/elevenlabs/music-generator";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -278,12 +278,28 @@ export async function POST(req: NextRequest) {
     // disabled. Cached per process; never blocks the render if it fails.
     let sfxWhooshUrl: string | null = null;
     let sfxImpactUrl: string | null = null;
+    // El ruido propio de cada escena, indexado por POSICIÓN en la línea de tiempo:
+    // los bloques absorben escenas, así que scene_number ya no es correlativo con el
+    // orden en que se ven, y usarlo como índice pondría la puerta en otra escena.
+    let sceneSfx: Array<{ sceneIndex: number; url: string }> = [];
     if ((process.env.AUTO_SFX ?? "on").toLowerCase() !== "off") {
       try {
         const sfx = await generateStorySfx(detail.project.niche);
         sfxWhooshUrl = sfx.whoosh;
         sfxImpactUrl = sfx.impact;
       } catch { /* render continues without SFX */ }
+
+      try {
+        const porNumero = new Map(
+          (detail.scenes ?? []).map((sc) => [sc.scene_number, (sc as { sfx_prompt?: string | null }).sfx_prompt]),
+        );
+        const pedidos = timeline.map((s, i) => ({
+          scene_number: i,                                    // índice de línea de tiempo
+          sfx_prompt: porNumero.get(s.sceneNumber) ?? null,
+        }));
+        const generados = await generateSceneSfx(pedidos);
+        sceneSfx = generados.map((g) => ({ sceneIndex: g.scene_number, url: g.url }));
+      } catch { /* el video se arma igual sin los sonidos de escena */ }
     }
 
     // Auto-generate an ORIGINAL background score (ElevenLabs Music) matching the
@@ -315,6 +331,7 @@ export async function POST(req: NextRequest) {
         niche: detail.project.niche,
         sfxWhooshUrl,
         sfxImpactUrl,
+        sceneSfx,
       });
       await upsertAsset({
         projectId: parsed.data.project_id,

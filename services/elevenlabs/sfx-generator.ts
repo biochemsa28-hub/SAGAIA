@@ -56,6 +56,49 @@ async function generate(key: string, prompt: string, durationSeconds: number): P
   }
 }
 
+// ── SONIDO DIEGÉTICO POR ESCENA ──────────────────────────────────────────────
+// El whoosh y el impacto son sonidos de EDICIÓN: marcan un corte, no cuentan nada.
+// Lo que hace saltar al espectador es el ruido que pasa DENTRO de la escena — la
+// puerta que se abre, el vidrio que cae, los pasos que se acercan. La música
+// sostiene el tono de toda la historia; esto marca un instante, y ningún colchón
+// musical produce ese reflejo.
+//
+// El guion ya dice cuál es (campo sfx_prompt por escena). Acá solo se generan.
+//
+// La caché es por TEXTO, no por escena: dos escenas que piden la misma puerta
+// comparten el archivo y se paga una sola vez. Con historias del mismo nicho eso
+// se acumula rápido entre videos, porque la caché vive con el proceso.
+export interface SceneSfx { scene_number: number; url: string }
+
+export async function generateSceneSfx(
+  escenas: Array<{ scene_number: number; sfx_prompt?: string | null }>,
+): Promise<SceneSfx[]> {
+  const pedidos = escenas
+    .map((e) => ({ n: e.scene_number, p: (e.sfx_prompt ?? "").trim() }))
+    .filter((e) => e.p.length >= 3);
+  if (!pedidos.length) return [];
+
+  // Tope de gasto: un guion que devolviera un sfx por escena en 14 escenas son 14
+  // llamadas por video. Se priorizan las primeras — son las que deciden si alguien
+  // se queda mirando.
+  const TOPE = Math.max(1, Number(process.env.MAX_SCENE_SFX ?? 8) || 8);
+  const recortados = pedidos.slice(0, TOPE);
+  if (recortados.length < pedidos.length) {
+    console.log(`[sfx] ${pedidos.length} sonidos pedidos, se generan ${recortados.length} (tope MAX_SCENE_SFX)`);
+  }
+
+  const out = await Promise.all(
+    recortados.map(async (e) => {
+      const clave = "esc_" + e.p.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 48);
+      const url = await generate(clave, e.p, 3);
+      return url ? { scene_number: e.n, url } : null;
+    }),
+  );
+  const listos = out.filter((x): x is SceneSfx => x !== null);
+  console.log(`[sfx] ${listos.length}/${recortados.length} sonidos de escena generados`);
+  return listos;
+}
+
 // Public: returns { whoosh, impact } public URLs (or nulls). Never throws — a null
 // just means the assembler renders without that effect.
 export async function generateStorySfx(niche: string): Promise<{ whoosh: string | null; impact: string | null }> {

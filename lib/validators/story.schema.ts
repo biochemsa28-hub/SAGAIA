@@ -54,6 +54,15 @@ export const SceneSchema = z.object({
   // The speaking character's voice archetype (from the cast). Drives the per-scene
   // ElevenLabs voice so each character sounds distinct.
   voice_profile: z.string().max(30).optional(),
+  // EL SONIDO DE ESTA ESCENA — el ruido concreto que ocurre en ella (una puerta que
+  // se abre, un vaso que se rompe, pasos que se acercan). En INGLÉS porque el
+  // generador de audio está entrenado así. Opcional: una escena sin sonido propio
+  // simplemente no lo lleva, y el video se arma igual.
+  //
+  // Esto es distinto de la música: la música sostiene el tono de TODA la historia,
+  // el sfx marca UN instante. El golpe seco es lo que hace saltar al espectador —
+  // la música sola nunca produce ese reflejo.
+  sfx_prompt: z.string().max(120).optional(),
   duration_seconds: z.number().int().min(2).max(120),
   image_prompt: z
     .string()

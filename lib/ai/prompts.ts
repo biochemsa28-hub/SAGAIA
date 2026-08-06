@@ -497,6 +497,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
         ? `"1-6 palabras en inglés, ej: 'slow push in' (no se usa en este modo, sé mínimo)"`
         : `"EN INGLÉS, 20-30 palabras: movimiento de cámara técnico + qué hace el personaje con el entorno + un detalle vivo (cabello, respiración, luz que parpadea). Ritmo según la emoción."`},
       "emotion": "emoción primaria de esta escena (una palabra)",
+      "sfx_prompt": "EN INGLÉS, 3-8 palabras: EL sonido concreto que ocurre en esta escena — el que el espectador escucharía si estuviera ahí. Ej: 'heavy wooden door creaking open slowly', 'glass shattering on tile floor', 'footsteps approaching on gravel', 'phone buzzing on a table', 'car engine starting outside'. UNO solo, el más importante. NADA de música ni de ambiente vago ('tense atmosphere' está PROHIBIDO — para eso ya está la banda sonora). Si en esta escena no pasa ningún sonido concreto, dejalo en \"\".",
       "camera_move": "movimiento específico (ej: slow push in, dolly left, static wide, tilt up, handheld)"
     }
   ],
