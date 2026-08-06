@@ -193,6 +193,24 @@ export async function GET(req: Request) {
     const v = process.env[k];
     if (v && !regla.test(v)) secret_content[k] = regla.dice;
   }
+  // UNA CLAVE MAL FORMADA NO ES UNA CLAVE PRESENTE.
+  //
+  // checks.* solo miraba si la variable EXISTE, así que ELEVENLABS_API_KEY
+  // aparecía en true mientras secret_content la marcaba como inválida y todas las
+  // producciones salían sin música ni efectos. Un diagnóstico que dice "ok" sobre
+  // algo roto es peor que no tener diagnóstico: manda a buscar el problema a otro
+  // lado. Si el contenido o el formato están mal, el check se cae con ellos.
+  const VAR_DE_CHECK: Record<string, string> = {
+    ELEVENLABS_API_KEY: "elevenlabs", FAL_API_KEY: "fal", OPENAI_API_KEY: "openai",
+    ANTHROPIC_API_KEY: "anthropic", STRIPE_SECRET_KEY: "stripe",
+    TURSO_DATABASE_URL: "database", NEXTAUTH_SECRET: "nextauth",
+    INTERNAL_JOB_SECRET: "internal_secret",
+  };
+  for (const variable of [...Object.keys(secret_content), ...Object.keys(secret_format)]) {
+    const check = VAR_DE_CHECK[variable];
+    if (check && check in checks) (checks as Record<string, unknown>)[check] = false;
+  }
+
   const missing = Object.entries(checks)
     .filter(([k, v]) => typeof v === "boolean" && !v)
     .map(([k]) => k);
