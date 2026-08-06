@@ -27,6 +27,12 @@ const OVERSAMPLE = Math.max(1, Math.min(2, Number(process.env.KENBURNS_OVERSAMPL
 const OVERSAMPLE_W = Math.round(1080 * OVERSAMPLE / 2) * 2;
 const OVERSAMPLE_H = Math.round(1920 * OVERSAMPLE / 2) * 2;
 
+// "Arial Black" does not exist on Linux: libass finds no family, falls back to
+// nothing, and the whole filter chain fails. Liberation Sans Narrow Bold is the
+// metric-compatible substitute shipped by ttf-liberation, which the Dockerfile
+// now installs. Override with SUBTITLE_FONT if a nicer face is available.
+const SUBTITLE_FONT = process.env.SUBTITLE_FONT ?? "Liberation Sans Narrow";
+
 const ATMOSPHERE_ON = (process.env.ATMOSPHERE ?? "on").toLowerCase() !== "off";
 
 export interface FfScene {
@@ -134,9 +140,9 @@ function buildAssContent(
     "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV\n" +
     // Cap: heavy Arial Black, thick outline + drop shadow, wide side margins so a
     // long line NEVER runs off the 1080px frame (it wraps instead).
-    `Style: Cap,Arial Black,86,&H00FFFFFF,&H00000000,&H00000000,-1,0,1,8,4,2,110,110,400\n` +
+    `Style: Cap,${SUBTITLE_FONT},86,&H00FFFFFF,&H00000000,&H00000000,-1,0,1,8,4,2,110,110,400\n` +
     // Pop: same but in the niche's highlight color — used for the punch word.
-    `Style: Pop,Arial Black,90,${hi},&H00000000,&H00000000,-1,0,1,8,4,2,110,110,400\n` +
+    `Style: Pop,${SUBTITLE_FONT},90,${hi},&H00000000,&H00000000,-1,0,1,8,4,2,110,110,400\n` +
     "Style: Mark,Arial,38,&H60FFFFFF,&H60000000,&H00000000,-1,0,1,2,0,8,40,40,60\n" +
     `Style: CTA,Arial Black,74,${hi},&H00000000,&H00000000,-1,0,1,7,3,5,90,90,0\n\n` +
     "[Events]\nFormat: Layer, Start, End, Style, MarginL, MarginR, Effect, Text\n";

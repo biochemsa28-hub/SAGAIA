@@ -26,7 +26,11 @@ ENV STORAGE_PATH=/app/storage
 # and the storyboard slicer both shell out to them. Without this the container
 # builds fine, starts fine, and then every video fails at the last step — the
 # worst possible failure mode, because the money is already spent by then.
-RUN apk add --no-cache ffmpeg
+# ffmpeg AND fonts. Alpine ships with no fonts at all, so burning the subtitles
+# failed on every scene with "Failed to load fontconfig fonts" — the render died
+# at the last step, after the images and the clips were already paid for.
+# fontconfig alone is not enough: it needs an actual font family to resolve to.
+RUN apk add --no-cache ffmpeg fontconfig font-dejavu ttf-liberation && fc-cache -f
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs \
