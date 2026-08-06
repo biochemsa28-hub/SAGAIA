@@ -193,6 +193,20 @@ export async function POST(req: NextRequest) {
         }
         console.log(`[blocks] ${detail.scenes.length} escenas → ${blocks.length} bloques (${blocks.reduce((n, b) => n + b.scenes.length, 0)} escenas cubiertas)`);
 
+        // Un bloque que pide más segundos de los que un clip puede durar termina
+        // SIEMPRE en cuadro congelado o en bucle: no hay arreglo en el montaje,
+        // porque el video que falta nunca se generó. Solo puede pasar cuando una
+        // escena sola ya excede el máximo, y eso es un problema del guion — así que
+        // se nombra la escena, que es lo accionable.
+        const desbordados = blocks.filter((b) => b.overflow);
+        if (desbordados.length) {
+          console.warn(
+            `[blocks] ${desbordados.length} bloque(s) con más diálogo del que entra en un clip de ${BLOCK_TARGET_SECONDS}s: ` +
+            desbordados.map((b) => `escena ${b.leadScene} (${b.seconds.toFixed(1)}s)`).join(", ") +
+            " — acortá esos parlamentos o repartilos en más escenas",
+          );
+        }
+
         const imgByScene = new Map(
           detail.scenes.map((sc) => [sc.scene_number, imageBySceneId.get(sc.id)?.public_url]),
         );

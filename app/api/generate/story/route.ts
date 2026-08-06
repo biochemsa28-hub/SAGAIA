@@ -210,6 +210,19 @@ export async function POST(req: NextRequest) {
       } else {
         console.log(`[duracion] ~${segundos}s hablados de ${pedidos}s pedidos (${pct}%)`);
       }
+
+      // Un parlamento más largo que un clip NO se puede animar entero: el video se
+      // congela mientras el personaje sigue hablando. Se detecta acá, antes de
+      // gastar, y se nombra la escena — que es lo único accionable.
+      const largas = result.data.scenes
+        .filter((s) => (s.narration_text ?? "").trim().length > 200)
+        .map((s) => `${s.scene_number} (${(s.narration_text ?? "").trim().length} car.)`);
+      if (largas.length) {
+        console.warn(
+          `[duracion] ${largas.length} escena(s) con el parlamento más largo que un clip: ${largas.join(", ")}` +
+          " — se van a congelar o repetir en el montaje. Regenerá el guion.",
+        );
+      }
     }
 
     // ── REPARAR LOS NOMBRES ANTES DE GUARDARLOS ───────────────────────────────

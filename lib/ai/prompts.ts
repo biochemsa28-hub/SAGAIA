@@ -249,6 +249,7 @@ REGLA #7 — VALIDACIÓN FINAL (REESCRIBE SI FALLA ALGUNA)
 ☑ El giro cae a mitad del video, y después del giro todavía pasa algo
 ☑ La última línea hablada está en la escena final — el video no termina en silencio
 ☑ Sumaste los caracteres de TODOS los narration_text y llegan al presupuesto de duración
+☑ NINGÚN narration_text individual pasa de 200 caracteres — si uno se pasa, partilo en dos escenas
 ☑ El giro recontextualiza lo anterior (ganas de re-ver)
 ☑ El cliffhanger provoca "necesito la Parte 2"
 ☑ Se siente REAL: "esto me puede pasar a mí"
@@ -358,6 +359,21 @@ CÓMO alargar sin rellenar — esto es lo que importa:
 
 Cada segundo agregado trae información nueva. Alargar repitiendo es PEOR que
 quedarse corto: el espectador se va.
+
+🚫 TECHO POR ESCENA — 200 CARACTERES, SIN EXCEPCIÓN
+Cada narration_text individual NO puede pasar de 200 caracteres (~14 segundos).
+No es una preferencia de estilo: cada escena se anima como UN clip de video, y un
+clip tiene duración máxima. Si el parlamento dura más que el clip, el video se
+queda CONGELADO en un cuadro fijo mientras el personaje sigue hablando. Medido:
+un parlamento de 19 segundos sobre un clip de 8 dejó ONCE SEGUNDOS de foto quieta
+en el medio del video.
+
+La duración total se consigue con MÁS ESCENAS, nunca con parlamentos más largos.
+¿Necesitás 60 segundos? Son 12 escenas de 5, no 4 de 15.
+
+Si una idea no entra en 200 caracteres, PARTILA en dos escenas: el personaje dice
+la primera mitad, cambia el plano, dice la segunda. Eso además mejora el ritmo —
+un corte a mitad de confesión es más potente que un parlamento largo sostenido.
 ESTILO VISUAL: ${input.visual_style}
 PLATAFORMA: ${input.target_platform ?? "tiktok"}
 ${chosenHook ? `HOOK ELEGIDO POR EL USUARIO (ÚSALO EXACTAMENTE COMO ESTÁ): "${chosenHook}"` : ""}

@@ -33,6 +33,14 @@ export interface NarrativeBlock {
   beats: string[];
   /** The frame the sheet is built from — the lead scene's own image. */
   referenceImageUrl: string;
+  /**
+   * El bloque pide más segundos de los que un clip puede durar. Solo puede pasar
+   * cuando UNA escena sola ya excede el máximo: el planificador cierra los bloques
+   * antes de pasarse, pero no puede partir una escena en dos. Marcarlo es lo único
+   * que convierte "el video se congeló" en "la escena N tiene el parlamento
+   * demasiado largo", que es un problema de guion y se arregla en el guion.
+   */
+  overflow: boolean;
 }
 
 // Spanish speech runs at roughly 14 characters per second. That estimate matters
@@ -40,7 +48,12 @@ export interface NarrativeBlock {
 // that waits for audio_seconds falls back to the script's guessed duration and
 // blocks end up sized for a line that takes twice as long to say. Measured audio
 // still wins when it exists (the sheet-based path still produces it).
-const CHARS_PER_SECOND = 14;
+// 11, no 14. El guion pide pausas dramáticas ("…", "—") y una voz que se quiebra:
+// eso se lee más lento de lo que una cuenta de caracteres sugiere. Con 14 el
+// planificador creía que un bloque duraba 7s, la voz real daba 11, y el clip —que
+// se pidió para 7— dejaba cuatro segundos de cuadro congelado. Estimar de menos
+// no ahorra nada: se paga con un video que se detiene.
+const CHARS_PER_SECOND = Math.max(6, Number(process.env.CHARS_PER_SECOND ?? 11) || 11);
 
 const sceneSeconds = (s: BlockScene) => {
   if (s.audio_seconds && s.audio_seconds > 0) return s.audio_seconds;
@@ -89,6 +102,8 @@ export function planNarrativeBlocks(
       seconds: acc,
       beats: current.map((s) => (s.image_prompt ?? s.narration_text ?? "").slice(0, 220)),
       referenceImageUrl: lead.image_url ?? conImagen?.image_url ?? "",
+      // Con un solo margen de gracia: pedir 7.2s a un clip de 7 no congela nada.
+      overflow: acc > targetSeconds + 0.5,
     });
     current = [];
     acc = 0;
