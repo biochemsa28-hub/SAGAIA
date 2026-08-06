@@ -97,6 +97,27 @@ export async function GET() {
     lipsync_model:          process.env.LIPSYNC_MODEL ?? "default(veed/fabric-1.0)",
   };
 
+
+  // Validate the SHAPE of each secret without ever revealing it. A variable that
+  // merely EXISTS is not enough: pasting a raw .env block into a hosting panel can
+  // store the whole  line as the value, and the trailing quote comes
+  // along too. Those characters are illegal in an HTTP header, so every provider
+  // call died with "invalid header value" while the health check happily reported
+  // the key as present.
+  const suciedad = (v?: string) => {
+    if (!v) return null;
+    if (/^[A-Z0-9_]+=/.test(v)) return 'contiene el NOMBRE de la variable';
+    if (/^["']|["']$/.test(v)) return 'tiene comillas';
+    if (v !== v.trim()) return 'tiene espacios o saltos de linea';
+    if (v.includes(String.fromCharCode(10)) || v.includes(String.fromCharCode(13))) return "tiene saltos de linea";
+    return null;
+  };
+  const secret_format: Record<string, string> = {};
+  for (const k of ['FAL_API_KEY','ANTHROPIC_API_KEY','OPENAI_API_KEY','ELEVENLABS_API_KEY','TURSO_AUTH_TOKEN','TURSO_DATABASE_URL','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','STRIPE_SECRET_KEY','INTERNAL_JOB_SECRET','NEXTAUTH_SECRET']) {
+    const problema = suciedad(process.env[k]);
+    if (problema) secret_format[k] = problema;
+  }
+
   const missing = Object.entries(checks)
     .filter(([k, v]) => typeof v === "boolean" && !v)
     .map(([k]) => k);
@@ -106,6 +127,7 @@ export async function GET() {
     missing,
     checks,
     db_connection,
+    secret_format,
     production,
     pipeline,
   });
