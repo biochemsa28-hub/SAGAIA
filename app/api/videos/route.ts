@@ -7,7 +7,7 @@ import { submitVideoLipsyncJobs, checkVideoLipsyncJob } from "@/services/fal/vid
 import { initDb } from "@/lib/db";
 import { generateShotSheet } from "@/services/fal/shot-grid";
 import { planNarrativeBlocks, blockPanelFramings, type BlockScene } from "@/services/video/narrative-blocks";
-import { buildDialogueDirection, transcribeClip } from "@/services/video/native-audio";
+import { buildDialogueDirection, buildPerformanceDirection, transcribeClip } from "@/services/video/native-audio";
 import { trimClipHead } from "@/services/ffmpeg/trim";
 import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor } from "@/lib/config";
 import { z } from "zod";
@@ -259,9 +259,16 @@ export async function POST(req: NextRequest) {
                 return (
                   "ONE CONTINUOUS SHOT, no cuts, no scene changes. " +
                   "Keep the same location, the same lighting and the same framing for the whole clip; " +
-                  "the camera moves slowly and deliberately and the subject stays in frame. " +
-                  (movimiento ? `Camera: ${movimiento}. ` : "Camera: slow push in. ") +
+                  "the subject stays in frame and well composed at all times. " +
+                  // Gramática de cine, no "movimiento bonito": una cámara operada
+                  // por alguien tiene peso, arranca y frena, y se mueve PORQUE pasa
+                  // algo. Eso es lo que separa "clip de IA" de "plano rodado".
+                  "Shot like a feature film: 35mm anamorphic look, shallow depth of field, " +
+                  "motivated practical lighting, the camera settling rather than drifting, " +
+                  "a trace of handheld weight — it starts and stops with intention, never floats. " +
+                  (movimiento ? `Camera: ${movimiento}. ` : "Camera: slow push in on the face. ") +
                   "Consistent character appearance and wardrobe throughout." +
+                  buildPerformanceDirection(lead?.emotion) +
                   buildDialogueDirection(lines)
                 );
               })(),

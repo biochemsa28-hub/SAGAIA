@@ -44,6 +44,61 @@ export function buildDialogueDirection(lines: SpokenLine[]): string {
   );
 }
 
+// ─── Dirección de actuación ──────────────────────────────────────────────────
+// El guion define una emoción por escena y ese dato NUNCA llegaba al modelo de
+// video: se le mandaba el movimiento de cámara y el diálogo, y la interpretación
+// quedaba librada al azar. Por eso los personajes dicen líneas devastadoras con
+// cara neutra.
+//
+// Un modelo de video no sabe actuar "traición": sabe hacer una mandíbula que se
+// tensa, un parpadeo que se demora, una lágrima que se queda en el borde. Se le
+// dan los TELLS FÍSICOS, que es como se dirige a un actor de verdad.
+const ACTUACION: Record<string, string> = {
+  traicion:     "jaw tightening, eyes wide then narrowing, shallow breath, one tear held back at the lash line, voice thinning on the last words",
+  dolor:        "eyes wet and unblinking, chin trembling, the throat working before speaking, the voice breaking mid-sentence",
+  duelo:        "eyes wet and unblinking, chin trembling, shoulders dropping, a long blink that lets a tear fall",
+  rabia:        "nostrils flaring, tendons visible in the neck, a sharp exhale before the line, clipped hard consonants",
+  ira:          "nostrils flaring, tendons visible in the neck, a sharp exhale before the line, clipped hard consonants",
+  miedo:        "pupils wide, rapid shallow breathing, body very still, eyes flicking to the side",
+  panico:       "rapid shallow breathing, trembling hands, eyes darting, voice pitched high and tight",
+  culpa:        "eyes cast down, fingers worrying at each other, a swallow before speaking, a small voice",
+  verguenza:    "eyes cast down, a flush across the cheeks, turning slightly away from the other person",
+  amor:         "lips parting slightly, a slow blink, breath held for a beat, the smallest lean forward",
+  deseo:        "lips parting slightly, a slow blink, breath held, eyes moving from eyes to mouth and back",
+  sorpresa:     "a micro-freeze, then a hard blink, lips apart, the head pulling back an inch",
+  desesperacion:"tears streaming freely, the voice cracking apart, hands reaching and stopping",
+  tristeza:     "wet eyes that keep blinking them away, a tight small smile that fails, the voice going quiet",
+  alivio:       "the shoulders finally dropping, a long exhale, wet eyes and the beginning of a smile",
+  determinacion:"the jaw setting, a steady unblinking gaze, the chin lifting, the voice low and even",
+  ternura:      "the eyes softening, a barely-there smile, the head tilting a fraction, the voice dropping to almost nothing",
+  soledad:      "the gaze unfocused past the camera, the body small in the frame, a slow blink, no one to look at",
+  nostalgia:    "the eyes drifting away mid-sentence, a smile that arrives and then hurts, a long slow blink",
+  humillacion:  "the eyes dropping, a hard swallow, the face heating, forcing the chin back up",
+};
+
+// La emoción llega del guion en español y en una sola palabra, pero no siempre es
+// exactamente una de las claves ("traición que quema por dentro"). Se busca por
+// coincidencia parcial antes de caer al genérico.
+export function buildPerformanceDirection(emotion: string | null | undefined): string {
+  const e = (emotion ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  // Los acentos se quitan con el rango de marcas combinantes escrito en \u para
+  // que no dependa de cómo guarde el archivo el editor.
+  const sinAcentos = e.replace(/[̀-ͯ]/g, "");
+  let tells = "";
+  if (sinAcentos) {
+    const clave = Object.keys(ACTUACION).find((k) => sinAcentos.includes(k) || k.includes(sinAcentos.split(/\s+/)[0] ?? ""));
+    if (clave) tells = ACTUACION[clave]!;
+  }
+  if (!tells) {
+    tells = "genuine micro-expressions, the eyes carrying the feeling before the mouth does, breath visible in the delivery";
+  }
+  return (
+    ` PERFORMANCE — this is the whole point of the shot: the character truly FEELS this. ` +
+    `${tells}. The emotion is visible on the FACE, in real time, changing as the line is said — ` +
+    `not a fixed expression held for the whole clip. Real film acting, not a posed portrait.`
+  );
+}
+
 export interface Transcribed {
   text: string;
   words: Array<{ word: string; start: number; end: number }>;
