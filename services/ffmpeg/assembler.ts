@@ -371,7 +371,19 @@ async function buildSceneClip(
     // truncating to 160 chars threw it away every time.
     const detalle = (e as { stderr?: string })?.stderr;
     console.error(`[ffmpeg] scene ${i} failed:`, (e instanceof Error ? e.message : String(e)).slice(0, 200));
-    if (detalle) console.error(`[ffmpeg] scene ${i} stderr:`, String(detalle).slice(-400));
+    if (detalle) {
+      // Progress lines (frame= fps= size=) are 95% of ffmpeg stderr and say
+      // nothing. Showing the tail buried the one line that matters — the parse
+      // error or the resource failure — under a wall of "frame= 0".
+      const util = String(detalle)
+        .split(/?
+/)
+        .filter((l) => l.trim() && !/^s*(frame=|video:|size=|Press [q])/.test(l))
+        .filter((l) => /error|invalid|failed|no such|cannot|unable|undefined|killed|memory/i.test(l))
+        .slice(-6);
+      console.error(`[ffmpeg] scene ${i} causa:`, util.length ? util.join(" | ") : String(detalle).split(/?
+/).filter((l)=>l.trim()).slice(-3).join(" | "));
+    }
     return null;
   }
 }
