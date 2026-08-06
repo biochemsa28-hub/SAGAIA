@@ -19,7 +19,7 @@ import {
 } from "@/lib/db/repository";
 import { initDb } from "@/lib/db";
 import { internalHeaders, internalSecret } from "@/lib/internal-auth";
-import { MAX_CONCURRENT_JOBS, JOB_POLL_MS, JOB_STALE_SECONDS, APP_BASE_URL, CONTINUITY_GATE_ON, NATIVE_AUDIO_ON } from "@/lib/config";
+import { MAX_CONCURRENT_JOBS, JOB_POLL_MS, JOB_STALE_SECONDS, APP_BASE_URL, CONTINUITY_GATE_ON, NATIVE_AUDIO_ON, ANCHOR_IMAGES_ONLY } from "@/lib/config";
 import { checkContinuity, ContinuityError } from "@/services/quality/continuity";
 import { getProjectDetail } from "@/lib/db/repository";
 
@@ -72,9 +72,14 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
           .filter((a) => a.asset_type === "image" && a.scene_id && a.public_url)
           .map((a) => [a.scene_id, a.public_url]),
       );
-      const report = await checkContinuity(
-        detail.scenes.map((s) => ({ scene_number: s.scene_number, image_url: imageBySceneId.get(s.id) ?? null })),
-      );
+      // With ANCHOR_IMAGES_ONLY the pipeline renders a frame only for the scenes a
+      // clip actually consumes — the rest are carried by the generated motion. So
+      // checking every scene reports those deliberate gaps as missing and blocks a
+      // perfectly good production. The gate must judge the frames we MEANT to make.
+      const paraRevisar = detail.scenes
+        .map((s) => ({ scene_number: s.scene_number, image_url: imageBySceneId.get(s.id) ?? null }))
+        .filter((s) => (ANCHOR_IMAGES_ONLY ? s.image_url !== null : true));
+      const report = await checkContinuity(paraRevisar);
       for (const i of report.issues) console.warn(`[continuity] ${i.severity} ${i.code}: ${i.message}`);
       if (!report.ok) throw new ContinuityError(report);
       console.log(`[continuity] ${report.checked} escenas revisadas, sin bloqueos`);
