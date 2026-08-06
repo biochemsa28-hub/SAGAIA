@@ -42,7 +42,7 @@ function memoriaContenedor() {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   // Actually TALK to the database instead of checking that a variable exists.
   // Reporting database:true for a present-but-broken connection is what sent us
   // chasing a "forgotten password" for half an hour while every write silently
@@ -165,6 +165,29 @@ export async function GET() {
     OPENAI_API_KEY:     { test: (v) => v.startsWith("sk-"), dice: "debe empezar con sk-" },
     STRIPE_SECRET_KEY:  { test: (v) => v.startsWith("sk_"), dice: "debe empezar con sk_" },
   };
+  // Y ni siquiera el contenido alcanza. ELEVENLABS_API_KEY pasó las dos
+  // validaciones —empieza con sk_, sin comillas ni espacios— y ElevenLabs la
+  // rechazó igual en todas las producciones: "API key must start with 'sk_'".
+  // Una clave puede tener la forma correcta y estar revocada, ser de otra cuenta
+  // o venir incompleta. La única prueba real es preguntarle al proveedor.
+  //
+  // Va detrás de ?live=1 a propósito: el HEALTHCHECK del contenedor pega acá cada
+  // 30 segundos, y no vamos a golpear proveedores externos en cada latido.
+  const live: Record<string, string> = {};
+  if (new URL(req.url).searchParams.get("live") === "1") {
+    const el = process.env.ELEVENLABS_API_KEY;
+    if (el) {
+      // /v1/user es una lectura: no genera nada y no cuesta créditos.
+      live.elevenlabs = await fetch("https://api.elevenlabs.io/v1/user", {
+        headers: { "xi-api-key": el },
+      })
+        .then((r) => (r.ok ? "ok" : `RECHAZADA (${r.status})`))
+        .catch((e) => `sin respuesta: ${e instanceof Error ? e.message.slice(0, 60) : "error"}`);
+    } else {
+      live.elevenlabs = "no configurada";
+    }
+  }
+
   const secret_content: Record<string, string> = {};
   for (const [k, regla] of Object.entries(ESPERADO)) {
     const v = process.env[k];
@@ -182,6 +205,8 @@ export async function GET() {
     db_connection,
     secret_format,
     secret_content,
+    // Solo aparece con ?live=1 — ver el comentario donde se construye.
+    ...(Object.keys(live).length ? { live } : {}),
     production,
     pipeline,
   });

@@ -135,14 +135,36 @@ export async function transcribeClip(clipUrl: string, language = "es"): Promise<
     console.warn("[transcribe] sin FAL_API_KEY — no hay subtítulos medidos");
     return null;
   }
+  // ESCALERA DE INTENTOS. Se pedía una sola combinación de parámetros y si el
+  // modelo no la aceptaba, la respuesta volvía vacía y el sistema se quedaba sin
+  // tiempos de palabra para TODAS las escenas — que es lo que pasó en producción.
+  // Un parámetro que el modelo dejó de aceptar no debería costar los subtítulos
+  // del video entero, así que se prueba de lo más específico a lo más básico.
+  const intentos: Array<{ input: Record<string, unknown>; nota: string }> = [
+    { input: { audio_url: clipUrl, task: "transcribe", language, chunk_level: "word" }, nota: "word + language" },
+    { input: { audio_url: clipUrl, task: "transcribe", chunk_level: "word" }, nota: "word, sin language" },
+    { input: { audio_url: clipUrl, task: "transcribe", language }, nota: "sin chunk_level" },
+    { input: { audio_url: clipUrl }, nota: "mínimo" },
+  ];
+
   try {
     fal.config({ credentials: apiKey });
     const model = process.env.TRANSCRIBE_MODEL ?? "fal-ai/whisper";
-    const r = await fal.subscribe(model, {
-      input: { audio_url: clipUrl, task: "transcribe", language, chunk_level: "word" },
-      logs: false,
-    }) as Record<string, unknown>;
-    const d = (r?.["data"] ?? r) as Record<string, unknown>;
+    let d: Record<string, unknown> = {};
+    for (const [k, intento] of intentos.entries()) {
+      const r = await fal.subscribe(model, { input: intento.input, logs: false }).catch((e: unknown) => {
+        console.warn(`[transcribe] intento "${intento.nota}" falló: ${e instanceof Error ? e.message.slice(0, 120) : e}`);
+        return null;
+      }) as Record<string, unknown> | null;
+      if (!r) continue;
+      d = (r?.["data"] ?? r) as Record<string, unknown>;
+      const hayAlgo = String(d?.["text"] ?? "").trim().length > 0 || Array.isArray(d?.["chunks"]);
+      if (hayAlgo) {
+        if (k > 0) console.log(`[transcribe] recuperado con "${intento.nota}"`);
+        break;
+      }
+      console.warn(`[transcribe] intento "${intento.nota}" devolvió vacío (claves: ${Object.keys(d ?? {}).join(",") || "ninguna"})`);
+    }
     const chunks = (d?.["chunks"] ?? []) as Array<{ timestamp?: [number, number]; text?: string }>;
     const words = chunks
       .filter((c) => Array.isArray(c.timestamp) && typeof c.text === "string")
