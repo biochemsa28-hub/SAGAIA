@@ -88,13 +88,28 @@ DIFERENCIA ENTRE NARRADO Y ACTUADO:
 REGLA DE ORO: Si el narration_text no se puede DECIR EN VOZ ALTA con emoción real, está mal. Reescríbelo hasta que suene como algo que una persona diría en el peor o mejor momento de su vida.
 
 ════════════════════════════════════════
-REGLA #1 — UN PERSONAJE POR ESCENA (NUNCA SE ROMPE)
+REGLA #1 — UNA VOZ POR ESCENA, PERO LAS ESCENAS SE RESPONDEN ENTRE SÍ
 ════════════════════════════════════════
-Cada escena tiene UN SOLO HABLANTE. La voz en off es UN personaje hablando su monólogo interior o su diálogo en primer plano.
-- PROHIBIDO mezclar dos voces en el mismo narration_text ("—Yo… —¿Y tú crees…?"). Eso produce dos voces simultáneas en el audio.
-- Para mostrar un diálogo entre A y B: crea escenas SEPARADAS — escena N habla A, escena N+1 habla B. Así cada voz se graba por separado.
-- La imagen puede MOSTRAR a dos personajes juntos, pero el narration_text solo contiene lo que dice el speaker de ESA escena.
-- Cuando el personaje responde a algo que dijo el otro, se entiende por contexto — no hay que repetir la línea del otro.
+Cada escena tiene UN SOLO HABLANTE en su narration_text.
+- PROHIBIDO mezclar dos voces en el mismo narration_text ("—Yo… —¿Y tú crees…?"). Eso produce dos voces encimadas en el audio.
+- La imagen puede MOSTRAR a dos personajes juntos; el narration_text solo lleva lo que dice el speaker de ESA escena.
+
+PERO — Y ESTO ES OBLIGATORIO — EL OTRO PERSONAJE TIENE QUE CONTESTAR.
+
+El error que hay que evitar: que las 6 escenas tengan al MISMO speaker. Eso produce un monólogo de 60 segundos en el que la antagonista tiene nombre, está en cuadro, y nunca dice una palabra. Está bien escrito y no es drama: nadie replica, nadie miente en la cara del otro, nadie se quiebra respondiendo.
+
+CÓMO SE HACE UN DIÁLOGO REAL:
+  Escena 3 · speaker: "Elena"  → "Estás usando mi camisa, Renata."
+  Escena 4 · speaker: "Renata" → "La usé porque él me la dio. ¿Nunca te preguntaste por qué dejó de buscarte?"
+  Escena 5 · speaker: "Elena"  → "…¿Cuánto tiempo?"
+
+El speaker CAMBIA entre escenas consecutivas. Cada línea responde a la anterior. Eso es una discusión, no un discurso.
+
+REGLAS DE HIERRO:
+- En TODA historia con dos personajes presentes, el antagonista habla en AL MENOS DOS escenas. Si solo habla el protagonista, está mal escrita.
+- En la escena de confrontación el speaker DEBE alternar: A, luego B, luego A.
+- La respuesta del antagonista tiene que APORTAR ALGO NUEVO — una acusación, una verdad peor, una justificación que duele. Nunca "no es lo que parece" a secas.
+- El image_prompt de las escenas donde alternan las voces tiene que mostrar A LOS DOS personajes en cuadro.
 
 ════════════════════════════════════════
 REGLA #2 — FRAMEWORK DE ESCRITURA CINEMATOGRÁFICA (OBLIGATORIO PARA CADA ESCENA)
@@ -219,6 +234,8 @@ REGLA #7 — VALIDACIÓN FINAL (REESCRIBE SI FALLA ALGUNA)
 ════════════════════════════════════════
 ☑ El gancho detiene el scroll en 2 segundos
 ☑ Hay UN speaker por escena (nunca dos voces mezcladas)
+☑ El antagonista habla en al menos DOS escenas — no es un monólogo del protagonista
+☑ En la confrontación el speaker alterna (A → B → A), y cada réplica aporta algo nuevo
 ☑ El subtexto reemplaza la emoción declarada — se MUESTRA, no se dice
 ☑ La escenografía refleja el estado emocional del personaje
 ☑ Hay al menos una frase quotable / piel de gallina
