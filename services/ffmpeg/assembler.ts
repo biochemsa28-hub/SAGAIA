@@ -414,7 +414,15 @@ async function buildSceneClip(
     // useful line (out of memory, invalid filter, missing codec) lives there, and
     // truncating to 160 chars threw it away every time.
     const detalle = (e as { stderr?: string })?.stderr;
-    console.error(`[ffmpeg] scene ${i} failed:`, (e instanceof Error ? e.message : String(e)).slice(0, 200));
+    // EXIT CODE + SIGNAL FIRST. Sin esto no se distingue el caso que nos costó
+    // horas: ffmpeg que FALLA (imprime la causa en stderr, exit 1) de ffmpeg que
+    // es MATADO por el contenedor (stderr sin una sola linea de error, sin exit
+    // code, signal=SIGKILL). Los dos se ven identicos como "Command failed:".
+    const err = e as { code?: number | string; signal?: string };
+    console.error(
+      `[ffmpeg] scene ${i} failed: exit=${err?.code ?? "-"} signal=${err?.signal ?? "-"}`,
+      (e instanceof Error ? e.message : String(e)).slice(0, 200),
+    );
     if (detalle) {
       // Progress lines (frame= fps= size=) are 95% of ffmpeg stderr and say
       // nothing. Showing the tail buried the one line that matters — the parse
@@ -426,7 +434,13 @@ async function buildSceneClip(
         .filter((l) => !l.startsWith("frame=") && !l.startsWith("video:") && !l.startsWith("size="))
         .filter((l) => /error|invalid|failed|no such|cannot|unable|undefined|killed|memory|Conversion/i.test(l))
         .slice(-6);
-      const fallback = lineas.map((l) => l.trim()).filter((l) => l.length > 0).slice(-4);
+      // Sin coincidencias, la cola son puras lineas de progreso y no dice nada.
+      // Los fallos de configuracion del grafo de filtros salen al PRINCIPIO, antes
+      // de que arranque el encoder — por eso el fallback mira los dos extremos.
+      const limpias = lineas.map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith("frame="));
+      const fallback = limpias.length > 10
+        ? [...limpias.slice(0, 6), "…", ...limpias.slice(-4)]
+        : limpias;
       console.error("[ffmpeg] scene " + i + " causa:", (util.length ? util : fallback).join(" | "));
     }
     return null;
