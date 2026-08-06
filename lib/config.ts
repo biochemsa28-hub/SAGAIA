@@ -60,9 +60,14 @@ export const NAVOS_PER_USD = 1000;
 // la de kenburns estaba 2.5× por debajo, asumí que estas también lo están, y medilas
 // antes de vender esos tiers.
 export const TIER_COST_USD: Record<AnimationTier, number> = {
-  kenburns: 1.25,  // MEDIDO — guion + imágenes + voz + gancho animado + render $0
-  cinematic: 2.0,  // estimado — + Seedance por escena
-  talking: 3.0,    // estimado — + lip-sync por escena (lo más caro)
+  // MEDIDO 2026-08-06 sobre api_logs: $8.168 de gasto real en 2 videos = $4.08
+  // cada uno, con los cinco puntos de gasto registrando (guion, imágenes, clips,
+  // voz y montaje). El $1.25 anterior era de cuando NO se animaba nada: desde que
+  // Seedance anima todos los bloques, ese número dejó de describir el producto y
+  // cada video se vendía por debajo de su costo.
+  kenburns: 4.08,
+  cinematic: 5.0,  // estimado — sigue sin medirse
+  talking: 6.5,    // estimado — + lip-sync por escena (lo más caro)
 };
 
 // Markup over cost. 2.0 = price is 2× cost = 100% utilidad (floor). 3.0 = 200%
