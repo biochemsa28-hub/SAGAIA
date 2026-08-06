@@ -230,6 +230,22 @@ Cada image_prompt = un frame de película. NUNCA "cuarto oscuro genérico". SIEM
 4. Fuente de luz y dirección ("la pantalla del celular ilumina su cara desde abajo en la oscuridad total")
 5. Ángulo y composición ("primer plano de sus ojos reflejados en el espejo empañado")
 6. Lo que el espectador SIENTE al ver ese frame ("claustrofobia", "ternura que duele", "el mundo se cae")
+
+⚠️ VESTUARIO SIEMPRE CONCRETO — ES UN REQUISITO TÉCNICO, NO UN PUDOR
+Describí SIEMPRE la ropa que el personaje LLEVA PUESTA, con prenda, tela y color
+("bata de seda color crema", "camisa de hombre desabotonada sobre una remera").
+NUNCA describas a alguien por lo que NO lleva ("nude", "topless", "envuelta solo
+en una sábana", "ropa interior").
+
+El motivo es de producción: el generador de imágenes RECHAZA esos prompts, y
+cuando los rechaza el sistema pierde el retrato de referencia y dibuja a OTRA
+PERSONA. Una palabra hace que la protagonista cambie de cara a mitad del video.
+Medido en producción — es el defecto más caro que tiene el pipeline.
+
+La tensión se construye con el ENCUADRE y la LUZ, no con la falta de ropa: la
+distancia de un centímetro sostenida, la mano que se detiene, la mandíbula que
+tiembla, la penumbra cálida. Eso además sobrevive a la moderación de TikTok,
+Reels y Shorts, que es mucho más dura que la de cualquier modelo.
 VARÍA la locación entre escenas — cada escena = un lugar distinto o ángulo radicalmente diferente.
 
 ════════════════════════════════════════

@@ -151,6 +151,32 @@ async function callFlux(prompt: string, style: StyleConfig, seed?: number): Prom
 // scene 1) into a new scene while keeping the same person/face/outfit. Default model
 // is nano-banana edit (best-in-class character consistency). Returns null on any
 // failure so the caller can gracefully fall back — never crashes the pipeline.
+// Reescribe un prompt para que pase moderación SIN perder la escena. No suaviza
+// el drama: cambia cómo se nombra el vestuario y el cuerpo por descripciones de
+// ropa concreta. Un plano de alguien devastado en la cama sigue siendo eso —
+// deja de describirse por lo que no lleva puesto.
+//
+// Existe porque el fallo es carísimo: cuando la llamada con el retrato se rechaza,
+// el sistema cae a un modelo sin referencia que inventa una persona nueva, y el
+// personaje cambia de cara a mitad de la historia. Una palabra no puede costar eso.
+const SUAVIZADO: Array<[RegExp, string]> = [
+  [/\b(nude|naked|topless|undressed|unclothed)\b/gi, "wearing a plain slip dress"],
+  [/\b(bare (?:chest|breasts|torso|skin))\b/gi, "collar of a cotton shirt"],
+  [/\b(lingerie|underwear|bra|panties)\b/gi, "simple cotton nightwear"],
+  [/\b(cleavage|breasts|bosom)\b/gi, "neckline"],
+  [/\b(seductive|sensual|erotic|sultry|provocative)\b/gi, "emotionally charged"],
+  [/\b(wrapped (?:only )?in a (?:towel|sheet|bedsheet))\b/gi, "in a long bathrobe"],
+  [/\b(sheet(?:s)? barely covering)\b/gi, "blanket pulled up over"],
+  [/\b(thighs|bare legs)\b/gi, "hands"],
+  [/\b(intimate|in bed together|post[- ]coital)\b/gi, "sitting close, tense"],
+];
+
+export function suavizarParaModeracion(prompt: string): string {
+  let out = prompt;
+  for (const [re, rep] of SUAVIZADO) out = out.replace(re, rep);
+  return out;
+}
+
 async function callReference(prompt: string, referenceUrl: string, extraImages?: string[]): Promise<string | null> {
   const model = process.env.CHARACTER_REF_MODEL ?? "fal-ai/nano-banana/edit";
   // nano-banana / gemini edit models take an `image_urls` ARRAY; flux-kontext
@@ -159,9 +185,9 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   // Pass ALL product angles to nano-banana (dedup, cap at 4) so it reconstructs the
   // real product faithfully from multiple views. flux-kontext only takes one.
   const allImages = [referenceUrl, ...(extraImages ?? [])].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 4);
-  const armar = (imgs: string[]): Record<string, unknown> => isNanoOrGemini
-    ? { prompt, image_urls: imgs, num_images: 1, enable_safety_checker: false }
-    : { prompt, image_url: imgs[0] ?? referenceUrl, num_images: 1, guidance_scale: 3.5, safety_tolerance: "6", enable_safety_checker: false };
+  const armar = (imgs: string[], p: string): Record<string, unknown> => isNanoOrGemini
+    ? { prompt: p, image_urls: imgs, num_images: 1, enable_safety_checker: false }
+    : { prompt: p, image_url: imgs[0] ?? referenceUrl, num_images: 1, guidance_scale: 3.5, safety_tolerance: "6", enable_safety_checker: false };
 
   // Cuando esta llamada falla, el que llama cae a flux — y flux no tiene el
   // retrato, así que INVENTA una persona nueva. Ese es exactamente el defecto que
@@ -171,15 +197,22 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   // Así que antes de rendirse se reintenta DENTRO del camino de referencia, con
   // menos imágenes. Una hoja de personaje inaccesible o un lote que el modelo
   // rechaza no deberían costar la identidad del personaje en toda la escena.
-  const intentos: Array<{ imgs: string[]; nota: string }> = [
-    { imgs: allImages, nota: `${allImages.length} imagen(es)` },
+  const intentos: Array<{ imgs: string[]; prompt: string; nota: string }> = [
+    { imgs: allImages, prompt, nota: `${allImages.length} imagen(es)` },
   ];
-  if (allImages.length > 1) intentos.push({ imgs: [referenceUrl], nota: "solo el retrato" });
+  if (allImages.length > 1) intentos.push({ imgs: [referenceUrl], prompt, nota: "solo el retrato" });
+  // Tercer intento: el mismo plano, descrito sin los términos que disparan la
+  // moderación. Un 422 que aparece en UNA escena y no en las otras casi siempre
+  // es el prompt, no la configuración — y perder la cara del personaje por una
+  // palabra es el peor cambio posible. La escena se conserva: lo que cambia es
+  // cómo se nombra el vestuario.
+  const suave = suavizarParaModeracion(prompt);
+  if (suave !== prompt) intentos.push({ imgs: [referenceUrl], prompt: suave, nota: "prompt reformulado" });
 
   let ultimo = "";
   for (const [k, intento] of intentos.entries()) {
     try {
-      const result = await fal.subscribe(model, { input: armar(intento.imgs), logs: false });
+      const result = await fal.subscribe(model, { input: armar(intento.imgs, intento.prompt), logs: false });
       const url = extractUrl(result);
       if (url) {
         if (k > 0) console.log(`[fal.ai] reference recuperada al reintentar con ${intento.nota}`);
