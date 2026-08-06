@@ -159,19 +159,52 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   // Pass ALL product angles to nano-banana (dedup, cap at 4) so it reconstructs the
   // real product faithfully from multiple views. flux-kontext only takes one.
   const allImages = [referenceUrl, ...(extraImages ?? [])].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 4);
-  const input: Record<string, unknown> = isNanoOrGemini
-    ? { prompt, image_urls: allImages, num_images: 1, enable_safety_checker: false }
-    : { prompt, image_url: referenceUrl, num_images: 1, guidance_scale: 3.5, safety_tolerance: "6", enable_safety_checker: false };
-  try {
-    const result = await fal.subscribe(model, { input, logs: false });
-    const url = extractUrl(result);
-    console.log("[fal.ai] reference model:", model, "url:", url ?? "null");
-    return url;
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[fal.ai callReference error]", msg.slice(0, 200));
-    return null;
+  const armar = (imgs: string[]): Record<string, unknown> => isNanoOrGemini
+    ? { prompt, image_urls: imgs, num_images: 1, enable_safety_checker: false }
+    : { prompt, image_url: imgs[0] ?? referenceUrl, num_images: 1, guidance_scale: 3.5, safety_tolerance: "6", enable_safety_checker: false };
+
+  // Cuando esta llamada falla, el que llama cae a flux — y flux no tiene el
+  // retrato, así que INVENTA una persona nueva. Ese es exactamente el defecto que
+  // se ve al mirar el video: la protagonista cambia de cara a mitad de la historia.
+  // Medido en producción: "reference failed for scene 5, falling back to flux".
+  //
+  // Así que antes de rendirse se reintenta DENTRO del camino de referencia, con
+  // menos imágenes. Una hoja de personaje inaccesible o un lote que el modelo
+  // rechaza no deberían costar la identidad del personaje en toda la escena.
+  const intentos: Array<{ imgs: string[]; nota: string }> = [
+    { imgs: allImages, nota: `${allImages.length} imagen(es)` },
+  ];
+  if (allImages.length > 1) intentos.push({ imgs: [referenceUrl], nota: "solo el retrato" });
+
+  let ultimo = "";
+  for (const [k, intento] of intentos.entries()) {
+    try {
+      const result = await fal.subscribe(model, { input: armar(intento.imgs), logs: false });
+      const url = extractUrl(result);
+      if (url) {
+        if (k > 0) console.log(`[fal.ai] reference recuperada al reintentar con ${intento.nota}`);
+        console.log("[fal.ai] reference model:", model, "url:", url);
+        return url;
+      }
+      ultimo = "sin url en la respuesta";
+    } catch (e) {
+      // El cuerpo, no solo el mensaje. "Unprocessable Entity" a secas no dice NADA:
+      // puede ser un parámetro que el modelo no acepta, una URL que no se pudo
+      // descargar, o el prompt rechazado por moderación — tres causas con tres
+      // arreglos distintos. La función de al lado ya registraba el body; ésta no,
+      // y por eso el fallo mas caro del pipeline fue opaco durante días.
+      const msg = e instanceof Error ? e.message : String(e);
+      const body = (e as Record<string, unknown>)?.["body"];
+      const status = (e as Record<string, unknown>)?.["status"];
+      ultimo = msg;
+      console.error("[fal.ai callReference error]", {
+        status, msg: msg.slice(0, 160), intento: intento.nota,
+        body: String(JSON.stringify(body) ?? "").slice(0, 400),
+      });
+    }
   }
+  console.error(`[fal.ai] reference agotó los reintentos (${ultimo.slice(0, 80)}) — el que llama va a perder la cara del personaje`);
+  return null;
 }
 
 // Second-pass creative upscaler — adds micro-detail that Flux's base run lacks:
