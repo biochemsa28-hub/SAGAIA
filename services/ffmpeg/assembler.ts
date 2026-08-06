@@ -353,12 +353,17 @@ async function buildSceneClip(
       // aliveness needs a video model (see ANIMATE_HERO_SCENES).
       const atmo = ATMOSPHERE_ON ? `,noise=alls=6:allf=t+u` : "";
       const kb = `[0:v]scale=${OVERSAMPLE_W}:${OVERSAMPLE_H}:force_original_aspect_ratio=increase,crop=${OVERSAMPLE_W}:${OVERSAMPLE_H},` +
-        `zoompan=z='${mo.z}':x='${mo.x}':y='${mo.y}':d=${frames}:s=1080x1920:fps=30,setsar=1${atmo}${subFilter}${transition}[v]`;
-      const args = ["-y", "-loop", "1", "-i", img];
+        `zoompan=z='${mo.z}':x='${mo.x}':y='${mo.y}':d=1:s=1080x1920:fps=30,setsar=1${atmo}${subFilter}${transition}[v]`;
+      // d=1, NOT d=frames. With -loop 1 the input never ends, so d=frames asks
+      // zoompan for 150 output frames PER input frame — it buffers forever and
+      // never emits the first one, which is the "frame= 0" every scene died on.
+      // With d=1 each looped frame yields one output frame and the z/x/y
+      // expressions advance through `on`, which is what they already use.
+      const args = ["-y", "-loop", "1", "-framerate", "30", "-t", String(dur), "-i", img];
       if (hasAudio) args.push("-i", audioPath);
       args.push("-filter_complex", kb, "-map", "[v]");
       if (hasAudio) args.push("-map", "1:a", "-shortest");
-      else args.push("-t", String(dur));
+      // (-t ya se aplica en la entrada)
       args.push("-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out);
       await exec(FFMPEG, args, opts);
     } else {
