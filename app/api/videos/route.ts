@@ -241,9 +241,30 @@ export async function POST(req: NextRequest) {
               scene_number: block.leadScene,
               image_url: imgByScene.get(block.leadScene) ?? block.referenceImageUrl,
               end_image_url: endImage && endImage !== imgByScene.get(block.leadScene) ? endImage : undefined,
-              animation_prompt:
-                "Cinematic scene with natural camera movement and cuts between shots, consistent characters and lighting." +
-                buildDialogueDirection(lines),
+              // La dirección de cámara sale del GUION, no de una frase fija.
+              //
+              // Antes decía "cinematic scene with natural camera movement AND CUTS
+              // BETWEEN SHOTS": le estábamos pidiendo al modelo que cortara DENTRO
+              // del clip. Por eso la escena cambiaba de lugar y de encuadre a los
+              // dos segundos y no se sentía una toma seguida — el desorden se lo
+              // pedíamos nosotros. Y al mismo tiempo se descartaba el
+              // animation_prompt y el camera_move que la IA había escrito para esa
+              // escena: dirección específica, generada y tirada a la basura.
+              animation_prompt: (() => {
+                const lead = sceneByNumber.get(block.leadScene);
+                const movimiento = [lead?.camera_move, lead?.animation_prompt]
+                  .map((s) => (s ?? "").trim())
+                  .filter(Boolean)
+                  .join(". ");
+                return (
+                  "ONE CONTINUOUS SHOT, no cuts, no scene changes. " +
+                  "Keep the same location, the same lighting and the same framing for the whole clip; " +
+                  "the camera moves slowly and deliberately and the subject stays in frame. " +
+                  (movimiento ? `Camera: ${movimiento}. ` : "Camera: slow push in. ") +
+                  "Consistent character appearance and wardrobe throughout." +
+                  buildDialogueDirection(lines)
+                );
+              })(),
               duration_seconds: Math.min(HOOK_BLOCK_SECONDS, Math.max(4, Math.ceil(block.seconds + 1))),
               generate_audio: true,
             };
