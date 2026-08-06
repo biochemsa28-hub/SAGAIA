@@ -213,7 +213,27 @@ function buildAssContent(
 async function download(url: string, path: string): Promise<void> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`download ${res.status} ${url.slice(0, 60)}`);
-  writeFileSync(path, Buffer.from(await res.arrayBuffer()));
+  const buf = Buffer.from(await res.arrayBuffer());
+  writeFileSync(path, buf);
+
+  // A .jpg URL does not guarantee JPEG bytes: fal serves WebP and AVIF behind
+  // those names, and the minimal ffmpeg in an Alpine image may lack the decoder.
+  // The failure is silent and looks like nothing at all — the encoder starts, the
+  // filters configure, and zero frames ever appear. Naming the real format turns
+  // that into a one-line diagnosis instead of hours of guessing.
+  const nombre = path.split(/[/]/).pop() ?? path;
+  const m = buf.subarray(0, 12);
+  const tipo =
+    m[0] === 0xff && m[1] === 0xd8 ? "jpeg" :
+    m.subarray(0, 4).toString("hex") === "89504e47" ? "png" :
+    m.subarray(8, 12).toString("ascii") === "WEBP" ? "webp" :
+    m.subarray(4, 8).toString("ascii") === "ftyp" ? "avif/heic" :
+    "desconocido:" + m.subarray(0, 4).toString("hex");
+  if (tipo !== "jpeg" && tipo !== "png") {
+    console.warn("[download] " + nombre + " NO es jpeg/png -> " + tipo + " (" + buf.length + " bytes)");
+  } else if (buf.length < 1024) {
+    console.warn("[download] " + nombre + " pesa solo " + buf.length + " bytes");
+  }
 }
 
 async function probeDuration(path: string): Promise<number> {
