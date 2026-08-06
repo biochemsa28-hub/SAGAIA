@@ -99,9 +99,21 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
   }
 
   await mark("render");
-  const subFinal = await (await post("/api/assemble", { project_id: job.project_id, action: "submit", add_subtitles: true })).json() as
-    { render_id?: string; error?: string };
-  if (!subFinal.render_id) throw new Error(subFinal.error ?? "No se pudo iniciar el montaje");
+  // La respuesta cruda, no solo el JSON parseado: cuando /api/assemble contesta
+  // algo inesperado (502 del proxy, HTML de error, body vacio) el `.json()`
+  // directo descartaba la unica evidencia y el job moria con nuestro texto de
+  // relleno, que no dice absolutamente nada sobre la causa.
+  const resFinal = await post("/api/assemble", { project_id: job.project_id, action: "submit", add_subtitles: true });
+  const rawFinal = await resFinal.text();
+  let subFinal: { render_id?: string; error?: string } = {};
+  try {
+    subFinal = JSON.parse(rawFinal) as { render_id?: string; error?: string };
+  } catch {
+    throw new Error(`Montaje: respuesta no-JSON (HTTP ${resFinal.status}): ${rawFinal.slice(0, 300)}`);
+  }
+  if (!subFinal.render_id) {
+    throw new Error(subFinal.error || `Montaje sin render_id (HTTP ${resFinal.status}): ${rawFinal.slice(0, 300)}`);
+  }
   for (let i = 0; i < 96; i++) {
     await sleep(5000);
     await heartbeatJob(job.id);
