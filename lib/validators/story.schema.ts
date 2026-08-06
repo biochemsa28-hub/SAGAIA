@@ -63,6 +63,15 @@ export const SceneSchema = z.object({
   // el sfx marca UN instante. El golpe seco es lo que hace saltar al espectador —
   // la música sola nunca produce ese reflejo.
   sfx_prompt: z.string().max(120).optional(),
+  // CÓMO SE VE quien habla, en inglés y en pocas palabras ("the woman in the red
+  // dress", "the man in the white shirt"). El modelo de video no sabe quién es
+  // "Valeria": un nombre no identifica a nadie en una imagen, así que ponía todas
+  // las líneas del bloque en la boca del personaje que estuviera enfocado. Una
+  // descripción visual sí lo distingue.
+  //
+  // Tiene que ser EL MISMO texto para el mismo personaje en todas sus escenas, o
+  // deja de servir para identificarlo.
+  speaker_look: z.string().max(80).optional(),
   duration_seconds: z.number().int().min(2).max(120),
   image_prompt: z
     .string()

@@ -556,6 +556,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
     {
       "scene_number": 1,
       "speaker": "nombre EXACTO del personaje del ELENCO que habla este parlamento (si no hay elenco definido, usa 'Narrador')",
+      "speaker_look": "EN INGLÉS, 3-7 palabras: cómo SE VE quien habla, para distinguirlo de los demás en cuadro. Ej: 'the woman in the red dress', 'the man in the white shirt', 'the older woman with grey hair'. USÁ EXACTAMENTE EL MISMO TEXTO para el mismo personaje en TODAS sus escenas — si cambia, deja de identificarlo. El modelo de video no sabe quién es 'Valeria': sin esto pone las líneas de los dos personajes en la boca del que está enfocado.",
       "voice_profile": "arquetipo de voz del que habla, UNO de: male_young | male_adult | male_elderly | male_villain | female_young | female_adult | female_elderly | child | narrator | creature — debe coincidir con el voice_profile que ese personaje tiene en el ELENCO",
       "narration_text": "LO QUE ESTE PERSONAJE DICE en voz alta — primera persona, emoción cruda, subtexto cargado. UNA SOLA VOZ. Muestra la emoción con acciones/objetos/silencios, no declarándola. Termina con gancho hacia la siguiente escena.",
       "duration_seconds": 8,

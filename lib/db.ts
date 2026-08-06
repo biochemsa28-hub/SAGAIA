@@ -168,6 +168,10 @@ export async function initDb(): Promise<void> {
   // El ruido propio de cada escena (una puerta, un vidrio, pasos). Lo escribe el
   // guion y lo mezcla el ensamblador en el segundo exacto de esa escena.
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN sfx_prompt TEXT");
+  // Cómo se ve quien habla. Un nombre no identifica a nadie dentro de una imagen:
+  // sin esto el modelo de video pone las líneas de los dos personajes en la boca
+  // del que está enfocado.
+  await runMigration(db, "ALTER TABLE scenes ADD COLUMN speaker_look TEXT");
   await runMigration(db, "ALTER TABLE project_cast ADD COLUMN bible_url TEXT");
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT");
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN stage TEXT");

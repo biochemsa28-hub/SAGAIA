@@ -236,7 +236,11 @@ export async function POST(req: NextRequest) {
             const lines = block.scenes
               .map((n) => sceneByNumber.get(n))
               .filter(Boolean)
-              .map((sc) => ({ speaker: sc!.speaker, text: sc!.narration_text ?? "" }));
+              .map((sc) => ({
+                speaker: sc!.speaker,
+                look: (sc as { speaker_look?: string | null }).speaker_look,
+                text: sc!.narration_text ?? "",
+              }));
             return {
               scene_number: block.leadScene,
               image_url: imgByScene.get(block.leadScene) ?? block.referenceImageUrl,

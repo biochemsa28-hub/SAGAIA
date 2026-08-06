@@ -20,6 +20,8 @@ import { fal } from "@fal-ai/client";
 
 export interface SpokenLine {
   speaker?: string | null;
+  /** Cómo SE VE quien habla ("the woman in the red dress"). Ver abajo. */
+  look?: string | null;
   text: string;
 }
 
@@ -31,16 +33,37 @@ export function buildDialogueDirection(lines: SpokenLine[]): string {
   const spoken = lines.map((l) => l.text?.trim()).filter((t): t is string => Boolean(t));
   if (!spoken.length) return "";
 
-  const quoted = lines
-    .filter((l) => l.text?.trim())
-    .map((l) => (l.speaker ? `${l.speaker} says, in Spanish: "${l.text.trim()}"` : `A character says, in Spanish: "${l.text.trim()}"`))
+  // Un NOMBRE no identifica a nadie dentro de una imagen. Medido en un video real:
+  // con "Valeria dice X. Después Renata dice Y", el modelo puso las dos líneas en
+  // la boca del personaje enfocado — incluida la que le hablaba a él. La única
+  // forma de que reparta bien los parlamentos es decirle cómo SE VE cada uno.
+  const util = lines.filter((l) => l.text?.trim());
+  const comoSeVe = (l: SpokenLine) => (l.look ?? "").trim() || (l.speaker ? `the character named ${l.speaker}` : "the character on screen");
+
+  const quoted = util
+    .map((l, i) => {
+      const verbo = i === 0 ? "says" : "answers";
+      return `${comoSeVe(l)} ${verbo}, in Spanish: "${l.text.trim()}"`;
+    })
     .join(" Then ");
+
+  // ¿Hay más de una persona hablando? Si la hay, hace falta decir explícitamente
+  // que se turnan y que el que escucha NO mueve la boca — sin eso el modelo anima
+  // a los dos hablando encima, que es peor que atribuir mal.
+  const distintos = new Set(util.map((l) => comoSeVe(l).toLowerCase()));
+  const turnos = distintos.size > 1
+    ? " IMPORTANT — this is a CONVERSATION with turn-taking: exactly ONE person speaks at a time, " +
+      "in the order given. While one speaks the other LISTENS and reacts — their lips do NOT move. " +
+      "Never put a line in the mouth of the wrong person, and never have both speak at once. " +
+      "The camera favours whoever is speaking, then the reaction of the other."
+    : "";
 
   return (
     " The characters SPEAK this dialogue out loud, in Spanish, in this exact order, " +
     "with the emotion the scene calls for. Do not invent other lines, do not narrate, " +
-    "no voice-over — only these characters speaking to each other on camera. " +
-    quoted
+    "no voice-over — only these characters speaking to each other on camera." +
+    turnos +
+    " " + quoted
   );
 }
 
