@@ -178,11 +178,20 @@ export async function POST(req: NextRequest) {
         // Enforce the ceiling HERE, at the only place that spends money. A script
         // that came back longer than asked would otherwise bill a clip per extra
         // block — the single largest way this pipeline can overspend.
-        const blocks = planned.slice(0, MAX_BLOCKS_PER_VIDEO);
-        if (planned.length > blocks.length) {
-          console.warn(`[blocks] recortado a ${blocks.length} bloques (tope ${MAX_VIDEO_SECONDS}s) — el guion pedía ${planned.length}`);
+        // El planificador ya no filtra por imagen — agrupa todas las escenas para
+        // que submit, collect y montaje coincidan. Pero ANIMAR sigue necesitando
+        // un cuadro de partida, así que un bloque sin ninguna imagen se descarta
+        // acá, en voz alta: es una generación que falló, no un bloque legítimo.
+        const conImagen = planned.filter((b) => b.referenceImageUrl);
+        if (conImagen.length < planned.length) {
+          const perdidos = planned.filter((b) => !b.referenceImageUrl).map((b) => b.leadScene);
+          console.warn(`[blocks] ${planned.length - conImagen.length} bloque(s) sin imagen, no se animan (escenas ${perdidos.join(", ")})`);
         }
-        console.log(`[blocks] ${detail.scenes.length} escenas → ${blocks.length} bloques`);
+        const blocks = conImagen.slice(0, MAX_BLOCKS_PER_VIDEO);
+        if (conImagen.length > blocks.length) {
+          console.warn(`[blocks] recortado a ${blocks.length} bloques (tope ${MAX_VIDEO_SECONDS}s) — el guion pedía ${conImagen.length}`);
+        }
+        console.log(`[blocks] ${detail.scenes.length} escenas → ${blocks.length} bloques (${blocks.reduce((n, b) => n + b.scenes.length, 0)} escenas cubiertas)`);
 
         const imgByScene = new Map(
           detail.scenes.map((sc) => [sc.scene_number, imageBySceneId.get(sc.id)?.public_url]),

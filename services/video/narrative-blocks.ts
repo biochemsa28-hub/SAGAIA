@@ -59,7 +59,20 @@ export function planNarrativeBlocks(
   targetSeconds: number,
   maxScenesPerBlock = 4,
 ): NarrativeBlock[] {
-  const usable = scenes.filter((s) => s.image_url);
+  // Se agrupan TODAS las escenas, tengan imagen o no.
+  //
+  // Antes se filtraba por `image_url`, y eso rompia la promesa que el resto del
+  // sistema da por cierta: que submit, collect y montaje pueden recalcular la
+  // MISMA agrupacion sin pasarse estado. No pueden, porque cada uno corre en un
+  // momento distinto con un conjunto de imagenes distinto. Medido en produccion:
+  // submit dijo "14 escenas → 4 bloques" y el montaje "14 escenas → 10
+  // segmentos" — seis escenas quedaron como fotos fijas mudas intercaladas entre
+  // los clips, que es exactamente el entrecortado que se ve al mirarlo.
+  //
+  // Con ANCHOR_IMAGES_ONLY ademas era circular: solo se renderizan las imagenes
+  // de los lideres de bloque, y los lideres los decide este mismo planificador.
+  //
+  // La imagen ahora solo elige la REFERENCIA del bloque, no quien entra en el.
   const blocks: NarrativeBlock[] = [];
   let current: BlockScene[] = [];
   let acc = 0;
@@ -67,18 +80,21 @@ export function planNarrativeBlocks(
   const flush = () => {
     if (!current.length) return;
     const lead = current[0]!;
+    // La referencia es la del lider; si al lider le falta (una generacion que
+    // fallo), sirve la de cualquier miembro antes que perder el bloque entero.
+    const conImagen = current.find((s) => s.image_url);
     blocks.push({
       leadScene: lead.scene_number,
       scenes: current.map((s) => s.scene_number),
       seconds: acc,
       beats: current.map((s) => (s.image_prompt ?? s.narration_text ?? "").slice(0, 220)),
-      referenceImageUrl: lead.image_url!,
+      referenceImageUrl: lead.image_url ?? conImagen?.image_url ?? "",
     });
     current = [];
     acc = 0;
   };
 
-  for (const s of usable) {
+  for (const s of scenes) {
     const dur = sceneSeconds(s);
     // Close the block BEFORE overflowing, unless it would leave it empty.
     if (current.length && (acc + dur > targetSeconds || current.length >= maxScenesPerBlock)) flush();
