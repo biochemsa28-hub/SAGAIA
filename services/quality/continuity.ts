@@ -161,6 +161,19 @@ export async function checkContinuity(
       });
     }
 
+    // Reading ZERO images is not a pass. It happened: every scene had a URL, but
+    // R2_PUBLIC_URL had been misconfigured when those rows were written, so none
+    // could be fetched — and the gate reported "sin bloqueos" on nothing at all,
+    // letting the run proceed to a render that could never work.
+    if (withImages.length > 0 && usable.length === 0) {
+      issues.push({
+        severity: "blocking",
+        code: "missing_image",
+        scenes: withImages.map((s) => s.scene_number),
+        message: `Ninguna de las ${withImages.length} imágenes se pudo leer. Sus URLs guardadas son inválidas o inaccesibles — revisá R2_PUBLIC_URL y volvé a generarlas.`,
+      });
+    }
+
     return { ok: !issues.some((i) => i.severity === "blocking"), issues, checked: usable.length };
   } catch {
     // A gate that breaks must not block production — it would turn a diagnostic
