@@ -347,8 +347,20 @@ En español se habla a ~14 caracteres por segundo. Para ${duration.seconds} segu
 · TOTAL de todos los narration_text sumados: ~${Math.round(duration.seconds * 14)} caracteres
 · Con ${duration.max} escenas son ~${Math.round((duration.seconds * 14) / duration.max)} caracteres por escena — unas ${Math.round((duration.seconds * 14) / duration.max / 5.5)} palabras, NO cuatro sueltas
 
-Antes de cerrar el JSON, SUMÁ los caracteres de todos los narration_text: si no
-llegan a ~${Math.round(duration.seconds * 14)}, volvé y alargá los parlamentos.
+Antes de cerrar el JSON, SUMÁ los caracteres de todos los narration_text. Ese
+total tiene que quedar entre ~${Math.round(duration.seconds * 12)} y ~${Math.round(duration.seconds * 15)} caracteres.
+Si no llega, alargá los parlamentos. Si se PASA, no lo recortes al final: sacá lo
+que sobra y guardalo para la Parte 2.
+
+📌 LA DURACIÓN ELEGIDA ES UN CONTRATO
+El usuario pidió ${duration.seconds} segundos. La historia tiene que ARRANCAR Y CERRAR dentro de
+esos ${duration.seconds} segundos, terminando en un cliffhanger — no en la mitad de una escena.
+
+Si la historia que tenés en la cabeza necesita más tiempo, NO la estires ni la
+comprimas: contá el primer tramo completo, cortalo en el punto de máxima tensión,
+y que el resto sea la Parte 2. Un episodio que cierra bien y deja con ganas vale
+mucho más que una historia entera contada a las apuradas — y además es el motivo
+por el que existe la serie.
 
 CÓMO alargar sin rellenar — esto es lo que importa:
 ❌ NO repitas la idea con otras palabras, no agregues muletillas ni "eh…"

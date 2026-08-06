@@ -9,7 +9,7 @@ import { generateShotSheet } from "@/services/fal/shot-grid";
 import { planNarrativeBlocks, blockPanelFramings, type BlockScene } from "@/services/video/narrative-blocks";
 import { buildDialogueDirection, transcribeClip } from "@/services/video/native-audio";
 import { trimClipHead } from "@/services/ffmpeg/trim";
-import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_BLOCKS_PER_VIDEO, MAX_VIDEO_SECONDS } from "@/lib/config";
+import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor } from "@/lib/config";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -187,9 +187,15 @@ export async function POST(req: NextRequest) {
           const perdidos = planned.filter((b) => !b.referenceImageUrl).map((b) => b.leadScene);
           console.warn(`[blocks] ${planned.length - conImagen.length} bloque(s) sin imagen, no se animan (escenas ${perdidos.join(", ")})`);
         }
-        const blocks = conImagen.slice(0, MAX_BLOCKS_PER_VIDEO);
+        // El tope sale de la duración que el usuario ELIGIÓ, no de una variable
+        // global: pedir 30s y pedir 60s tienen que producir cosas distintas.
+        const topeSegundos = videoSecondsFor(detail.project.duration_target);
+        const blocks = conImagen.slice(0, maxBlocksFor(detail.project.duration_target));
         if (conImagen.length > blocks.length) {
-          console.warn(`[blocks] recortado a ${blocks.length} bloques (tope ${MAX_VIDEO_SECONDS}s) — el guion pedía ${conImagen.length}`);
+          console.warn(
+            `[blocks] recortado a ${blocks.length} bloques (elegiste ${topeSegundos}s) — el guion pedía ${conImagen.length}. ` +
+            "Lo que no entra debería ser la Parte 2, no una historia cortada: si pasa seguido, el guion se está pasando del presupuesto.",
+          );
         }
         console.log(`[blocks] ${detail.scenes.length} escenas → ${blocks.length} bloques (${blocks.reduce((n, b) => n + b.scenes.length, 0)} escenas cubiertas)`);
 

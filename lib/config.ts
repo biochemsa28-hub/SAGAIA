@@ -330,3 +330,28 @@ export const ANCHOR_IMAGES_ONLY = NATIVE_AUDIO_ON
 // Blocks past this count are dropped before a single clip is submitted.
 export const MAX_VIDEO_SECONDS = Math.max(20, Number(process.env.MAX_VIDEO_SECONDS ?? 60) || 60);
 export const MAX_BLOCKS_PER_VIDEO = Math.max(2, Math.ceil(MAX_VIDEO_SECONDS / BLOCK_TARGET_SECONDS));
+
+// ── LA DURACIÓN ELEGIDA MANDA ────────────────────────────────────────────────
+// El tope era una sola variable global para todos los proyectos, así que elegir
+// "30s" y elegir "60s" producía lo mismo, y un guion largo se recortaba a la
+// mitad: medido, "el guion pedía 9 bloques" y se emitieron 6 — cuatro escenas
+// quedaron fuera y la historia terminaba en la nada.
+//
+// Lo que el usuario elige es un CONTRATO: si pide 60 segundos, el video dura 60.
+// Lo que no entra no se recorta al final — se convierte en la Parte 2, que es
+// para lo que existe la serie.
+//
+// La variable global queda como techo absoluto de gasto, nunca como el objetivo.
+const SEGUNDOS_POR_DURACION: Record<string, number> = {
+  "15s": 15, "30s": 30, "60s": 60, "90s": 90, "120s": 120,
+  "3-5min": 120, "10-20min": 120,
+};
+
+export function videoSecondsFor(durationTarget: string | null | undefined): number {
+  const pedido = SEGUNDOS_POR_DURACION[(durationTarget ?? "").trim()] ?? 60;
+  return Math.min(pedido, MAX_VIDEO_SECONDS);
+}
+
+export function maxBlocksFor(durationTarget: string | null | undefined): number {
+  return Math.max(1, Math.ceil(videoSecondsFor(durationTarget) / BLOCK_TARGET_SECONDS));
+}

@@ -6,7 +6,7 @@ import {
   createProject, saveGenerationResult, updateProjectStatus,
   deductCredits, createApiLog, setProjectCharacter, getUserById, setProjectCast,
 } from "@/lib/db/repository";
-import { resolveProjectTier, creditCostForTier } from "@/lib/config";
+import { resolveProjectTier, creditCostForTier, videoSecondsFor } from "@/lib/config";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
 import { captureServer } from "@/lib/analytics/posthog";
@@ -201,11 +201,17 @@ export async function POST(req: NextRequest) {
     if (result.data?.scenes?.length) {
       const chars = result.data.scenes.reduce((n, s) => n + (s.narration_text ?? "").trim().length, 0);
       const segundos = Math.round(chars / 14);
-      const pedidos = { "15s": 15, "30s": 30, "60s": 60 }[parsed.data.duration_target] ?? 60;
+      const pedidos = videoSecondsFor(parsed.data.duration_target);
       const pct = Math.round((segundos / pedidos) * 100);
       if (segundos < pedidos * 0.8) {
         console.warn(
           `[duracion] el guion da ~${segundos}s hablados de los ${pedidos}s pedidos (${pct}%) — el video va a salir corto`,
+        );
+      } else if (segundos > pedidos * 1.25) {
+        // Pasarse no es inofensivo: los bloques que no entran se descartan y la
+        // historia termina cortada. Lo que sobra tendría que ser la Parte 2.
+        console.warn(
+          `[duracion] el guion da ~${segundos}s hablados y se pidieron ${pedidos}s (${pct}%) — va a sobrar y la historia se va a cortar. Debería cerrar dentro de la duración elegida y dejar el resto para la Parte 2.`,
         );
       } else {
         console.log(`[duracion] ~${segundos}s hablados de ${pedidos}s pedidos (${pct}%)`);
