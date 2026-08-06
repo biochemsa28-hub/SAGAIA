@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2) Generate portrait options for each character (parallel, cost-capped)
+    const errors: string[] = [];
     const characters = await Promise.all(
       result.cast.cast.map(async (member) => {
         const opts = await generateCharacterOptions({
@@ -74,11 +75,27 @@ export async function POST(req: NextRequest) {
           visualStyle: parsed.data.visual_style,
           count: OPTIONS_PER_CHAR,
         });
+        if (!opts.success) {
+          // Used to be discarded: opts.error vanished and the response still said
+          // success:true, so the screen could only render "sin opciones de retrato"
+          // — the symptom, never the cause.
+          const why = opts.error ?? "sin detalle";
+          console.error(`[casting] retratos fallaron para ${member.name}: ${why}`);
+          errors.push(`${member.name}: ${why}`);
+        }
         return { ...member, options: opts.success ? opts.urls : [] };
       })
     );
 
-    return NextResponse.json({ success: true, characters });
+    const conRetratos = characters.filter((c) => c.options.length > 0).length;
+    console.log(`[casting] ${conRetratos}/${characters.length} personajes con retratos`);
+
+    // Every portrait failing is a failure, not a success with empty arrays.
+    if (conRetratos === 0) {
+      return NextResponse.json({ success: false, characters, error: ("No se pudo generar ningún retrato. " + (errors[0] ?? "")).trim() }, { status: 502 });
+    }
+
+    return NextResponse.json({ success: true, characters, ...(errors.length ? { warnings: errors } : {}) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[API /casting/generate]", message);
