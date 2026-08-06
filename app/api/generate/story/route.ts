@@ -133,10 +133,42 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── EL ELENCO LLEGA AL GUION SÍ O SÍ ──────────────────────────────────────
+    // El prompt ya exigía usar los nombres del elenco, pero los leía de un marcador
+    // de texto "[ELENCO DISEÑADO]:" que armaba el NAVEGADOR dentro de
+    // additional_instructions. El elenco de verdad viaja aparte, como dato
+    // estructurado (parsed.data.cast) — dos caminos para el mismo hecho.
+    //
+    // Cuando el marcador no venía, la IA escribía con nombres inventados. Ahí se
+    // rompe todo lo de abajo: los retratos se guardan por NOMBRE, así que un
+    // "Valeria" que debía ser "Elena" no encuentra su cara y el sistema reparte los
+    // rostros por orden de aparición. El usuario elige un elenco y ve otro.
+    //
+    // Ahora el marcador se arma acá, desde el elenco real. Si hay elenco, el guion
+    // se entera — no depende de que el frontend lo recuerde.
+    let instrucciones = parsed.data.additional_instructions ?? "";
+    if (parsed.data.cast?.length) {
+      const linea = parsed.data.cast
+        .map((c) => {
+          const partes = [c.name, c.role, c.voice_profile].filter(Boolean);
+          return partes.join(" — ");
+        })
+        .join(" · ");
+      // Reemplaza el marcador del frontend si existe; si no, lo agrega.
+      instrucciones = instrucciones.includes("[ELENCO DISEÑADO]:")
+        ? instrucciones.replace(/\[ELENCO DISEÑADO\]:.*/g, `[ELENCO DISEÑADO]: ${linea}`)
+        : `${instrucciones}\n[ELENCO DISEÑADO]: ${linea}`.trim();
+      console.log(`[elenco] ${parsed.data.cast.length} personaje(s) al guion: ${linea}`);
+    }
+
     // ── Generate ──────────────────────────────────────────────────────────────
     // Pass the EFFECTIVE tier so the prompt can skip fields this tier won't use
     // (Ken Burns ignores animation_prompt → generating it is pure latency).
-    const result = await storyGeneratorService.generate({ ...parsed.data, animation_tier: animationTier });
+    const result = await storyGeneratorService.generate({
+      ...parsed.data,
+      additional_instructions: instrucciones || undefined,
+      animation_tier: animationTier,
+    });
     const durationMs = Date.now() - t0;
 
     if (!result.success) {
@@ -157,6 +189,51 @@ export async function POST(req: NextRequest) {
         { error: result.error, validation_error: result.validation_error, provider: result.provider },
         { status: 422 }
       );
+    }
+
+    // ── REPARAR LOS NOMBRES ANTES DE GUARDARLOS ───────────────────────────────
+    // La instrucción del prompt es tajante, pero una instrucción no es una
+    // garantía: el modelo igual escribe "Valeria" donde el elenco dice "Valentina".
+    // Corregirlo ACÁ, antes de que toque la base, es lo único que hace determinista
+    // el enlace personaje↔rostro. Si se deja pasar, cada paso siguiente —retratos,
+    // voces, subtítulos— hereda un nombre que no existe, y el usuario ve un
+    // reparto que no eligió.
+    //
+    // Solo se corrige lo que NO coincide. Un speaker que ya está bien no se toca.
+    if (result.data?.scenes?.length && parsed.data.cast?.length) {
+      const nombres = parsed.data.cast.map((c) => c.name).filter(Boolean);
+      const norm = (s: string) => s.trim().toLowerCase();
+      const exactos = new Set(nombres.map(norm));
+
+      // Un nombre inventado suele parecerse al real (Valeria/Valentina), así que
+      // primero se busca por prefijo compartido; si no, por orden de aparición,
+      // que al menos mantiene UNA cara por personaje a lo largo de la historia.
+      const vistos: string[] = [];
+      let corregidos = 0;
+      for (const sc of result.data.scenes) {
+        const sp = sc.speaker?.trim();
+        if (!sp || exactos.has(norm(sp))) continue;
+
+        const n = norm(sp);
+        const parecido = nombres.find((real) => {
+          const r = norm(real);
+          return r.startsWith(n.slice(0, 3)) || n.startsWith(r.slice(0, 3));
+        });
+
+        if (!vistos.includes(n)) vistos.push(n);
+        const porOrden = nombres[vistos.indexOf(n) % nombres.length];
+        const elegido = parecido ?? porOrden;
+        if (elegido) {
+          console.warn(`[elenco] speaker "${sp}" no está en el elenco → "${elegido}"`);
+          sc.speaker = elegido;
+          corregidos++;
+        }
+      }
+      if (corregidos) {
+        console.warn(`[elenco] ${corregidos} atribución(es) corregidas — el guion se desvió de los nombres elegidos`);
+      } else {
+        console.log("[elenco] todas las escenas usan los nombres del elenco");
+      }
     }
 
     // ── Save result + log ─────────────────────────────────────────────────────
