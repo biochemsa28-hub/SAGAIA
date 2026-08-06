@@ -259,6 +259,10 @@ export async function POST(req: NextRequest) {
               audioUrls: covered.map((c) => c.audioUrl).filter((u): u is string => Boolean(u)),
               durationSeconds: covered.reduce((n, c) => n + (c.durationSeconds ?? 0), 0),
               wordTimings: merged.length ? merged : sc.wordTimings,
+              // El respaldo de subtítulos tiene que cubrir el bloque ENTERO: un clip
+              // que apila cuatro escenas y solo lleva el texto de la primera
+              // subtitularía el 25% de lo que se escucha.
+              narrationText: covered.map((c) => c.narrationText).filter(Boolean).join(" "),
               // A block already cuts between camera setups inside itself; the
               // still-image shot list would fight it.
               shots: undefined as string[] | undefined,
@@ -322,6 +326,10 @@ export async function POST(req: NextRequest) {
           audioUrls: (s as { audioUrls?: string[] }).audioUrls,
           durationSeconds: s.durationSeconds,
           wordTimings: parsed.data.add_subtitles ? s.wordTimings : undefined,
+          // El texto del guion viaja como respaldo: si Whisper no devolvió tiempos,
+          // el ensamblador reparte estas palabras en la duración de la escena antes
+          // que dejar el video sin un solo subtítulo.
+          narrationText: parsed.data.add_subtitles ? s.narrationText : undefined,
           emotion: s.emotion,
           shots: s.shots,
         })),

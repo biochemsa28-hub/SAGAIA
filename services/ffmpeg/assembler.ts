@@ -29,6 +29,11 @@ const X264_THREADS = ["-threads", String(Math.max(1, Number(process.env.FFMPEG_T
 // Cola sin dialogo: cuantos segundos mudos al final hacen falta para recortar, y
 // cuantos se DEJAN igual (el CTA de "Parte 2" está quemado ahi — cortar al ras
 // lo borraria).
+// Cuánto cuadro congelado se tolera al final de un clip antes de repetirlo en
+// bucle. Medido: 11s de estatua en el medio de un video real. Medio segundo es
+// invisible y evita el corte seco; dos segundos ya se notan pero se perdonan.
+const FREEZE_MAX = Math.max(0.5, Number(process.env.FREEZE_MAX_SECONDS ?? 2) || 2);
+
 const TAIL_MIN = Math.max(1, Number(process.env.TAIL_SILENCE_MIN ?? 2.5) || 2.5);
 const TAIL_KEEP = Math.max(0.5, Number(process.env.TAIL_SILENCE_KEEP ?? 2) || 2);
 // Objetivo de sonoridad. Las plataformas normalizan alrededor de -14/-16 LUFS;
@@ -60,6 +65,8 @@ export interface FfScene {
   audioUrls?: string[];
   durationSeconds?: number;
   wordTimings?: Array<{ word: string; start: number; end: number }>; // for burned CapCut subs
+  /** Lo que dice la escena. Respaldo para subtitular cuando no hay wordTimings. */
+  narrationText?: string;
   emotion?: string;    // drives the Ken Burns motion (direction, easing, anchor)
   shots?: string[];    // extra camera setups of this same beat → the edit cuts between them
 }
@@ -279,6 +286,26 @@ async function download(url: string, path: string): Promise<void> {
   }
 }
 
+// Reparte el texto de una escena a lo largo de su duración cuando no hay tiempos
+// medidos. No compite con Whisper: las palabras largas ocupan proporcionalmente
+// más, y nada más. Alcanza para que el cartel esté en pantalla mientras se dice
+// la línea, que es el 90% del valor de un subtítulo en un feed sin sonido.
+function repartirPalabras(texto: string | undefined, durSec: number): Array<{ word: string; start: number; end: number }> {
+  const palabras = (texto ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!palabras.length || durSec <= 0) return [];
+  const pesos = palabras.map((w) => Math.max(2, w.length));
+  const total = pesos.reduce((a, b) => a + b, 0);
+  // Un respiro al final: la voz casi nunca ocupa el segmento entero.
+  const util = Math.max(0.5, durSec - 0.25);
+  let t = 0;
+  return palabras.map((w, k) => {
+    const dur = (pesos[k]! / total) * util;
+    const start = t;
+    t += dur;
+    return { word: w, start, end: t };
+  });
+}
+
 async function probeDuration(path: string): Promise<number> {
   try {
     const { stdout } = await exec(FFPROBE, ["-v", "error", "-show_entries", "format=duration", "-of", "default=nk=1:nw=1", path]);
@@ -322,11 +349,27 @@ async function buildSceneClip(
 
   // CapCut subtitles + watermark + CTA: one per-scene .ass file (relative name so
   // Windows path escaping in the ffmpeg filter is a non-issue — we set cwd=dir).
-  const needAss = Boolean(scene.wordTimings?.length || deco?.watermark || (deco?.isLast && deco?.cta));
+  // RED DE SEGURIDAD DE SUBTÍTULOS. Medido en un video real de 97s: cero líneas de
+  // texto en las doce muestras que revisé. La marca de agua sí aparecía, o sea que
+  // el archivo .ass se creaba — llegaba vacío de diálogo porque wordTimings venía
+  // sin nada (Whisper falló, o la transcripción no viajó hasta acá).
+  //
+  // En Reels y Shorts la mayoría mira SIN SONIDO. Un video sin subtítulos pierde a
+  // esa gente entera, y el diálogo es justo lo mejor que tiene este producto. Así
+  // que si no hay tiempos medidos, se reparten desde el texto del guion: quedan
+  // menos ajustados que los de Whisper, pero existen.
+  const timings = scene.wordTimings?.length
+    ? scene.wordTimings
+    : repartirPalabras(scene.narrationText, dur);
+  if (!scene.wordTimings?.length && timings.length) {
+    console.warn(`[subs] escena ${i}: sin tiempos medidos — subtítulos repartidos desde el guion (${timings.length} palabras)`);
+  }
+
+  const needAss = Boolean(timings.length || deco?.watermark || (deco?.isLast && deco?.cta));
   let assName: string | null = null;
   if (needAss) {
     assName = `s_${i}.ass`;
-    writeFileSync(join(dir, assName), buildAssContent(scene.wordTimings, {
+    writeFileSync(join(dir, assName), buildAssContent(timings, {
       durSec: dur,
       watermark: deco?.watermark,
       cta: deco?.isLast ? deco?.cta ?? null : null,
@@ -358,15 +401,34 @@ async function buildSceneClip(
           outro = `${fadeIn}${fo}`;
         }
       }
-      const args = ["-y", "-i", vid];
+      // ¿Cuánto más larga es la narración que el clip? De eso depende TODO lo de
+      // abajo. Medido en un video real: un clip de 8s bajo 19s de narración dejaba
+      // 11 SEGUNDOS de foto quieta en el medio del video — el 11% del total, justo
+      // donde se decide si alguien sigue mirando.
+      const clipDur = hasAudio ? await probeDuration(vid).catch(() => 0) : 0;
+      const audioDur = hasAudio ? await probeDuration(audioPath).catch(() => 0) : 0;
+      const sobra = clipDur > 0 && audioDur > clipDur ? audioDur - clipDur : 0;
+
+      const args = ["-y"];
+      // Si falta MUCHO video, se REPITE el clip en vez de congelarlo. Un bucle se
+      // nota; once segundos de estatua se abandonan. tpad sigue existiendo para el
+      // resto — clonar medio segundo al final es invisible y evita el corte seco.
+      if (sobra > FREEZE_MAX) args.push("-stream_loop", "-1");
+      args.push("-i", vid);
       if (hasAudio) args.push("-i", audioPath);
+      const relleno = hasAudio
+        ? (sobra > FREEZE_MAX ? "" : `,tpad=stop_mode=clone:stop_duration=${Math.min(FREEZE_MAX, Math.max(0.2, sobra) + 0.3).toFixed(2)}`)
+        : "";
+      if (sobra > FREEZE_MAX) {
+        // El bucle es infinito: la duración la fija la narración.
+        args.push("-t", audioDur.toFixed(2));
+        console.log(`[ffmpeg] escena ${i}: clip ${clipDur.toFixed(1)}s bajo ${audioDur.toFixed(1)}s de audio → se repite en bucle (antes: ${sobra.toFixed(1)}s congelados)`);
+      }
       args.push(
-        // tpad clones the final frame indefinitely so the NARRATION decides the
-        // segment length, not the clip. A narrative block lays several scenes'
-        // narration over one generation; without this, -shortest cut the story
-        // dead the moment the clip ran out — five seconds of dialogue silently
-        // vanished in testing. Holding a frame is survivable; losing the line is not.
-        "-filter_complex", `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${hasAudio ? ",tpad=stop_mode=clone:stop_duration=30" : ""}${subFilter}${outro}[v]`,
+        // La narración manda sobre la duración del segmento: un bloque narrativo
+        // apila varias escenas sobre una sola generación, y cortar con -shortest
+        // se comía líneas enteras. Pero el relleno ya no es una estatua indefinida.
+        "-filter_complex", `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${relleno}${subFilter}${outro}[v]`,
         "-map", "[v]", "-map", hasAudio ? "1:a" : "0:a?",
         ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", out,
       );
