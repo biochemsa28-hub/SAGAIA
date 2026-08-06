@@ -118,6 +118,26 @@ export async function GET() {
     if (problema) secret_format[k] = problema;
   }
 
+
+  // Shape checks were not enough. A value can be perfectly formatted and still be
+  // the wrong thing: R2_PUBLIC_URL once held the literal text ".env.local linea 53"
+  // — my own instruction, pasted instead of the value — and every image URL became
+  // unparseable while the health check reported the variable as clean.
+  const ESPERADO: Record<string, { test: (v: string) => boolean; dice: string }> = {
+    R2_PUBLIC_URL:      { test: (v) => v.startsWith("http"), dice: "debe empezar con https://" },
+    NEXTAUTH_URL:       { test: (v) => v.startsWith("http"), dice: "debe empezar con https://" },
+    TURSO_DATABASE_URL: { test: (v) => v.startsWith("libsql://") || v.startsWith("http"), dice: "debe empezar con libsql://" },
+    FAL_API_KEY:        { test: (v) => v.includes(":"), dice: "debe tener el formato id:secreto" },
+    ELEVENLABS_API_KEY: { test: (v) => v.startsWith("sk_"), dice: "debe empezar con sk_" },
+    ANTHROPIC_API_KEY:  { test: (v) => v.startsWith("sk-ant-"), dice: "debe empezar con sk-ant-" },
+    OPENAI_API_KEY:     { test: (v) => v.startsWith("sk-"), dice: "debe empezar con sk-" },
+    STRIPE_SECRET_KEY:  { test: (v) => v.startsWith("sk_"), dice: "debe empezar con sk_" },
+  };
+  const secret_content: Record<string, string> = {};
+  for (const [k, regla] of Object.entries(ESPERADO)) {
+    const v = process.env[k];
+    if (v && !regla.test(v)) secret_content[k] = regla.dice;
+  }
   const missing = Object.entries(checks)
     .filter(([k, v]) => typeof v === "boolean" && !v)
     .map(([k]) => k);
@@ -128,6 +148,7 @@ export async function GET() {
     checks,
     db_connection,
     secret_format,
+    secret_content,
     production,
     pipeline,
   });
