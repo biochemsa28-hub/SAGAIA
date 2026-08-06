@@ -105,6 +105,7 @@ export async function GET() {
     ok: missing.length === 0,
     missing,
     checks,
+    db_connection,
     production,
     pipeline,
   });
