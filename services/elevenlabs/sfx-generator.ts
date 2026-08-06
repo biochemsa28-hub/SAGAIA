@@ -21,6 +21,14 @@ const NICHE_IMPACT_MOOD: Record<string, string> = {
   fantasy: "magical sparkling orchestral impact",
   drama: "emotional deep cinematic impact",
   historia: "epic cinematic impact, grand",
+  // Estos caían al genérico y sonaban a tráiler de acción sobre una confesión
+  // íntima — el golpe equivocado desmiente el tono en el primer segundo.
+  chisme: "quick gossipy whoosh with a light suspense sting, playful",
+  confesion: "soft low heartbeat thud, intimate and restrained",
+  comedy: "light comedic pop sting, playful",
+  comedia: "light comedic pop sting, playful",
+  documentary: "authoritative low documentary drone hit",
+  documental: "authoritative low documentary drone hit",
   default: "cinematic impact hit, dramatic",
 };
 
