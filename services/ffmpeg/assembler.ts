@@ -67,6 +67,8 @@ export interface FfScene {
   wordTimings?: Array<{ word: string; start: number; end: number }>; // for burned CapCut subs
   /** Lo que dice la escena. Respaldo para subtitular cuando no hay wordTimings. */
   narrationText?: string;
+  /** Esta escena ocurre en OTRO lugar que la anterior — la transición debe leerse. */
+  newLocation?: boolean;
   emotion?: string;    // drives the Ken Burns motion (direction, easing, anchor)
   shots?: string[];    // extra camera setups of this same beat → the edit cuts between them
 }
@@ -379,7 +381,16 @@ async function buildSceneClip(
   const subFilter = assName ? `,ass=${assName}` : "";
   // Smooth scene transitions: quick fade-in on every scene after the first,
   // and a gentle fade-out to close the video.
-  const fadeIn = deco?.isFirst ? "" : ",fade=t=in:st=0:d=0.4";
+  // Un corte dentro del mismo lugar es un cambio de ángulo y se sostiene solo: 0.4s
+  // apenas suaviza el empalme. Un CAMBIO DE ESCENARIO es otra cosa — el espectador
+  // tiene que entender que se movió en el espacio o en el tiempo, y para eso el
+  // fundido tiene que durar lo suficiente como para leerse. Sin esta distinción
+  // todos los cortes pesan igual y el video se siente desarmado.
+  const fadeIn = deco?.isFirst
+    ? ""
+    : scene.newLocation
+      ? ",fade=t=in:st=0:d=0.75"
+      : ",fade=t=in:st=0:d=0.4";
   const fadeOut = deco?.isLast ? `,fade=t=out:st=${Math.max(0, dur - 0.5).toFixed(2)}:d=0.5` : "";
   const transition = `${fadeIn}${fadeOut}`;
   const opts = { maxBuffer: 1 << 26, cwd: dir };

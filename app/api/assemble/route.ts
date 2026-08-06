@@ -181,6 +181,7 @@ export async function POST(req: NextRequest) {
         imageUrl: clipUrl ? undefined : (image?.public_url ?? ""),
         audioUrl: audio?.public_url ?? undefined,
         narrationText: scene.narration_text,
+        location: (scene as { location?: string | null }).location ?? null,
         // Real spoken length keeps clip + voice + subtitles all in sync.
         // +0.35s tail so the clip doesn't cut the instant the voice ends.
         durationSeconds: audioDuration ? Math.min(maxDur, Math.max(2, audioDuration + 0.35)) : (scene.duration_seconds || 5),
@@ -319,7 +320,7 @@ export async function POST(req: NextRequest) {
     if ((process.env.RENDER_ENGINE ?? "").toLowerCase() === "ffmpeg") {
       const { assembleWithFfmpeg } = await import("@/services/ffmpeg/assembler");
       const ff = await assembleWithFfmpeg({
-        scenes: timeline.map((s) => ({
+        scenes: timeline.map((s, i) => ({
           imageUrl: s.imageUrl || undefined,
           videoUrl: s.videoUrl || undefined,
           audioUrl: s.audioUrl,
@@ -330,6 +331,11 @@ export async function POST(req: NextRequest) {
           // el ensamblador reparte estas palabras en la duración de la escena antes
           // que dejar el video sin un solo subtítulo.
           narrationText: parsed.data.add_subtitles ? s.narrationText : undefined,
+          // Se compara con la escena ANTERIOR de la línea de tiempo, no con el
+          // número de escena: los bloques absorben escenas y los números dejan de
+          // ser correlativos con el orden en que se ven.
+          newLocation: i > 0 && Boolean(s.location) && Boolean(timeline[i - 1]?.location)
+            && s.location !== timeline[i - 1]?.location,
           emotion: s.emotion,
           shots: s.shots,
         })),

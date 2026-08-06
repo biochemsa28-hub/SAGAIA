@@ -241,10 +241,30 @@ export async function POST(req: NextRequest) {
                 look: (sc as { speaker_look?: string | null }).speaker_look,
                 text: sc!.narration_text ?? "",
               }));
+            // ENCADENAR SOLO DENTRO DEL MISMO LUGAR.
+            //
+            // end_image_url hace que el clip termine en el cuadro donde arranca el
+            // siguiente, y por eso el video se lee como una toma continua. Pero eso
+            // solo funciona si los dos cuadros son el MISMO sitio: cruzando un
+            // cambio de escenario, el modelo intenta transformar una habitación en
+            // otra y sale un morfeo. Un corte limpio se ve muchísimo mejor que una
+            // transformación imposible.
+            const lugarDe = (n: number) =>
+              ((sceneByNumber.get(n) as { location?: string | null } | undefined)?.location ?? "").trim().toLowerCase();
+            const nextLead = blocks[bi + 1]?.leadScene;
+            const mismoLugar = nextLead !== undefined && lugarDe(block.leadScene) === lugarDe(nextLead);
+            // Sin dato de locación se mantiene el encadenado: es el comportamiento
+            // que ya venía funcionando, y los guiones viejos no traen el campo.
+            const hayDato = Boolean(lugarDe(block.leadScene)) && nextLead !== undefined && Boolean(lugarDe(nextLead));
+            const encadenar = !hayDato || mismoLugar;
+            if (hayDato && !mismoLugar) {
+              console.log(`[blocks] escena ${block.leadScene}: cambia de escenario → corte limpio, sin encadenar`);
+            }
+
             return {
               scene_number: block.leadScene,
               image_url: imgByScene.get(block.leadScene) ?? block.referenceImageUrl,
-              end_image_url: endImage && endImage !== imgByScene.get(block.leadScene) ? endImage : undefined,
+              end_image_url: encadenar && endImage && endImage !== imgByScene.get(block.leadScene) ? endImage : undefined,
               // La dirección de cámara sale del GUION, no de una frase fija.
               //
               // Antes decía "cinematic scene with natural camera movement AND CUTS

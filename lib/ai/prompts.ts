@@ -151,8 +151,17 @@ REGLA #2.6 — CADA ESCENA CAMBIA ALGO (NO ES UN DISCURSO PARTIDO EN PLANOS)
 ════════════════════════════════════════
 El error más grave y más frecuente: escribir UN monólogo largo y cortarlo en escenas. Se ve bien escrito y no cuenta nada, porque nada CAMBIA entre una escena y la siguiente.
 
+OJO — CAMBIAR DE LUGAR NO ES LA PRIMERA OPCIÓN, ES LA MÁS CARA
+Dentro de una misma locación tenés muchísimo: plano general, primer plano de los
+ojos, sobre el hombro, el reflejo en un espejo, un detalle de las manos, el otro
+personaje al fondo desenfocado. Eso es lenguaje de cine y no cuesta nada.
+Cambiá de LUGAR solo cuando la historia lo justifica —alguien se va, pasa el
+tiempo, la acción se traslada— porque cada cambio de escenario es un corte que hay
+que sostener, y demasiados seguidos hacen que el video se sienta desarmado.
+
 Entre una escena y la siguiente tiene que cambiar AL MENOS UNA de estas cosas:
-  · EL LUGAR — otra habitación, afuera, otro edificio
+  · EL ÁNGULO — mismo lugar, otro encuadre (la opción por defecto)
+  · EL LUGAR — otra habitación, afuera, otro edificio (solo si se justifica)
   · EL TIEMPO — más tarde, al día siguiente, un recuerdo
   · QUIÉN ESTÁ PRESENTE — alguien entra, alguien se va, alguien llama
   · LO QUE EL PERSONAJE SABE — se entera de un hecho nuevo que antes ignoraba
@@ -556,6 +565,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
     {
       "scene_number": 1,
       "speaker": "nombre EXACTO del personaje del ELENCO que habla este parlamento (si no hay elenco definido, usa 'Narrador')",
+      "location": "EN INGLÉS, 2-6 palabras: dónde transcurre esta escena. Ej: 'the master bedroom', 'the kitchen at night', 'the hallway'. Dos escenas en el MISMO lugar tienen que llevar EXACTAMENTE el mismo texto — es así como el sistema sabe si hubo cambio de escenario y decide la transición. NO cambies de lugar sin motivo: dentro de una misma locación variá el ÁNGULO (plano general, primer plano, sobre el hombro, reflejo en un espejo). Cambiá de lugar solo cuando la historia lo justifica: alguien se va, pasa el tiempo, la acción se traslada.",
       "speaker_look": "EN INGLÉS, 3-7 palabras: cómo SE VE quien habla, para distinguirlo de los demás en cuadro. Ej: 'the woman in the red dress', 'the man in the white shirt', 'the older woman with grey hair'. USÁ EXACTAMENTE EL MISMO TEXTO para el mismo personaje en TODAS sus escenas — si cambia, deja de identificarlo. El modelo de video no sabe quién es 'Valeria': sin esto pone las líneas de los dos personajes en la boca del que está enfocado.",
       "voice_profile": "arquetipo de voz del que habla, UNO de: male_young | male_adult | male_elderly | male_villain | female_young | female_adult | female_elderly | child | narrator | creature — debe coincidir con el voice_profile que ese personaje tiene en el ELENCO",
       "narration_text": "LO QUE ESTE PERSONAJE DICE en voz alta — primera persona, emoción cruda, subtexto cargado. UNA SOLA VOZ. Muestra la emoción con acciones/objetos/silencios, no declarándola. Termina con gancho hacia la siguiente escena.",

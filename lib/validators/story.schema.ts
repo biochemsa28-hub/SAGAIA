@@ -72,6 +72,17 @@ export const SceneSchema = z.object({
   // Tiene que ser EL MISMO texto para el mismo personaje en todas sus escenas, o
   // deja de servir para identificarlo.
   speaker_look: z.string().max(80).optional(),
+  // DÓNDE transcurre la escena, en inglés y en pocas palabras ("the master
+  // bedroom", "the kitchen at night"). Dos escenas en el mismo lugar deben llevar
+  // EL MISMO texto — es lo que permite saber si hubo cambio de escenario.
+  //
+  // Importa por una razón concreta: los clips se encadenan con el cuadro inicial
+  // del siguiente para que se lean como una toma continua, y eso solo funciona
+  // dentro de un mismo lugar. Encadenado a través de un cambio de locación, el
+  // modelo intenta TRANSFORMAR una habitación en otra y el resultado es un morfeo
+  // feo. Sabiendo la locación se puede encadenar cuando corresponde y cortar
+  // limpio cuando no.
+  location: z.string().max(80).optional(),
   duration_seconds: z.number().int().min(2).max(120),
   image_prompt: z
     .string()
