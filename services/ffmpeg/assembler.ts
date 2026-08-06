@@ -17,6 +17,14 @@ import { uploadBuffer } from "@/services/storage";
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH ?? "ffmpeg";
 const FFPROBE = process.env.FFPROBE_PATH ?? "ffprobe";
+
+// x264 NO ve el limite de memoria del contenedor: ve los nucleos del HOST y
+// reserva bufers de fotogramas para cada hilo. En un nodo de muchos nucleos con
+// un contenedor chico eso son cientos de MB antes de codificar el primer
+// fotograma, y el contenedor mata el proceso: SIGKILL, sin una sola linea de
+// error de ffmpeg, "frame= 0" en todas las escenas. Acotar los hilos cuesta algo
+// de velocidad por escena; no acotarlos costaba el video entero.
+const X264_THREADS = ["-threads", String(Math.max(1, Number(process.env.FFMPEG_THREADS ?? 1) || 1))];
 // Living-atmosphere pass over still frames (grain that moves every frame). Off via
 // ATMOSPHERE=off if you ever want perfectly clean stills.
 // Ken Burns oversamples so the zoom does not pixelate. 2x (4K per scene) needs
@@ -325,7 +333,7 @@ async function buildSceneClip(
         // vanished in testing. Holding a frame is survivable; losing the line is not.
         "-filter_complex", `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${hasAudio ? ",tpad=stop_mode=clone:stop_duration=30" : ""}${subFilter}${outro}[v]`,
         "-map", "[v]", "-map", hasAudio ? "1:a" : "0:a?",
-        "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", out,
+        ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", out,
       );
       await exec(FFMPEG, args, opts);
     } else if (scene.imageUrl && (scene.shots?.length ?? 0) > 0) {
@@ -350,7 +358,7 @@ async function buildSceneClip(
           `[0:v]scale=${OVERSAMPLE_W}:${OVERSAMPLE_H}:force_original_aspect_ratio=increase,crop=${OVERSAMPLE_W}:${OVERSAMPLE_H},` +
           `zoompan=z='${smo.z}':x='${smo.x}':y='${smo.y}':d=${perFrames}:s=1080x1920:fps=30,setsar=1${atmo}[v]`,
           "-map", "[v]", "-t", per.toFixed(3),
-          "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg,
+          ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg,
         ], opts);
         segs.push(seg);
       }
@@ -365,7 +373,7 @@ async function buildSceneClip(
       if (hasAudio) args2.push("-i", audioPath);
       args2.push("-filter_complex", `[0:v]setsar=1${subFilter}${transition}[v]`, "-map", "[v]");
       if (hasAudio) args2.push("-map", "1:a", "-shortest");
-      args2.push("-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out);
+      args2.push(...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out);
       await exec(FFMPEG, args2, opts);
     } else if (scene.imageUrl) {
       const img = join(dir, `i_${i}.jpg`);
@@ -390,7 +398,7 @@ async function buildSceneClip(
       args.push("-filter_complex", kb, "-map", "[v]");
       if (hasAudio) args.push("-map", "1:a", "-shortest");
       // (-t ya se aplica en la entrada)
-      args.push("-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out);
+      args.push(...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out);
       try {
         await exec(FFMPEG, args, opts);
       } catch (e) {

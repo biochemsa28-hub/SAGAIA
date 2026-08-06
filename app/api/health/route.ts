@@ -10,6 +10,38 @@ import { internalSecret } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 
+// El limite de memoria REAL del contenedor, no el del host. ffmpeg murio con
+// SIGKILL en todas las escenas y estuvimos horas adivinando el motivo porque
+// nadie sabia cuanta memoria habia disponible: Node reporta la del nodo entero,
+// que en Railway no tiene ninguna relacion con lo que el contenedor puede usar.
+// cgroup v2 primero, v1 de respaldo; "max" significa sin limite.
+function memoriaContenedor() {
+  const leer = (p: string): number | null => {
+    try {
+      const t = require("fs").readFileSync(p, "utf-8").trim();
+      if (t === "max") return null;
+      const n = Number(t);
+      return Number.isFinite(n) && n > 0 && n < 1e15 ? n : null;
+    } catch { return null; }
+  };
+  const mb = (n: number | null) => (n === null ? null : Math.round(n / 1048576));
+  const limite = leer("/sys/fs/cgroup/memory.max") ?? leer("/sys/fs/cgroup/memory/memory.limit_in_bytes");
+  const uso = leer("/sys/fs/cgroup/memory.current") ?? leer("/sys/fs/cgroup/memory/memory.usage_in_bytes");
+  const limMb = mb(limite);
+  const usoMb = mb(uso);
+  return {
+    limite_mb: limMb,
+    en_uso_mb: usoMb,
+    libre_mb: limMb !== null && usoMb !== null ? limMb - usoMb : null,
+    node_rss_mb: Math.round(process.memoryUsage().rss / 1048576),
+    cpus_visibles: require("os").cpus().length,
+    // Un render de una escena a 1080x1920 necesita holgura real. Por debajo de
+    // esto x264 no llega a emitir el primer fotograma antes del SIGKILL.
+    suficiente_para_ffmpeg:
+      limMb !== null && usoMb !== null ? limMb - usoMb >= 350 : null,
+  };
+}
+
 export async function GET() {
   // Actually TALK to the database instead of checking that a variable exists.
   // Reporting database:true for a present-but-broken connection is what sent us
@@ -145,6 +177,7 @@ export async function GET() {
   return NextResponse.json({
     ok: missing.length === 0,
     missing,
+    memoria: memoriaContenedor(),
     checks,
     db_connection,
     secret_format,
