@@ -371,7 +371,20 @@ async function buildSceneClip(
       if (hasAudio) args.push("-map", "1:a", "-shortest");
       // (-t ya se aplica en la entrada)
       args.push("-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out);
-      await exec(FFMPEG, args, opts);
+      try {
+        await exec(FFMPEG, args, opts);
+      } catch (e) {
+        // Burned captions are the most fragile link: they depend on libass, on
+        // fontconfig, and on a font that actually exists in the image. A video
+        // without captions still ships; a failed render ships nothing and throws
+        // away images and clips that were already paid for. So if the subtitle
+        // pass fails, retry the same segment plain.
+        if (!subFilter) throw e;
+        console.warn("[ffmpeg] scene " + i + ": reintentando SIN subtitulos");
+        const plano = kb.split(subFilter).join("");
+        const args2 = args.map((x) => (x === kb ? plano : x));
+        await exec(FFMPEG, args2, opts);
+      }
     } else {
       return null;
     }
