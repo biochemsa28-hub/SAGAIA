@@ -5,7 +5,7 @@ import { stripe, getPlanById } from "@/lib/stripe";
 import { z } from "zod";
 
 const Schema = z.object({
-  plan_id: z.enum(["starter", "creator", "pro", "studio"]),
+  plan_id: z.enum(["creator", "pro", "studio"]),
   billing: z.enum(["monthly", "annual"]).default("monthly"),
 });
 

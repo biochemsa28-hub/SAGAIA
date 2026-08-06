@@ -17,31 +17,14 @@ const FALLBACK_NAVOS_PER_VIDEO = creditCostForTier(getAnimationTier());
 
 // ─── Plans data (decoy strategy: Creador is bad value to push Pro) ────────────
 const PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    navos: 9000,
-    videos: 1,
-    monthly: 9,
-    annual: 7,
-    perVideo: { monthly: "9.00", annual: "7.00" },
-    accent: "from-zinc-700 to-zinc-800",
-    border: "border-zinc-700",
-    glow: "",
-    badge: null as string | null,
-    badgeColor: "",
-    // Only advertise lip-sync when the effective tier actually produces it —
-    // FORCE_TIER=kenburns does not, and a plan card is a promise.
-    features: ["Elenco IA + voz por personaje", "Subtítulos karaoke + kit de publicación"],
-    locked: ["Más volumen", "Soporte prioritario"],
-    cta: "Comenzar",
-    ctaStyle: "bg-zinc-700 hover:bg-zinc-600 text-white",
-  },
+  // Starter eliminado: a $9 daba 9.000 NAVOS y un video cuesta 12.240 con el costo
+  // real medido. Era un plan que no alcanzaba para producir NADA — la peor primera
+  // experiencia posible, y encima con el usuario ya habiendo pagado.
   {
     id: "creator",
     name: "Creador",
     navos: 29000,
-    videos: 3,
+    videos: 2,
     monthly: 29,
     annual: 24,
     perVideo: { monthly: "9.67", annual: "8.00" },
@@ -50,7 +33,7 @@ const PLANS = [
     glow: "",
     badge: null as string | null,
     badgeColor: "",
-    features: ["Personajes recurrentes guardados", "Sube tu producto a los anuncios", "Todo lo de Starter"],
+    features: ["Personajes recurrentes guardados", "Sube tu producto a los anuncios", "Los NAVOS que no uses se acumulan"],
     locked: ["Soporte prioritario"],
     cta: "Elegir Creador",
     ctaStyle: "bg-blue-700 hover:bg-blue-600 text-white",
@@ -59,7 +42,7 @@ const PLANS = [
     id: "pro",
     name: "Pro",
     navos: 49000,
-    videos: 5,
+    videos: 4,
     monthly: 49,
     annual: 39,
     perVideo: { monthly: "9.80", annual: "7.80" },
@@ -77,7 +60,7 @@ const PLANS = [
     id: "studio",
     name: "Estudio",
     navos: 99000,
-    videos: 11,
+    videos: 8,
     monthly: 99,
     annual: 79,
     perVideo: { monthly: "9.00", annual: "7.18" },

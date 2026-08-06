@@ -191,7 +191,12 @@ export function navosForPriceUsd(usd: number): number {
 //
 // Derived now, so it can never drift from the price again: N videos at whatever a
 // video actually costs today.
-export const FREE_SIGNUP_VIDEOS = Math.max(1, Number(process.env.FREE_SIGNUP_VIDEOS ?? 1) || 1);
+// SIN REGALO DE BIENVENIDA. Con el costo medido en $4.08, cada registro que nunca
+// paga se llevaba ese dinero del bolsillo — y el número anterior se calculó cuando
+// se creía que un video costaba $1.25. Un video gratis por registro es viable a
+// centavos; a cuatro dólares es una sangría que escala con el marketing.
+// Se puede reactivar con FREE_SIGNUP_VIDEOS si alguna vez conviene.
+export const FREE_SIGNUP_VIDEOS = Math.max(0, Number(process.env.FREE_SIGNUP_VIDEOS ?? 0) || 0);
 export const FREE_SIGNUP_NAVOS = creditCostForTier(getAnimationTier()) * FREE_SIGNUP_VIDEOS;
 
 // PRO pipeline: scene image → Seedance (cinematic motion) → video lip-sync (sync.so),
