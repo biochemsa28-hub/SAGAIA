@@ -6,7 +6,7 @@ import { submitLipsyncJobs, checkLipsyncJob } from "@/services/fal/lipsync-gener
 import { submitVideoLipsyncJobs, checkVideoLipsyncJob } from "@/services/fal/video-lipsync-generator";
 import { initDb } from "@/lib/db";
 import { generateShotSheet } from "@/services/fal/shot-grid";
-import { planNarrativeBlocks, blockPanelFramings, type BlockScene } from "@/services/video/narrative-blocks";
+import { planNarrativeBlocks, blockPanelFramings, CHARS_PER_SECOND, type BlockScene } from "@/services/video/narrative-blocks";
 import { buildDialogueDirection, buildPerformanceDirection, transcribeClip } from "@/services/video/native-audio";
 import { trimClipHead } from "@/services/ffmpeg/trim";
 import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor } from "@/lib/config";

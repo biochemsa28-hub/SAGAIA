@@ -1,3 +1,4 @@
+import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 import type { StoryInput } from "@/lib/validators/story.schema";
 
 // Scene counts are tuned for SHORT-FORM RETENTION: viral Reels/TikToks cut every
@@ -369,11 +370,11 @@ que rellene ni planos de recurso: si el diálogo suma 35 segundos, el video dura
 segundos y no llega al mínimo que las plataformas piden para monetizar.
 
 En español se habla a ~14 caracteres por segundo. Para ${duration.seconds} segundos:
-· TOTAL de todos los narration_text sumados: ~${Math.round(duration.seconds * 14)} caracteres
-· Con ${duration.max} escenas son ~${Math.round((duration.seconds * 14) / duration.max)} caracteres por escena — unas ${Math.round((duration.seconds * 14) / duration.max / 5.5)} palabras, NO cuatro sueltas
+· TOTAL de todos los narration_text sumados: ~${Math.round(duration.seconds * CHARS_PER_SECOND)} caracteres
+· Con ${duration.max} escenas son ~${Math.round((duration.seconds * CHARS_PER_SECOND) / duration.max)} caracteres por escena — unas ${Math.round((duration.seconds * CHARS_PER_SECOND) / duration.max / 5.5)} palabras, NO cuatro sueltas
 
 Antes de cerrar el JSON, SUMÁ los caracteres de todos los narration_text. Ese
-total tiene que quedar entre ~${Math.round(duration.seconds * 12)} y ~${Math.round(duration.seconds * 15)} caracteres.
+total tiene que quedar entre ~${Math.round(duration.seconds * (CHARS_PER_SECOND - 1))} y ~${Math.round(duration.seconds * (CHARS_PER_SECOND + 2))} caracteres.
 Si no llega, alargá los parlamentos. Si se PASA, no lo recortes al final: sacá lo
 que sobra y guardalo para la Parte 2.
 

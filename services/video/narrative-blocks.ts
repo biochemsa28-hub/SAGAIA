@@ -55,7 +55,7 @@ export interface NarrativeBlock {
 // planificador creía que un bloque duraba 7s, la voz real daba 11, y el clip —que
 // se pidió para 7— dejaba cuatro segundos de cuadro congelado. Estimar de menos
 // no ahorra nada: se paga con un video que se detiene.
-const CHARS_PER_SECOND = Math.max(6, Number(process.env.CHARS_PER_SECOND ?? 11) || 11);
+export const CHARS_PER_SECOND = Math.max(6, Number(process.env.CHARS_PER_SECOND ?? 11) || 11);
 
 const sceneSeconds = (s: BlockScene) => {
   if (s.audio_seconds && s.audio_seconds > 0) return s.audio_seconds;

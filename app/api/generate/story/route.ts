@@ -7,6 +7,7 @@ import {
   deductCredits, createApiLog, setProjectCharacter, getUserById, setProjectCast,
 } from "@/lib/db/repository";
 import { resolveProjectTier, creditCostForTier, videoSecondsFor } from "@/lib/config";
+import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
 import { captureServer } from "@/lib/analytics/posthog";
@@ -200,7 +201,7 @@ export async function POST(req: NextRequest) {
     // una garantía: acá se MIDE. A ~14 caracteres por segundo en español.
     if (result.data?.scenes?.length) {
       const chars = result.data.scenes.reduce((n, s) => n + (s.narration_text ?? "").trim().length, 0);
-      const segundos = Math.round(chars / 14);
+      const segundos = Math.round(chars / CHARS_PER_SECOND);
       const pedidos = videoSecondsFor(parsed.data.duration_target);
       const pct = Math.round((segundos / pedidos) * 100);
       if (segundos < pedidos * 0.8) {
@@ -220,7 +221,7 @@ export async function POST(req: NextRequest) {
         console.warn(
           `[duracion] el guion da ~${segundos}s y se pidieron ${pedidos}s (${pct}%) — regenerando una vez con la corrección`,
         );
-        const objetivo = Math.round(pedidos * 14);
+        const objetivo = Math.round(pedidos * CHARS_PER_SECOND);
         const correccion =
           `\n[CORRECCIÓN DE DURACIÓN] El guion anterior sumaba ~${segundos} segundos hablados y se pidieron ${pedidos}. ` +
           `Te pasaste ${segundos - pedidos} segundos. Reescribilo COMPLETO para que el total de todos los narration_text ` +
@@ -232,7 +233,7 @@ export async function POST(req: NextRequest) {
           animation_tier: animationTier,
         });
         const nuevos = reintento.success && reintento.data?.scenes?.length
-          ? Math.round(reintento.data.scenes.reduce((n, s) => n + (s.narration_text ?? "").trim().length, 0) / 14)
+          ? Math.round(reintento.data.scenes.reduce((n, s) => n + (s.narration_text ?? "").trim().length, 0) / CHARS_PER_SECOND)
           : 0;
         // Solo se acepta si de verdad mejora: un reintento peor que el original
         // sería cambiar un problema por otro más caro.

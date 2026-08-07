@@ -222,12 +222,37 @@ export async function POST(req: NextRequest) {
       for (const n of members) if (n !== lead) absorbed.add(n);
     }
 
-    const timeline = blockMembers.size
+    // Alcanza con que haya UNA de las dos cosas. Si todos los bloques fueran de una
+    // escena, blockMembers queda vacío, este map no corría, y las transcripciones se
+    // perdían enteras aunque existieran — el peor caso del bug de abajo.
+    const timeline = (blockMembers.size || nativeAudio.size)
       ? scenes
           .filter((sc) => !absorbed.has(sc.sceneNumber))
           .map((sc) => {
             const members = blockMembers.get(sc.sceneNumber);
-            if (!members) return sc;
+            if (!members) {
+              // UNA ESCENA TAMBIÉN PUEDE TENER TRANSCRIPCIÓN.
+              //
+              // Un bloque de una sola escena no escribe metadata `block` (eso pide
+              // length > 1), así que caía acá y se devolvía sin tocar — tirando los
+              // wordTimings que Whisper SÍ había producido. Medido: seis escenas con
+              // "[nativo] … (18 palabras)" y el montaje reportando "sin tiempos
+              // medidos" en todas, con los subtítulos repartidos a mano y un cartel
+              // de dos palabras sostenido quince segundos.
+              //
+              // El clip ya trae la voz, así que el audioUrl se descarta igual que en
+              // el camino de bloques: dejarlo puesto doblaría un narrador encima.
+              const solo = nativeAudio.get(sc.sceneNumber);
+              return solo
+                ? {
+                    ...sc,
+                    audioUrl: undefined,
+                    audioUrls: undefined as string[] | undefined,
+                    durationSeconds: undefined,
+                    wordTimings: solo.wordTimings ?? sc.wordTimings,
+                  }
+                : sc;
+            }
             const covered = members
               .map((n) => scenes.find((x) => x.sceneNumber === n))
               .filter((x): x is typeof sc => Boolean(x));
@@ -272,7 +297,10 @@ export async function POST(req: NextRequest) {
       : scenes;
 
     if (blockMembers.size) {
-      console.log(`[blocks] montaje: ${scenes.length} escenas → ${timeline.length} segmentos`);
+      console.log(
+        `[blocks] montaje: ${scenes.length} escenas → ${timeline.length} segmentos` +
+        ` · ${nativeAudio.size} con transcripción · ${timeline.filter((s) => s.wordTimings?.length).length} con tiempos aplicados`,
+      );
     }
 
     // Free-tier videos carry a watermark (viral marketing + upgrade nudge).
