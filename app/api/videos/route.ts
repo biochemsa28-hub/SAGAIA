@@ -379,11 +379,39 @@ export async function POST(req: NextRequest) {
           const fallback = imageAssets[idx]?.public_url ?? imageAssets[0]?.public_url ?? "";
           const realAudio = audioDurBySceneId.get(scene.id);
           const effectiveDur = Math.max(scene.duration_seconds ?? 5, realAudio ?? 0);
+          // MISMA DIRECCIÓN QUE LA RUTA DE BLOQUES.
+          //
+          // Esta rama solo mandaba `animation_prompt`: sin diálogo citado, sin
+          // dirección de actuación y sin generate_audio. Con NARRATIVE_BLOCKS
+          // apagado —que es justamente el modo de máxima coherencia, un cuadro por
+          // línea— los clips habrían salido MUDOS. El modo más caro del sistema era
+          // también el peor, y eso no se veía hasta pagar el video entero.
+          //
+          // Acá cada clip cubre UNA escena, así que la imagen, la línea, la emoción
+          // y la acción son todas del mismo momento: es el techo de coherencia que
+          // los bloques no pueden alcanzar.
+          const linea = [{
+            speaker: scene.speaker,
+            look: (scene as { speaker_look?: string | null }).speaker_look,
+            text: scene.narration_text ?? "",
+            emotion: scene.emotion,
+            action: scene.animation_prompt,
+          }];
+          const movimiento = (scene.camera_move ?? "").trim();
           return {
             scene_number: scene.scene_number,
-            animation_prompt: scene.animation_prompt ?? "cinematic camera movement, smooth motion",
+            animation_prompt:
+              "ONE CONTINUOUS SHOT, no cuts, no scene changes. " +
+              "Keep the same location, lighting and framing for the whole clip. " +
+              "Shot like a feature film: 35mm anamorphic look, shallow depth of field, " +
+              "motivated practical lighting, a trace of handheld weight. " +
+              `Camera: ${movimiento || "slow push in on the face"}. ` +
+              "The camera is moving for the ENTIRE clip — never a locked-off static frame. " +
+              "Consistent character appearance and wardrobe throughout." +
+              (NATIVE_AUDIO_ON ? buildDialogueDirection(linea) : ""),
             image_url: matched ?? fallback,
             duration_seconds: effectiveDur,
+            generate_audio: NATIVE_AUDIO_ON,
           };
         })
         .filter((s) => s.image_url);
