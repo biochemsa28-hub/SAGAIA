@@ -7,7 +7,7 @@ import { submitVideoLipsyncJobs, checkVideoLipsyncJob } from "@/services/fal/vid
 import { initDb } from "@/lib/db";
 import { generateShotSheet } from "@/services/fal/shot-grid";
 import { planNarrativeBlocks, blockPanelFramings, CHARS_PER_SECOND, type BlockScene } from "@/services/video/narrative-blocks";
-import { buildDialogueDirection, buildPerformanceDirection, transcribeClip } from "@/services/video/native-audio";
+import { buildDialogueDirection, transcribeClip } from "@/services/video/native-audio";
 import { trimClipHead } from "@/services/ffmpeg/trim";
 import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor } from "@/lib/config";
 import { z } from "zod";
@@ -240,6 +240,11 @@ export async function POST(req: NextRequest) {
                 speaker: sc!.speaker,
                 look: (sc as { speaker_look?: string | null }).speaker_look,
                 text: sc!.narration_text ?? "",
+                // La emoción y la acción DE ESTA escena. Antes solo viajaba la de la
+                // primera del bloque, así que el clip entero se actuaba con una sola
+                // emoción y mostraba una sola acción mientras se oían tres diálogos.
+                emotion: sc!.emotion,
+                action: sc!.animation_prompt,
               }));
             // ENCADENAR SOLO DENTRO DEL MISMO LUGAR.
             //
@@ -276,10 +281,11 @@ export async function POST(req: NextRequest) {
               // escena: dirección específica, generada y tirada a la basura.
               animation_prompt: (() => {
                 const lead = sceneByNumber.get(block.leadScene);
-                const movimiento = [lead?.camera_move, lead?.animation_prompt]
-                  .map((s) => (s ?? "").trim())
-                  .filter(Boolean)
-                  .join(". ");
+                // Solo el MOVIMIENTO de cámara del líder: la acción de cada escena
+                // viaja ahora pegada a su propia línea de diálogo. Meter acá el
+                // animation_prompt del líder describía una acción que el clip iba a
+                // mostrar mientras sonaban los diálogos de las escenas siguientes.
+                const movimiento = (lead?.camera_move ?? "").trim();
                 return (
                   "ONE CONTINUOUS SHOT, no cuts, no scene changes. " +
                   "Keep the same location, the same lighting and the same framing for the whole clip; " +
@@ -291,8 +297,14 @@ export async function POST(req: NextRequest) {
                   "motivated practical lighting, the camera settling rather than drifting, " +
                   "a trace of handheld weight — it starts and stops with intention, never floats. " +
                   (movimiento ? `Camera: ${movimiento}. ` : "Camera: slow push in on the face. ") +
-                  "Consistent character appearance and wardrobe throughout." +
-                  buildPerformanceDirection(lead?.emotion) +
+                  "Consistent character appearance and wardrobe throughout. " +
+                  // El clip recorre VARIAS escenas: la acción y la emoción de cada
+                  // una van pegadas a su línea, más abajo. Acá solo queda la regla
+                  // que las ordena — sin ella el modelo las mezcla todas a la vez.
+                  "The clip covers several story beats IN ORDER: perform them one after " +
+                  "another, never at the same time, and let the emotion change between them " +
+                  "as the lines say. What the character DOES must match the line being " +
+                  "spoken at that exact moment." +
                   buildDialogueDirection(lines)
                 );
               })(),

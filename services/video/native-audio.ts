@@ -23,6 +23,10 @@ export interface SpokenLine {
   /** Cómo SE VE quien habla ("the woman in the red dress"). Ver abajo. */
   look?: string | null;
   text: string;
+  /** La emoción de ESTA línea, no la del bloque. Ver buildDialogueDirection. */
+  emotion?: string | null;
+  /** Qué hace el personaje mientras dice ESTA línea (animation_prompt de su escena). */
+  action?: string | null;
 }
 
 // Build the spoken part of a block's video prompt.
@@ -40,12 +44,30 @@ export function buildDialogueDirection(lines: SpokenLine[]): string {
   const util = lines.filter((l) => l.text?.trim());
   const comoSeVe = (l: SpokenLine) => (l.look ?? "").trim() || (l.speaker ? `the character named ${l.speaker}` : "the character on screen");
 
+  // DIRECCIÓN LÍNEA POR LÍNEA, no por bloque.
+  //
+  // Un bloque agrupa varias escenas en un solo clip, y antes se le mandaba la
+  // cámara, la acción y la emoción de la PRIMERA escena junto con el diálogo de
+  // TODAS. La imagen mostraba el momento de la escena 3 mientras se escuchaban las
+  // líneas de la 3, la 4 y la 5 — de ahí que lo que se dice no coincida con lo que
+  // pasa. Y todo el clip se actuaba con una sola emoción aunque el bloque recorra
+  // un arco entero.
+  //
+  // Cada línea lleva ahora SU emoción y SU acción. Es como se dirige de verdad: no
+  // se le dice a un actor "hacé la escena triste", se le dice qué hace y qué siente
+  // en cada frase.
   const quoted = util
     .map((l, i) => {
       const verbo = i === 0 ? "says" : "answers";
-      return `${comoSeVe(l)} ${verbo}, in Spanish: "${l.text.trim()}"`;
+      const accion = (l.action ?? "").trim();
+      const tells = (l.emotion ?? "").trim() ? tellsDe(l.emotion) : "";
+      return (
+        `${comoSeVe(l)} ${verbo}, in Spanish: "${l.text.trim()}"` +
+        (accion ? ` — while doing this: ${accion}` : "") +
+        (tells ? ` — performed with: ${tells}` : "")
+      );
     })
-    .join(" Then ");
+    .join(" THEN, and only after the previous line is finished: ");
 
   // ¿Hay más de una persona hablando? Si la hay, hace falta decir explícitamente
   // que se turnan y que el que escucha NO mueve la boca — sin eso el modelo anima
@@ -121,25 +143,20 @@ const ACTUACION: Record<string, string> = {
 // La emoción llega del guion en español y en una sola palabra, pero no siempre es
 // exactamente una de las claves ("traición que quema por dentro"). Se busca por
 // coincidencia parcial antes de caer al genérico.
-export function buildPerformanceDirection(emotion: string | null | undefined): string {
-  const e = (emotion ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
-  // Los acentos se quitan con el rango de marcas combinantes escrito en \u para
-  // que no dependa de cómo guarde el archivo el editor.
+// Los tells físicos crudos de una emoción, sin envoltorio. Se usan dos veces: como
+// dirección general del clip y, sobre todo, línea por línea dentro del diálogo.
+export function tellsDe(emotion: string | null | undefined): string {
+  const e = (emotion ?? "").toLowerCase().normalize("NFD").trim();
   const sinAcentos = e.replace(/[̀-ͯ]/g, "");
-  let tells = "";
-  if (sinAcentos) {
-    const clave = Object.keys(ACTUACION).find((k) => sinAcentos.includes(k) || k.includes(sinAcentos.split(/\s+/)[0] ?? ""));
-    if (clave) tells = ACTUACION[clave]!;
-  }
-  if (!tells) {
-    tells = "genuine micro-expressions, the eyes carrying the feeling before the mouth does, breath visible in the delivery";
-  }
-  return (
-    ` PERFORMANCE — this is the whole point of the shot: the character truly FEELS this. ` +
-    `${tells}. The emotion is visible on the FACE, in real time, changing as the line is said — ` +
-    `not a fixed expression held for the whole clip. Real film acting, not a posed portrait.`
-  );
+  if (!sinAcentos) return "";
+  const clave = Object.keys(ACTUACION).find((k) => sinAcentos.includes(k) || k.includes(sinAcentos.split(/\s+/)[0] ?? ""));
+  return clave ? ACTUACION[clave]! : "";
 }
+
+// buildPerformanceDirection se eliminó: daba UNA emoción para todo el clip, que es
+// justamente lo que hacía que un bloque de tres escenas se actuara con la cara de
+// la primera. La dirección va ahora línea por línea, dentro de
+// buildDialogueDirection.
 
 export interface Transcribed {
   text: string;
