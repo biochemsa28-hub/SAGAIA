@@ -156,6 +156,22 @@ export async function POST(req: NextRequest) {
       const cast = await getProjectCast(parsed.data.project_id).catch(() => []);
       const withPortrait = cast.filter((c) => c.reference_image_url);
 
+      // SIN RETRATO NO HAY REFERENCIA, Y SIN REFERENCIA LAS CARAS SE VAN.
+      //
+      // La biblia de personaje y el enlace escena→retrato dependen de que el elenco
+      // tenga una foto elegida. Si se saltea la pantalla de Elenco, el proyecto
+      // queda sin retratos: cada imagen se genera desde cero y el personaje cambia
+      // de cara entre escenas. Es el mayor motivo de inconsistencia que tiene el
+      // sistema, y hasta ahora pasaba en absoluto silencio — el video salía, se
+      // pagaba, y el defecto se descubría mirándolo.
+      if (!cast.length) {
+        console.warn("[elenco] el proyecto no tiene elenco guardado — sin retratos de referencia, los personajes van a cambiar de cara entre escenas");
+      } else if (!withPortrait.length) {
+        console.warn(`[elenco] ${cast.length} personaje(s) en el elenco pero NINGUNO con retrato elegido — mismo efecto que no tener elenco`);
+      } else {
+        console.log(`[elenco] ${withPortrait.length}/${cast.length} personaje(s) con retrato — se usan como referencia en cada escena`);
+      }
+
       // CHARACTER BIBLE — build once per character, then reuse for every scene and
       // every future episode. Failures are non-fatal: we fall back to the portrait.
       if (CHARACTER_BIBLE_ON) {
