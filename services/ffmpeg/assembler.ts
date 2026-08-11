@@ -8,7 +8,7 @@
 
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { writeFileSync, mkdirSync, rmSync, readFileSync } from "fs";
+import { writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
@@ -368,7 +368,25 @@ async function buildSceneClip(
   } else if (scene.audioUrl) {
     try { await download(scene.audioUrl, audioPath); hasAudio = true; } catch { hasAudio = false; }
   }
-  const dur = hasAudio ? Math.max(1.5, (await probeDuration(audioPath)) + 0.3) : Math.max(2, scene.durationSeconds ?? 4);
+  // EL CLIP SE DESCARGA ACÁ, ANTES DE MEDIR.
+  //
+  // La duración de abajo alimenta el archivo de subtítulos: cuánto dura la marca de
+  // agua y en qué segundo arranca el CTA. Con audio nativo no hay pista de
+  // narración que medir y `durationSeconds` viaja sin valor a propósito —manda el
+  // clip— así que caía al respaldo de 4 segundos.
+  //
+  // Medido sobre un video real de 22s: la marca de agua desaparecía a los 4s de
+  // cada segmento, y el CTA de "Parte 2" salía a los 12 segundos en vez del final,
+  // porque se calculaba como "4 - 2.6" sobre un clip que en realidad duraba 10.
+  const vidPath = scene.videoUrl ? join(dir, `v_${i}.mp4`) : null;
+  if (vidPath) {
+    try { await download(scene.videoUrl!, vidPath); } catch { /* la rama de abajo reintenta y falla ahí */ }
+  }
+  const dur = hasAudio
+    ? Math.max(1.5, (await probeDuration(audioPath)) + 0.3)
+    : vidPath
+      ? Math.max(2, (await probeDuration(vidPath).catch(() => 0)) || (scene.durationSeconds ?? 4))
+      : Math.max(2, scene.durationSeconds ?? 4);
   const frames = Math.round(dur * 30);
 
   // CapCut subtitles + watermark + CTA: one per-scene .ass file (relative name so
@@ -441,8 +459,10 @@ async function buildSceneClip(
   try {
     if (scene.videoUrl) {
       // Real motion clip → scale/pad to 1080x1920 + burn subtitles + mux audio.
-      const vid = join(dir, `v_${i}.mp4`);
-      await download(scene.videoUrl, vid);
+      // Ya se descargó arriba para poder medirlo antes de armar los subtítulos;
+      // bajarlo dos veces costaría una descarga entera por escena.
+      const vid = vidPath!;
+      if (!existsSync(vid)) await download(scene.videoUrl, vid);
 
       // With native character audio there is no narration track to measure, so the
       // segment lasts exactly as long as the clip. Without this the fade-out was
