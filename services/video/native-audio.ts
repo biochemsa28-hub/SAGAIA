@@ -97,6 +97,25 @@ const ACTUACION: Record<string, string> = {
   soledad:      "the gaze unfocused past the camera, the body small in the frame, a slow blink, no one to look at",
   nostalgia:    "the eyes drifting away mid-sentence, a smile that arrives and then hurts, a long slow blink",
   humillacion:  "the eyes dropping, a hard swallow, the face heating, forcing the chin back up",
+  // El mapa se inclinaba a lo dramático y los nichos nuevos caían al genérico: una
+  // escena de chisme dirigida como un duelo, o un remate de comedia actuado con
+  // gravedad. La emoción la escribe el guion según el nicho, así que estas son las
+  // que producen comedia, chisme, confesión, documental y terror.
+  complicidad:  "leaning in toward the camera, eyebrows lifting, a conspiratorial half-smile, the voice dropping as if someone might hear",
+  incredulidad: "the head pulling back, eyes widening, a short disbelieving laugh, a hand rising to the mouth",
+  burla:        "one eyebrow up, a crooked smile held a beat too long, the eyes bright and unimpressed",
+  euforia:      "the whole face opening, a laugh that arrives before the words, the body unable to stay still",
+  incomodidad:  "a tight polite smile, the eyes darting for an exit, hands finding something to hold",
+  asombro:      "the jaw slackening, a slow blink, the head tilting as the fact lands",
+  pavor:        "the body locked in place, breath stopping entirely, only the eyes moving",
+  alivio_amargo:"a laugh that turns wet halfway, the shoulders dropping while the eyes fill",
+  resignacion:  "a long exhale, a small nod to nobody, the gaze settling on the floor",
+  nervios:      "a rushed swallow, fingers tapping, the voice starting before it is ready",
+  alegria:      "the eyes creasing before the mouth moves, a laugh escaping mid-sentence, the shoulders lifting",
+  envidia:      "a smile that never reaches the eyes, the gaze tracking the other person, the jaw setting when they look away",
+  esperanza:    "the chin lifting slightly, the eyes fixing on something past the camera, breath steadying",
+  orgullo:      "the spine straightening, a slow blink, the smallest smile withheld on purpose",
+  odio:         "absolute stillness in the face, the eyes cold and unblinking, the voice flat and quiet",
 };
 
 // La emoción llega del guion en español y en una sola palabra, pero no siempre es

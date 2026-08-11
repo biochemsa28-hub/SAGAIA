@@ -23,6 +23,12 @@ const NICHE_VOICE: Record<string, { voiceId: string; name: string }> = {
   documentary:  { voiceId: "m7yTemJqdIqrcNleANfX", name: "Ana María — neutral (es)" },
   documental:   { voiceId: "m7yTemJqdIqrcNleANfX", name: "Ana María — neutral (es)" },
   publicidad:   { voiceId: "lRf3yb6jZby4fn3q3Q7M", name: "MexiTony — confident (es)" },
+  // Faltaban y caían a la voz genérica de misterio: un chisme contado con voz de
+  // suspenso, y una confesión íntima con la misma. Con audio nativo esto no se usa,
+  // pero decide el tono apenas se apague NATIVE_AUDIO o se produzca en tier talking.
+  // Chisme pide cercanía y complicidad; confesión pide contención, no gravedad.
+  chisme:       { voiceId: "rpqlUOplj0Q0PIilat8h", name: "Jaider — casual (es)" },
+  confesion:    { voiceId: "Wuv1s5YTNCjL9mFJTqo4", name: "Karolina — Warm & Deep (es)" },
   default:      { voiceId: "z365btkMkbqu8wJGFTrh", name: "Abel Quiñonez (es)" },
 };
 
