@@ -5,6 +5,7 @@ import { storyGeneratorService } from "@/services/openai/story-generator";
 import {
   createProject, saveGenerationResult, updateProjectStatus,
   deductCredits, createApiLog, setProjectCharacter, getUserById, setProjectCast,
+  refundCreditForProject,
 } from "@/lib/db/repository";
 import { resolveProjectTier, creditCostForTier, videoSecondsFor } from "@/lib/config";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
@@ -174,6 +175,26 @@ export async function POST(req: NextRequest) {
 
     if (!result.success) {
       if (projectId) await updateProjectStatus(projectId, "failed", result.error);
+
+      // DEVOLVER LOS NAVOS. Se descuentan ANTES de generar —correcto, si no se
+      // podría pedir guiones gratis en bucle— pero nadie los devolvía cuando la
+      // generación fallaba. Con el precio corregido eso son 12.240 NAVOS por un
+      // guion que nunca existió, y el usuario no tiene forma de recuperarlos.
+      // refundCreditForProject es idempotente y no devuelve si ya hay video.
+      if (userId && projectId) {
+        await refundCreditForProject(userId, projectId).catch(() => {});
+      }
+
+      // El mensaje del proveedor llega en inglés y no dice qué hacer. Un rechazo
+      // del filtro de contenido no es un error del sistema: es la premisa. Vale la
+      // pena distinguirlo, porque reintentar sin cambiar nada da lo mismo.
+      const crudo = String(result.error ?? "");
+      const esFiltro = /content checker|content_filter|flagged|refus|policy|safety/i.test(crudo);
+      const mensaje = esFiltro
+        ? "El generador rechazó esta premisa por su filtro de contenido. No es un fallo del sistema: la historia, tal como está planteada, no la puede escribir. " +
+          "Reformulá la idea contando el MISMO conflicto de forma implícita — el efecto sobre los personajes en vez del hecho explícito — y volvé a intentar. " +
+          "Tus NAVOS fueron devueltos."
+        : crudo;
       // Log failed generation
       if (userId) {
         await createApiLog({
@@ -187,7 +208,13 @@ export async function POST(req: NextRequest) {
         });
       }
       return NextResponse.json(
-        { error: result.error, validation_error: result.validation_error, provider: result.provider },
+        {
+          error: mensaje,
+          content_filter: esFiltro,
+          refunded: Boolean(userId && projectId),
+          validation_error: result.validation_error,
+          provider: result.provider,
+        },
         { status: 422 }
       );
     }

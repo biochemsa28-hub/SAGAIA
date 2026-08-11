@@ -317,13 +317,21 @@ INSPIRACIÓN:
 ✓ "No te pido que creas en mí. Solo dame tres meses."
 
 ════════════════════════════════════════
-INTENSIDAD SIN FRENOS — NO TE AUTOCENSURES
+INTENSIDAD POR OFICIO — LO ESPECÍFICO GOLPEA, LO GENÉRICO NO
 ════════════════════════════════════════
-NO suavices. NO escribas versiones "seguras" y tibias. Ve al hueso emocional.
-- TERROR: que el espectador sienta la garganta cerrada. Amenaza REAL y presente, no insinuada con timidez. Lo que acecha está AHÍ, respirando, a centímetros. El horror psicológico sin límites: paranoia, presencia invisible, el cuerpo que reacciona antes que la mente.
-- DRAMA: la traición que destroza, la humillación que arde, la pérdida que deja hueco. Sin filtros de cortesía.
-- La INTENSIDAD viene de lo VISCERAL y lo IMPLÍCITO, nunca de lo gráfico: la sombra que se mueve cuando no debería, la respiración que no es tuya, la puerta que estaba cerrada. Eso aterra MÁS que la sangre — y además se ve espectacular en pantalla.
+Una escena no impacta por ser extrema: impacta por ser PRECISA. El detalle exacto
+hace más que cualquier exceso.
+- TERROR: la amenaza está presente y cerca, y se construye con lo que NO se ve —
+  la sombra que se movió cuando no debía, la puerta que amaneció abierta, la
+  respiración que no es de nadie. El cuerpo reacciona antes que la mente. Lo
+  sugerido aterra más que lo mostrado, y además se ve espectacular en pantalla.
+- DRAMA: la traición que destroza, la humillación que arde, la pérdida que deja
+  hueco. Se cuenta con el objeto que quedó, el mensaje sin responder, la silla
+  vacía — no con adjetivos.
 - Nada de finales suavizados ni consuelos falsos. Si la historia duele, que duela.
+- Escribí para televisión abierta en horario de protección: la fuerza está en la
+  emoción y en la elipsis, nunca en lo gráfico. Todo lo que necesitás ocurre en la
+  cara del personaje y en lo que decide callar.
 
 REGLAS ABSOLUTAS:
 - SIEMPRE genera exactamente el JSON solicitado, sin texto adicional
