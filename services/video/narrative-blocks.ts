@@ -69,10 +69,27 @@ const sceneSeconds = (s: BlockScene) => {
 // Capped at 4 scenes per block for a hard reason, not a taste one: the sheet has
 // exactly four panels, so a fifth scene in a block would have no beat to show and
 // the model would be animating a moment it was never given.
+// DOS ESCENAS POR BLOQUE, no cuatro.
+//
+// El tope era 4 porque la hoja de storyboard tiene 4 paneles. Pero con audio
+// nativo no hay hoja: el clip se genera de una imagen inicial y una final, y esas
+// son la PRIMERA y la ÚLTIMA escena del bloque. Con 4 escenas, las dos del medio
+// no tienen cuadro propio y el modelo las inventa.
+//
+// Medido en un video real: 8 escenas dieron 2 bloques de 4, o sea 2 clips para
+// todo el video. Los dos empezaban con la mujer abriendo la puerta y terminaban
+// con el hombre en la cama — el segundo repetía al primero — y cada uno pasaba 8
+// de sus 10 segundos en el mismo primer plano, rellenando las líneas sin imagen.
+//
+// Con 2 escenas por bloque, la primera y la última SON las dos, así que ninguna
+// línea queda sin cuadro. Cuesta más clips; es el precio de que cada frase tenga
+// su imagen, y sigue siendo mucho más barato que un clip por escena.
+const MAX_ESCENAS_POR_BLOQUE = Math.max(1, Number(process.env.MAX_SCENES_PER_BLOCK ?? 2) || 2);
+
 export function planNarrativeBlocks(
   scenes: BlockScene[],
   targetSeconds: number,
-  maxScenesPerBlock = 4,
+  maxScenesPerBlock = MAX_ESCENAS_POR_BLOQUE,
 ): NarrativeBlock[] {
   // Se agrupan TODAS las escenas, tengan imagen o no.
   //
