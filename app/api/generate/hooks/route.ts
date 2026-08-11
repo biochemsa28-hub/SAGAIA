@@ -103,26 +103,29 @@ async function generateHooksWithAI(input: z.infer<typeof BodySchema>): Promise<H
   if (process.env.FORCE_MOCK_AI === "true" || !process.env.OPENAI_API_KEY) {
     await new Promise(r => setTimeout(r, 600));
     return [
+      // El respaldo también tiene que ser DIÁLOGO. El anterior traía "El 97% de
+      // las personas ignora esto sobre X" — un anuncio de infoproducto que se le
+      // entregaba al guionista como el parlamento de la escena 1.
       {
         id: "question",
         type: "question",
-        type_label: "Pregunta retórica",
-        text: `¿Y si todo lo que sabes sobre ${input.topic} es una mentira cuidadosamente construida?`,
-        why: "Activa el instinto de resolver: el cerebro necesita saber la respuesta",
+        type_label: "En crisis",
+        text: `Esperá… esto no estaba así hace cinco minutos.`,
+        why: "El personaje reacciona a algo que el espectador todavía no vio",
       },
       {
         id: "in_medias_res",
         type: "in_medias_res",
-        type_label: "In medias res",
-        text: `Cuando lo descubrí, ya era demasiado tarde para ${input.topic}.`,
-        why: "Crea urgencia inmediata: el espectador ya está dentro del momento de crisis",
+        type_label: "A otro personaje",
+        text: `Mírame. Mírame y decime que no es verdad.`,
+        why: "Le habla a alguien: hay una relación y un conflicto desde la primera palabra",
       },
       {
         id: "shocking_fact",
         type: "shocking_fact",
-        type_label: "Dato impactante",
-        text: `El 97% de las personas ignora esto sobre ${input.topic}. Tú eres del 3% que lo verá.`,
-        why: "La exclusividad y el número concreto generan FOMO y curiosidad",
+        type_label: "Lo que admite",
+        text: `Nunca se lo dije a nadie. Ni siquiera a mi familia.`,
+        why: "Admitir algo que cuesta abre la pregunta de qué es",
       },
     ];
   }
