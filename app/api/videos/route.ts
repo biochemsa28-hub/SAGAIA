@@ -296,8 +296,24 @@ export async function POST(req: NextRequest) {
                   "Shot like a feature film: 35mm anamorphic look, shallow depth of field, " +
                   "motivated practical lighting, the camera settling rather than drifting, " +
                   "a trace of handheld weight — it starts and stops with intention, never floats. " +
-                  (movimiento ? `Camera: ${movimiento}. ` : "Camera: slow push in on the face. ") +
+                  // LA CÁMARA NUNCA SE QUEDA QUIETA. Al pasar la acción de cada
+                  // escena a su propia línea, la dirección de cámara quedó reducida
+                  // a una frase corta del guion — y una instrucción escueta produce
+                  // planos fijos. El movimiento tiene que pedirse explícitamente, y
+                  // tiene que RESPONDER a los beats: una cámara que se acerca en la
+                  // revelación cuenta; una que flota, no.
+                  `Camera: ${movimiento || "slow push in on the face"}. ` +
+                  "The camera is moving for the ENTIRE clip — never a locked-off static frame. " +
+                  "The movement answers the beats: it drifts while the character speaks and " +
+                  "pushes in on the moment of revelation, then settles. " +
                   "Consistent character appearance and wardrobe throughout. " +
+                  // Continuidad entre clips: cuando este bloque enlaza con el
+                  // siguiente en el mismo lugar, el modelo tiene que entender que no
+                  // arranca una escena nueva sino que sigue la misma.
+                  (encadenar
+                    ? "This shot CONTINUES the previous one: same room, same light, same wardrobe, " +
+                      "the characters exactly where the last shot left them. Do not reset the scene. "
+                    : "") +
                   // El clip recorre VARIAS escenas: la acción y la emoción de cada
                   // una van pegadas a su línea, más abajo. Acá solo queda la regla
                   // que las ordena — sin ella el modelo las mezcla todas a la vez.

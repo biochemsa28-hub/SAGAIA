@@ -585,7 +585,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
         : `"EN INGLÉS, 20-30 palabras, UNA SOLA TOMA CONTINUA: un único movimiento de cámara + qué hace el personaje con el entorno + un detalle vivo (cabello, respiración, luz que parpadea). PROHIBIDO pedir cortes, cambios de plano o de locación dentro de la escena ('cuts to', 'then we see', 'jump to') — la escena entera transcurre en un mismo lugar y encuadre, o el video se siente desordenado. El ritmo lo da la VELOCIDAD del movimiento, no la cantidad de cortes."`},
       "emotion": "emoción primaria de esta escena (una palabra)",
       "sfx_prompt": "EN INGLÉS, 3-8 palabras: EL sonido concreto que ocurre en esta escena — el que el espectador escucharía si estuviera ahí. Ej: 'heavy wooden door creaking open slowly', 'glass shattering on tile floor', 'footsteps approaching on gravel', 'phone buzzing on a table', 'car engine starting outside'. UNO solo, el más importante. NADA de música ni de ambiente vago ('tense atmosphere' está PROHIBIDO — para eso ya está la banda sonora). Si en esta escena no pasa ningún sonido concreto, dejalo en \"\".",
-      "camera_move": "movimiento específico (ej: slow push in, dolly left, static wide, tilt up, handheld)"
+      "camera_move": "movimiento específico de cámara, SIEMPRE en movimiento — nunca un plano fijo. Ej: slow push in, dolly left, tilt up, slow orbit, handheld drift, pull back to reveal, tracking behind the character. PROHIBIDO 'static': el plano quieto es lo que hace que un video generado parezca una foto con voz. Elegí el movimiento según la emoción: acercarse en la revelación, retroceder en el abandono, lateral en la tensión."
     }
   ],
   "seo": {
