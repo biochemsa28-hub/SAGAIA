@@ -320,6 +320,16 @@ function repartirPalabras(texto: string | undefined, durSec: number): Array<{ wo
   });
 }
 
+// ¿El archivo trae pista de audio? Un clip generado puede venir sin ella, y el
+// concat con -c copy no perdona esa diferencia: apenas aparece un segmento mudo,
+// el audio del video entero se corta ahí.
+async function tieneAudio(path: string): Promise<boolean> {
+  try {
+    const { stdout } = await exec(FFPROBE, ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", path]);
+    return stdout.trim().length > 0;
+  } catch { return false; }
+}
+
 async function probeDuration(path: string): Promise<number> {
   try {
     const { stdout } = await exec(FFPROBE, ["-v", "error", "-show_entries", "format=duration", "-of", "default=nk=1:nw=1", path]);
@@ -407,6 +417,27 @@ async function buildSceneClip(
   const transition = `${fadeIn}${fadeOut}`;
   const opts = { maxBuffer: 1 << 26, cwd: dir };
 
+  // ── TODOS LOS SEGMENTOS TIENEN QUE SALIR IDÉNTICOS ──────────────────────────
+  // El montaje final los pega con `-c copy`, que no recodifica nada: se limita a
+  // apilar paquetes. Eso es rapidísimo y gratis, pero exige que los segmentos
+  // compartan fps, tasa de muestreo y disposición de pistas. No las compartían:
+  //
+  //   · un clip de Seedance venía a 24 fps y CON audio
+  //   · una imagen con Ken Burns salía a 30 fps y SIN pista de audio
+  //
+  // Medido sobre dos videos reales: el audio se cortaba en seco a los 62 segundos
+  // —justo donde se acaban los clips y empiezan las imágenes— y los últimos 42
+  // segundos quedaban mudos. Además los tiempos se estiraban, porque el contenedor
+  // adopta el fps del primer segmento: 10 fotogramas repartidos en 16 segundos, y
+  // un video pedido de 60s terminando en 104.
+  //
+  // La solución no es dejar de copiar (recodificar 100s cuesta minutos de CPU):
+  // es que cada segmento nazca igual. 30 fps, 48 kHz estéreo, y SIEMPRE una pista
+  // de audio — silenciosa si la escena no tiene sonido propio.
+  const FPS = "30";
+  const SILENCIO = ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"];
+  const SALIDA_UNIFORME = ["-r", FPS, "-ar", "48000", "-ac", "2", "-c:a", "aac", "-b:a", "192k"];
+
   try {
     if (scene.videoUrl) {
       // Real motion clip → scale/pad to 1080x1920 + burn subtitles + mux audio.
@@ -439,6 +470,12 @@ async function buildSceneClip(
       if (sobra > FREEZE_MAX) args.push("-stream_loop", "-1");
       args.push("-i", vid);
       if (hasAudio) args.push("-i", audioPath);
+      // Silencio como ÚLTIMA entrada, siempre presente. Si ni la narración ni el
+      // clip traen audio, el segmento igual sale con pista: un solo segmento mudo
+      // corta el audio del video entero en el concat.
+      const clipConAudio = await tieneAudio(vid);
+      const idxSilencio = (hasAudio ? 2 : 1);
+      if (!hasAudio && !clipConAudio) args.push(...SILENCIO);
       const relleno = hasAudio
         ? (sobra > FREEZE_MAX ? "" : `,tpad=stop_mode=clone:stop_duration=${Math.min(FREEZE_MAX, Math.max(0.2, sobra) + 0.3).toFixed(2)}`)
         : "";
@@ -452,8 +489,10 @@ async function buildSceneClip(
         // apila varias escenas sobre una sola generación, y cortar con -shortest
         // se comía líneas enteras. Pero el relleno ya no es una estatua indefinida.
         "-filter_complex", `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${relleno}${subFilter}${outro}[v]`,
-        "-map", "[v]", "-map", hasAudio ? "1:a" : "0:a?",
-        ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", out,
+        "-map", "[v]",
+        "-map", hasAudio ? "1:a" : (clipConAudio ? "0:a" : `${idxSilencio}:a`),
+        ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+        ...SALIDA_UNIFORME, "-shortest", out,
       );
       await exec(FFMPEG, args, opts);
     } else if (scene.imageUrl && (scene.shots?.length ?? 0) > 0) {
@@ -491,9 +530,11 @@ async function buildSceneClip(
       // Lay narration + burned captions over the finished cut.
       const args2 = ["-y", "-i", track];
       if (hasAudio) args2.push("-i", audioPath);
+      // Igual que las otras dos ramas: nunca un segmento sin pista de audio.
+      if (!hasAudio) args2.push(...SILENCIO);
       args2.push("-filter_complex", `[0:v]setsar=1${subFilter}${transition}[v]`, "-map", "[v]");
-      if (hasAudio) args2.push("-map", "1:a", "-shortest");
-      args2.push(...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out);
+      args2.push("-map", "1:a", "-shortest");
+      args2.push(...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", ...SALIDA_UNIFORME, out);
       await exec(FFMPEG, args2, opts);
     } else if (scene.imageUrl) {
       const img = join(dir, `i_${i}.jpg`);
@@ -515,10 +556,16 @@ async function buildSceneClip(
       // expressions advance through `on`, which is what they already use.
       const args = ["-y", "-loop", "1", "-framerate", "30", "-t", String(dur), "-i", img];
       if (hasAudio) args.push("-i", audioPath);
+      // ESTA es la rama que rompía el audio del video entero. Una imagen no tiene
+      // pista de sonido, así que sin narración el segmento salía mudo — y el concat
+      // con -c copy corta el audio en el primer segmento sin pista. Medido: el audio
+      // moría a los 62s, justo donde se acababan los clips, y los últimos 42
+      // segundos del video quedaban en silencio.
+      if (!hasAudio) args.push(...SILENCIO);
       args.push("-filter_complex", kb, "-map", "[v]");
-      if (hasAudio) args.push("-map", "1:a", "-shortest");
-      // (-t ya se aplica en la entrada)
-      args.push(...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", out);
+      // En los dos casos la entrada 1 es el audio: la narración, o el silencio.
+      args.push("-map", "1:a", "-shortest");
+      args.push(...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", ...SALIDA_UNIFORME, out);
       try {
         await exec(FFMPEG, args, opts);
       } catch (e) {
@@ -618,6 +665,28 @@ export async function assembleWithFfmpeg(params: {
     writeFileSync(listPath, clips.map((c) => `file '${c.replace(/\\/g, "/")}'`).join("\n"));
     const concatOut = join(dir, "concat.mp4");
     await exec(FFMPEG, ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", concatOut], { maxBuffer: 1 << 26 });
+
+    // ¿El audio llegó hasta el final? Con -c copy, un solo segmento con distinto
+    // formato de pista trunca el audio del resto sin que ffmpeg falle: el render
+    // termina "bien" y el video sale mudo desde la mitad. Medido en dos videos
+    // seguidos — el audio moría a los 62s de 104. Compararlo cuesta una llamada a
+    // ffprobe y convierte ese fallo mudo en una línea de log.
+    try {
+      const { stdout: aEnd } = await exec(FFPROBE, [
+        "-v", "error", "-select_streams", "a", "-show_entries", "stream=duration",
+        "-of", "default=nk=1:nw=1", concatOut,
+      ]);
+      const audioDur = parseFloat(aEnd.trim());
+      const videoDur = await probeDuration(concatOut);
+      if (Number.isFinite(audioDur) && videoDur > 0 && videoDur - audioDur > 2) {
+        console.error(
+          `[concat] AUDIO TRUNCADO: video ${videoDur.toFixed(1)}s pero audio ${audioDur.toFixed(1)}s — ` +
+          `${(videoDur - audioDur).toFixed(1)}s del final salen mudos. Algún segmento no comparte formato de audio.`,
+        );
+      } else {
+        console.log(`[concat] ${videoDur.toFixed(1)}s de video, ${audioDur.toFixed(1)}s de audio — alineados`);
+      }
+    } catch { /* la verificación no puede tumbar el render */ }
 
     // 3) SOUND DESIGN + music in ONE mix pass.
     //    • impact hit on the hook (scene 1) — lands the first punch
