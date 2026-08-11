@@ -23,20 +23,36 @@ export interface HookVariant {
   why: string; // brief explanation of why this hook works
 }
 
-const HOOK_SYSTEM = `Eres un experto en hooks virales para videos de TikTok/Reels. Tu único trabajo es crear las primeras frases que DETIENEN el scroll en menos de 2 segundos.
+const HOOK_SYSTEM = `Escribís la PRIMERA LÍNEA QUE DICE UN PERSONAJE en un microdrama vertical.
 
-TÉCNICAS DE HOOK:
-1. PREGUNTA RETÓRICA: Una pregunta que el cerebro no puede ignorar. No es "¿Qué pasaría si...?" genérico — es una pregunta específica con stake emocional.
-2. IN MEDIAS RES: Empieza en el momento de mayor tensión, como si el espectador hubiera entrado a la mitad de una crisis.
-3. DATO IMPACTANTE: Un hecho, cifra o revelación que desafía una creencia común y genera incredulidad inmediata.
+⚠️ LO MÁS IMPORTANTE: el hook NO es un texto publicitario ni una voz en off. Es
+literalmente lo que el protagonista DICE EN VOZ ALTA en la primera escena, y así
+se usa: se le entrega al guionista como el parlamento de la escena 1. Si escribís
+un titular o una pregunta dirigida al espectador, el video arranca con alguien
+leyendo un anuncio en lugar de viviendo una escena.
+
+❌ "¿Qué harías si el monitor de tu bebé muestra a alguien cantándole?"
+   → le habla al espectador, no a nadie de la historia
+❌ "A las 3 AM, un monitor desenchufado mostró algo imposible."
+   → narrado en tercera persona, suena a documental
+✅ "Tomás. Tomás, despertate. Hay alguien en el cuarto de la nena."
+   → un personaje, hablándole a otro, dentro del momento
+
+TRES ÁNGULOS (uno por hook, los tres SIEMPRE en forma de diálogo hablado):
+1. EN CRISIS: la línea arranca con la situación ya ocurriendo. El personaje
+   reacciona a algo que el espectador todavía no vio.
+2. A OTRO PERSONAJE: le habla a alguien —lo nombra, lo interpela, le reclama—
+   y en esa frase se entiende qué pasó.
+3. LO QUE ADMITE: el personaje dice en voz alta algo que le cuesta, y eso solo
+   abre la pregunta de por qué.
 
 REGLAS:
-- Máximo 20 palabras por hook
-- Sin puntos suspensivos al inicio
-- Sin "En este video..."
-- Sin frases genéricas — todo debe ser ultra específico al tema
-- El hook debe crear una PREGUNTA MENTAL que el cerebro necesita responder
-- Escribe en el idioma solicitado`;
+- Máximo 20 palabras
+- ES DIÁLOGO: alguien lo dice, con su voz, a alguien o a sí mismo
+- NO reveles el giro de la historia — el hook abre la pregunta, no la contesta
+- Ultra específico al tema: nombres, objetos, horas concretas
+- Sin puntos suspensivos al inicio, sin "En este video..."
+- Escribí en el idioma solicitado`;
 
 function buildHookPrompt(input: z.infer<typeof BodySchema>): string {
   const langMap: Record<string, string> = {
@@ -45,7 +61,9 @@ function buildHookPrompt(input: z.infer<typeof BodySchema>): string {
     pt: "português brasileiro",
   };
 
-  return `Escribe 3 hooks virales para este video.
+  return `Escribí las 3 primeras líneas posibles para este microdrama. Cada una es
+lo que un PERSONAJE DICE EN VOZ ALTA en la escena 1 — no un titular, no una voz
+en off, no una pregunta al espectador.
 
 TEMA: ${input.topic}
 NICHO: ${input.niche}
@@ -58,23 +76,23 @@ Genera EXACTAMENTE este JSON (sin texto adicional):
     {
       "id": "question",
       "type": "question",
-      "type_label": "Pregunta retórica",
-      "text": "hook tipo pregunta aquí (máx 20 palabras)",
-      "why": "por qué este hook detiene el scroll (1 frase)"
+      "type_label": "En crisis",
+      "text": "lo que el personaje DICE reaccionando a algo que ya está pasando (máx 20 palabras)",
+      "why": "por qué esta línea detiene el scroll (1 frase)"
     },
     {
       "id": "in_medias_res",
       "type": "in_medias_res",
-      "type_label": "In medias res",
-      "text": "hook comenzando en plena acción/crisis (máx 20 palabras)",
-      "why": "por qué este hook detiene el scroll (1 frase)"
+      "type_label": "A otro personaje",
+      "text": "lo que el personaje LE DICE a otro, nombrándolo o reclamándole (máx 20 palabras)",
+      "why": "por qué esta línea detiene el scroll (1 frase)"
     },
     {
       "id": "shocking_fact",
       "type": "shocking_fact",
-      "type_label": "Dato impactante",
-      "text": "hook con revelación o hecho sorprendente (máx 20 palabras)",
-      "why": "por qué este hook detiene el scroll (1 frase)"
+      "type_label": "Lo que admite",
+      "text": "lo que el personaje ADMITE en voz alta y le cuesta decir (máx 20 palabras)",
+      "why": "por qué esta línea detiene el scroll (1 frase)"
     }
   ]
 }`;
