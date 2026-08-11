@@ -9,6 +9,7 @@ import { z } from "zod";
 import { sendVideoReadyEmail } from "@/lib/email/resend";
 import { captureServer } from "@/lib/analytics/posthog";
 import { resolveProjectTier } from "@/lib/config";
+import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 
 export const runtime = "nodejs";
 // A real run of this route took over a minute rendering 6 blocks locally with FFmpeg; the previous ceiling would have killed it
@@ -339,7 +340,23 @@ export async function POST(req: NextRequest) {
     // niche + the story's music_mood. Off → AUTO_MUSIC=off. Never blocks the render.
     let musicUrl: string | null = null;
     try {
-      const totalDur = timeline.reduce((n, s) => n + (s.durationSeconds ?? 0), 0) || 30;
+      // La duración NO puede salir solo de durationSeconds: en las escenas de audio
+      // nativo viaja sin valor a propósito —manda el clip, no una estimación— así
+      // que la suma daba 0 y caía al respaldo de 30. Medido: se pedían 30 segundos
+      // de música para un video de 75, y los últimos 22 quedaban casi mudos, con
+      // los 7 finales en silencio absoluto. Justo el clímax.
+      //
+      // Cuando falta el dato se estima desde el texto hablado, con la misma
+      // constante que usa el resto del sistema.
+      const totalDur = Math.max(
+        30,
+        timeline.reduce((n, s) => {
+          if (s.durationSeconds) return n + s.durationSeconds;
+          const chars = (s.narrationText ?? "").trim().length;
+          return n + (chars ? chars / CHARS_PER_SECOND : 6);
+        }, 0),
+      );
+      console.log(`[music] pidiendo ${Math.round(totalDur)}s de música`);
       musicUrl = await generateStoryMusic(detail.project.niche, detail.story?.music_mood ?? null, totalDur);
     } catch { /* render continues without music */ }
 

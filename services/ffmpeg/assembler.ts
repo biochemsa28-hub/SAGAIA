@@ -234,8 +234,14 @@ function buildAssContent(
     // mitad de sintagma. Si la ultima palabra es un articulo o una preposicion,
     // se estira hasta la que la completa.
     const limite = text.length >= MAX_CHARS_PER_LINE || cur.length >= MAX_WORDS_PER_CHUNK;
+    // Un cartel de UNA palabra tampoco se sostiene. Medido: "HAY" solo en pantalla
+    // y, en el siguiente, "alguien parado junto a la cuna" — dos carteles para leer
+    // una frase. Solo aplica al corte por tamaño: un "¡Sofía!" después de una pausa
+    // real sigue saliendo solo, y así debe ser.
+    const muyCorto = cur.length < 2;
     const quedaColgando =
-      next && COLGANTES.has(raw.toLowerCase().replace(/[^\p{L}]/gu, "")) && text.length < MAX_CHARS_PER_LINE + 12;
+      Boolean(next) && (muyCorto ||
+        (COLGANTES.has(raw.toLowerCase().replace(/[^\p{L}]/gu, "")) && text.length < MAX_CHARS_PER_LINE + 12));
     if (corteDuro || (limite && !quedaColgando)) flush();
   }
   flush();
@@ -723,7 +729,13 @@ export async function assembleWithFfmpeg(params: {
       if (params.musicUrl) {
         const music = join(dir, "music.mp3");
         await download(params.musicUrl, music);
-        inputs.push("-i", music);
+        // EN BUCLE. La pista se pide con una duración estimada que puede quedar
+        // corta, y cuando queda corta el video termina en silencio: medido, los
+        // últimos 7.6 segundos de un video de terror —el clímax— sin una sola nota,
+        // y 17 de los últimos 22 casi mudos. Repetirla cuesta cero y hace que la
+        // música cubra el video sea cual sea su largo; amix corta con la duración
+        // del primer input, así que el bucle nunca alarga el resultado.
+        inputs.push("-stream_loop", "-1", "-i", music);
         filters.push(`[${idx}:a]volume=0.12[mus]`);
         mixLabels.push("[mus]");
         idx++;
