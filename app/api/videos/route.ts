@@ -232,7 +232,23 @@ export async function POST(req: NextRequest) {
           // improvising — verified against a transcript of the generated audio.
           blockJobs = blocks.map((block, bi) => {
             const nextBlock = blocks[bi + 1];
-            const endImage = nextBlock ? imgByScene.get(nextBlock.leadScene) : imgByScene.get(block.scenes[block.scenes.length - 1]!);
+            // EL CUADRO FINAL ES DEL PROPIO BLOQUE, no del siguiente.
+            //
+            // Un bloque cubre varias líneas con una sola imagen, y las que no son la
+            // primera quedaban sin cuadro propio: el modelo las inventaba desde un
+            // momento que no era el suyo. Ese es el defecto que se ve — el subtítulo
+            // dice una cosa y la imagen muestra otra.
+            //
+            // Anclando el final en la ÚLTIMA escena del bloque, el clip empieza y
+            // termina en cuadros de sus propias líneas y solo interpola en el medio.
+            // Se pierde el encadenado con el bloque siguiente, pero ese encadenado
+            // solo servía cuando compartían locación, y la coherencia dentro del
+            // clip pesa más que la costura entre clips.
+            const propiaUltima = block.scenes.length > 1
+              ? imgByScene.get(block.scenes[block.scenes.length - 1]!)
+              : undefined;
+            const endImage = propiaUltima
+              ?? (nextBlock ? imgByScene.get(nextBlock.leadScene) : imgByScene.get(block.scenes[block.scenes.length - 1]!));
             const lines = block.scenes
               .map((n) => sceneByNumber.get(n))
               .filter(Boolean)
@@ -269,7 +285,14 @@ export async function POST(req: NextRequest) {
             return {
               scene_number: block.leadScene,
               image_url: imgByScene.get(block.leadScene) ?? block.referenceImageUrl,
-              end_image_url: encadenar && endImage && endImage !== imgByScene.get(block.leadScene) ? endImage : undefined,
+              // El cuadro propio del bloque no depende de `encadenar`: es su propia
+              // última escena, así que la locación es correcta por construcción. La
+              // comprobación de escenario solo aplica al encadenado con el bloque
+              // siguiente, que es el caso donde el modelo tendría que transformar un
+              // lugar en otro.
+              end_image_url: propiaUltima && propiaUltima !== imgByScene.get(block.leadScene)
+                ? propiaUltima
+                : (encadenar && endImage && endImage !== imgByScene.get(block.leadScene) ? endImage : undefined),
               // La dirección de cámara sale del GUION, no de una frase fija.
               //
               // Antes decía "cinematic scene with natural camera movement AND CUTS

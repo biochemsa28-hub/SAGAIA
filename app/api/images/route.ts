@@ -71,9 +71,22 @@ export async function POST(req: NextRequest) {
       );
       if (plan.length) {
         const anchors = new Set<number>(plan.map((b) => b.leadScene));
-        // The final block still needs a frame to end ON.
-        const lastBlock = plan[plan.length - 1]!;
-        anchors.add(lastBlock.scenes[lastBlock.scenes.length - 1]!);
+        // LOS DOS EXTREMOS DE CADA BLOQUE, no solo el de entrada.
+        //
+        // Un bloque cubre 2 o 3 líneas con UNA sola imagen: la de su primera
+        // escena. Las demás líneas no tienen cuadro propio y el modelo las inventa
+        // a partir de un momento que no es el suyo. Eso produjo el defecto que se
+        // ve al mirar: el subtítulo dice "aquí no está su hija" mientras la hija
+        // está en pantalla, porque la imagen se hizo para otra frase.
+        //
+        // Seedance acepta cuadro inicial Y final. Rindiendo también la ÚLTIMA
+        // escena del bloque, el clip queda anclado en sus dos extremos con imágenes
+        // de sus propias líneas. Cuesta una imagen más por bloque —unos $0.04—
+        // contra los $0.65 que costaría darle un clip a cada línea.
+        for (const b of plan) {
+          const ultima = b.scenes[b.scenes.length - 1];
+          if (ultima !== undefined) anchors.add(ultima);
+        }
         const before = targetScenes.length;
         targetScenes = targetScenes.filter((sc) => anchors.has(sc.scene_number));
         console.log(`[anclas] ${before} escenas → ${targetScenes.length} imágenes (${plan.length} bloques)`);
