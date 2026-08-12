@@ -1260,7 +1260,7 @@ function NewProjectForm() {
 
       {/* ── STEP 1: Historia ── */}
       {step === 1 && (
-        <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-5 pb-32">
+        <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 space-y-4 pb-32">
 
           {/* Nicho selected badge */}
           {form.niche && (
@@ -1270,6 +1270,16 @@ function NewProjectForm() {
               <span className="text-[10px] opacity-60">· {form.tone}</span>
             </div>
           )}
+
+          {/* Dos columnas en desktop: a la izquierda lo que ESCRIBES (la historia
+              y su duración), a la derecha lo que te OFRECEMOS (las ideas). Antes
+              era una sola columna angosta con todo apilado, y las ideas quedaban
+              tan abajo que había que ir a buscarlas justo cuando no sabías qué
+              escribir — el momento exacto en que deberían estar a la vista. */}
+          <div className="grid lg:grid-cols-5 gap-5 items-start">
+
+          {/* ── Izquierda: tu historia ── */}
+          <div className="lg:col-span-3 space-y-5">
 
           {/* Topic */}
           <div>
@@ -1293,6 +1303,38 @@ function NewProjectForm() {
             {errors.topic && <p className="text-xs text-red-400 mt-1">{errors.topic}</p>}
             <p className="text-[10px] text-zinc-700 mt-1">Cuanto más específico, más viral. La IA construye el resto.</p>
           </div>
+
+          {/* Duración — vive junto a la historia porque es parte de ella: cuántas
+              escenas caben cambia lo que se puede contar, no es una preferencia
+              técnica suelta. */}
+          <div>
+            <p className="text-xs font-bold text-zinc-400 mb-3">Duración del video</p>
+            <div className="grid grid-cols-2 gap-2">
+              {DURATION_OPTIONS.map(d => (
+                <button
+                  key={d.id}
+                  onClick={() => set("duration_target")(d.id)}
+                  className={`vy-press p-3.5 rounded-xl border text-left transition-all ${
+                    form.duration_target === d.id
+                      ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg`
+                      : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                  }`}
+                >
+                  <p className={`text-sm font-extrabold ${form.duration_target === d.id ? "text-white" : "text-zinc-300"}`}>
+                    {d.label.split("(")[0]?.trim()}
+                  </p>
+                  <p className={`text-[10px] mt-0.5 ${form.duration_target === d.id ? theme.accent : "text-zinc-600"}`}>
+                    {d.scenes} escenas
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          </div>
+
+          {/* ── Derecha: de dónde sacar la idea ── */}
+          <div className="lg:col-span-2 space-y-4">
 
           {/* ── Claude sugiere historias según la emoción elegida ── */}
           <div className="rounded-2xl border border-violet-800/40 bg-gradient-to-br from-violet-950/40 to-zinc-900/40 p-4">
@@ -1369,36 +1411,22 @@ function NewProjectForm() {
             </div>
           )}
 
-          {/* Duration */}
-          <div>
-            <p className="text-xs font-bold text-zinc-400 mb-3">Duración del video</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DURATION_OPTIONS.map(d => (
-                <button
-                  key={d.id}
-                  onClick={() => set("duration_target")(d.id)}
-                  className={`p-3.5 rounded-xl border text-left transition-all ${
-                    form.duration_target === d.id
-                      ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg`
-                      : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
-                  }`}
-                >
-                  <p className={`text-sm font-extrabold ${form.duration_target === d.id ? "text-white" : "text-zinc-300"}`}>
-                    {d.label.split("(")[0]?.trim()}
-                  </p>
-                  <p className={`text-[10px] mt-0.5 ${form.duration_target === d.id ? theme.accent : "text-zinc-600"}`}>
-                    {d.scenes} escenas
-                  </p>
-                </button>
-              ))}
-            </div>
+          </div>
           </div>
         </div>
       )}
 
       {/* ── STEP 2: Visión ── */}
       {step === 2 && (
-        <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-5 pb-32">
+        <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 pb-32">
+
+          {/* Mismo criterio que los pasos anteriores: dos columnas. A la izquierda
+              lo que se MIRA (el estilo, la cara del personaje), a la derecha lo
+              que se DECIDE (plataforma, idioma, notas). */}
+          <div className="grid lg:grid-cols-5 gap-5 items-start">
+
+          {/* ── Izquierda: lo visual ── */}
+          <div className="lg:col-span-3 space-y-5">
 
           {/* Estilo visual — con mini frame cinematográfico de referencia */}
           <div>
@@ -1433,13 +1461,6 @@ function NewProjectForm() {
                 );
               })}
             </div>
-          </div>
-
-          {/* Calidad premium — un solo nivel, el mejor */}
-          <div className="vy-glass rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl vy-grad-bg flex items-center justify-center shrink-0 text-xl">🗣️</div>
-            <p className="flex-1 text-sm font-bold vy-grad-text">Generar video</p>
-            <span className="text-[11px] font-bold text-violet-300 shrink-0">{CREDIT_COST_BY_TIER.talking.toLocaleString("es")} NAVOS</span>
           </div>
 
           {/* Personaje recurrente (opcional) */}
@@ -1481,8 +1502,13 @@ function NewProjectForm() {
             </div>
           )}
 
+          </div>
+
+          {/* ── Derecha: lo que se decide ── */}
+          <div className="lg:col-span-2 space-y-5">
+
           {/* Platform + Language */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-xs font-bold text-zinc-400 mb-2.5">Plataforma</p>
               <div className="space-y-1.5">
@@ -1550,6 +1576,15 @@ function NewProjectForm() {
             />
           </div>
 
+          {/* Calidad premium — un solo nivel, el mejor. Va al final de la columna
+              derecha, pegado al botón: lo último que ves antes de gastar es
+              cuánto cuesta. */}
+          <div className="vy-glass rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl vy-grad-bg flex items-center justify-center shrink-0 text-xl">🗣️</div>
+            <p className="flex-1 text-sm font-bold vy-grad-text">Generar video</p>
+            <span className="text-[11px] font-bold text-violet-300 shrink-0">{CREDIT_COST_BY_TIER.talking.toLocaleString("es")} NAVOS</span>
+          </div>
+
           {/* Error */}
           {genError && (
             <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-700/40 rounded-xl">
@@ -1557,13 +1592,16 @@ function NewProjectForm() {
               <p className="text-xs text-red-300">{genError}</p>
             </div>
           )}
+
+          </div>
+          </div>
         </div>
       )}
 
       {/* ── Fixed bottom nav ── */}
       <div className="fixed bottom-0 left-0 right-0 z-20">
         <div className={`absolute inset-0 bg-gradient-to-t ${theme.card} opacity-30 pointer-events-none`} />
-        <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-2xl mx-auto">
+        <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-5xl mx-auto">
           {credits === 0 && (
             <div className="flex items-center gap-2 mb-2.5 p-2.5 bg-red-950/40 border border-red-800/40 rounded-xl">
               <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
