@@ -109,6 +109,9 @@ function ProjectDetail() {
     voice: "pending", images: "pending", clips: "pending", final: "pending",
   });
   const [producing, setProducing] = useState(false);
+  // El plan de rodaje arranca plegado: es para quien quiere dirigir, no ruido
+  // para quien solo quiere su video.
+  const [verPlan, setVerPlan] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
@@ -325,6 +328,21 @@ function ProjectDetail() {
   // Volver a la versión anterior de una escena. Gratis: la imagen ya está
   // generada y pagada, solo cambia el puntero. Después re-monta el video, que
   // es el único paso con costo real y el que hace visible el cambio.
+  // Guarda una corrección del plan. No genera nada: solo cambia lo que el
+  // generador va a leer cuando toque animar.
+  async function guardarPlan(sceneNumber: number, campos: Record<string, string>) {
+    try {
+      const r = await fetch("/api/scenes/plan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id, scene_number: sceneNumber, ...campos }),
+      });
+      if (!r.ok) throw new Error("no");
+      toast("Plan actualizado — se animará así", "success");
+    } catch {
+      toast("No se pudo guardar el plan.", "error");
+    }
+  }
+
   async function revertScene(sceneNumber: number) {
     const versiones = (detail?.assets ?? [])
       .filter(a => a.asset_type === "image" && a.scene_id === scenes.find(s => s.scene_number === sceneNumber)?.id)
@@ -884,13 +902,57 @@ function ProjectDetail() {
             {/* ── AJUSTAR ESCENAS ───────────────────────────────────────────── */}
             {scenes.length > 0 && (
               <div className="space-y-2">
-                <div className="px-1">
-                  <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">¿No te gustó una escena?</h2>
-                  <p className="text-[11px] text-zinc-600 mt-0.5">
-                    Regenera solo esa escena — el resto se conserva. Si la nueva no te gusta, vuelves a la anterior gratis.
-                    Y con 🔒 apruebas una escena para que nada vuelva a tocarla.
-                  </p>
+                <div className="px-1 flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">¿No te gustó una escena?</h2>
+                    <p className="text-[11px] text-zinc-600 mt-0.5">
+                      Regenera solo esa escena — el resto se conserva. Si la nueva no te gusta, vuelves a la anterior gratis.
+                      Y con 🔒 apruebas una escena para que nada vuelva a tocarla.
+                    </p>
+                  </div>
+                  {/* El plan de movimiento existía y era invisible: la IA decidía la
+                      cámara y la emoción de cada escena, y el usuario se enteraba
+                      recién en el video ya pagado. Verlo y corregirlo antes de
+                      animar es la diferencia entre dirigir y apostar. */}
+                  <button
+                    onClick={() => setVerPlan(v => !v)}
+                    className="shrink-0 text-[11px] px-2.5 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                  >
+                    {verPlan ? "Ocultar plan" : "🎬 Ver plan de rodaje"}
+                  </button>
                 </div>
+
+                {verPlan && (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 divide-y divide-zinc-800/70 mb-2">
+                    <p className="px-3 py-2 text-[10px] text-zinc-500">
+                      Esto es lo que la IA va a animar. Corrígelo y se anima así — es gratis y no genera nada.
+                    </p>
+                    {scenes.map((sc) => {
+                      const s = sc as unknown as { camera_move?: string | null; emotion?: string | null; environment?: string | null };
+                      return (
+                        <div key={`plan-${sc.id}`} className="px-3 py-2 grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-center">
+                          <span className="text-[10px] font-bold text-zinc-500 w-5">{sc.scene_number}</span>
+                          {([
+                            { k: "camera_move" as const, ph: "cámara", v: s.camera_move ?? "" },
+                            { k: "emotion" as const, ph: "emoción", v: s.emotion ?? "" },
+                            { k: "environment" as const, ph: "ambiente", v: s.environment ?? "" },
+                          ]).map(campo => (
+                            <input
+                              key={campo.k}
+                              defaultValue={campo.v}
+                              placeholder={campo.ph}
+                              onBlur={(e) => {
+                                const nuevo = e.target.value.trim();
+                                if (nuevo !== campo.v) void guardarPlan(sc.scene_number, { [campo.k]: nuevo });
+                              }}
+                              className="bg-zinc-950/60 border border-zinc-800 rounded px-2 py-1 text-[10px] text-zinc-300 focus:outline-none focus:border-violet-600 transition-colors"
+                            />
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="grid grid-cols-3 gap-2">
                   {scenes.map((sc) => {
                     const thumb = imageBySceneId.get(sc.id);

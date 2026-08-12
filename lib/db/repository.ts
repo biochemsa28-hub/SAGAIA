@@ -539,6 +539,46 @@ export async function createProject(params: {
   return id;
 }
 
+// ─── MOTION BLUEPRINT ────────────────────────────────────────────────────────
+// El plan de movimiento de una escena —qué hace la cámara, con qué emoción se
+// actúa, qué se mueve en el ambiente— ya lo escribía la IA y ya se guardaba, pero
+// era invisible: el usuario pagaba la animación para recién ahí enterarse de lo
+// que el sistema había decidido. Poder verlo y corregirlo ANTES de gastar es la
+// diferencia entre dirigir y apostar.
+//
+// Y es lo que vuelve honesto al borrador: lo que se aprueba acá es exactamente
+// lo que el estreno va a animar, porque el generador lee estos mismos campos.
+export async function actualizarPlanDeEscena(params: {
+  projectId: string;
+  userId: string;
+  sceneNumber: number;
+  camera_move?: string;
+  emotion?: string;
+  environment?: string;
+}): Promise<boolean> {
+  const db = getDb();
+  const dueño = await db.execute({
+    sql: "SELECT 1 FROM projects WHERE id = ? AND user_id = ?",
+    args: [params.projectId, params.userId],
+  });
+  if (!dueño.rows[0]) return false;
+
+  const campos: string[] = [];
+  const args: unknown[] = [];
+  for (const k of ["camera_move", "emotion", "environment"] as const) {
+    const v = params[k];
+    if (typeof v === "string") { campos.push(`${k} = ?`); args.push(v.slice(0, 200)); }
+  }
+  if (!campos.length) return false;
+  args.push(params.projectId, params.sceneNumber);
+
+  const r = await db.execute({
+    sql: `UPDATE scenes SET ${campos.join(", ")} WHERE project_id = ? AND scene_number = ?`,
+    args: args as never[],
+  });
+  return (r.rowsAffected ?? 0) > 0;
+}
+
 // Asciende un borrador a estreno. Solo cambia la marca: el guion, el elenco, las
 // imágenes y las escenas aprobadas ya existen y no se vuelven a pagar — lo único
 // que falta comprar es la animación.
