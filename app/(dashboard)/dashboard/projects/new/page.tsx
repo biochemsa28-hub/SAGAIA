@@ -872,9 +872,13 @@ function NewProjectForm() {
           </div>
         </div>
 
-        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-5 space-y-4 pb-32">
+        <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 space-y-5 pb-32">
 
-          {/* Hook cards */}
+          {/* La marquesina: los tres ganchos lado a lado, como tres carteles del
+              mismo estreno. Elegir la primera línea de tu película es una
+              comparación — y comparar exige ver las tres opciones a la vez, no
+              recordar la de arriba mientras lees la de abajo. */}
+          <div className="grid md:grid-cols-3 gap-4 items-stretch">
           {hooks.map((hook) => {
             const meta = HOOK_META[hook.type] ?? HOOK_META["question"]!;
             const isSelected = selectedHook?.id === hook.id;
@@ -882,13 +886,13 @@ function NewProjectForm() {
               <button
                 key={hook.id}
                 onClick={() => setSelectedHook(hook)}
-                className={`w-full text-left rounded-2xl border-2 p-5 transition-all duration-200 ${
+                className={`flex flex-col text-left rounded-2xl border-2 p-5 transition-all duration-200 ${
                   isSelected
-                    ? `${meta.bg} ${meta.border} scale-[1.01] shadow-xl`
-                    : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                    ? `${meta.bg} ${meta.border} scale-[1.02] shadow-xl`
+                    : "bg-zinc-900 border-zinc-800 hover:border-zinc-700 hover:-translate-y-0.5"
                 }`}
               >
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-4">
                   <span className="text-xl">{meta.icon}</span>
                   <span className={`text-[10px] font-bold uppercase tracking-widest ${isSelected ? meta.color : "text-zinc-500"}`}>
                     {hook.type_label}
@@ -898,8 +902,9 @@ function NewProjectForm() {
                   )}
                 </div>
 
-                {/* Hook text — the star of the show */}
-                <p className={`text-base font-bold leading-snug mb-3 ${isSelected ? "text-white" : "text-zinc-200"}`}>
+                {/* Hook text — the star of the show. flex-1 empuja el "por qué"
+                    al pie para que las tres tarjetas queden alineadas. */}
+                <p className={`flex-1 text-base md:text-lg font-bold leading-snug mb-4 ${isSelected ? "text-white" : "text-zinc-200"}`}>
                   &ldquo;{hook.text}&rdquo;
                 </p>
 
@@ -911,11 +916,12 @@ function NewProjectForm() {
               </button>
             );
           })}
+          </div>
 
           {/* Skip hook */}
           <button
             onClick={() => void generate(null)}
-            className="w-full py-3 rounded-xl border border-zinc-800 text-zinc-600 text-xs hover:border-zinc-700 hover:text-zinc-400 transition-all"
+            className="w-full max-w-xs mx-auto block py-3 rounded-xl border border-zinc-800 text-zinc-600 text-xs hover:border-zinc-700 hover:text-zinc-400 transition-all"
           >
             Saltar — dejar que la IA elija el hook
           </button>
@@ -931,8 +937,11 @@ function NewProjectForm() {
         {/* Fixed bottom CTA */}
         <div className="fixed bottom-0 left-0 right-0 z-20">
           <div className={`absolute inset-0 bg-gradient-to-t ${theme.card} opacity-30 pointer-events-none`} />
-          <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-lg mx-auto">
-            <div className="flex gap-3">
+          <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-5xl mx-auto">
+            {/* La barra acompaña el ancho del contenido; los botones no se
+                estiran — un CTA del ancho de la pantalla deja de leerse como
+                botón. */}
+            <div className="flex gap-3 sm:max-w-lg sm:mx-auto">
               <button
                 onClick={() => { setHookStep(false); setCastingStep(true); }}
                 className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm font-medium hover:border-zinc-700 transition-all shrink-0"
