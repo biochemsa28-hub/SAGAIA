@@ -44,6 +44,15 @@ function emotionToVisualDirection(emotion?: string): string | null {
   return "emotionally charged expression, cinematic dramatic lighting";
 }
 
+// El cuadro se genera al TAMAÑO FINAL del video. Cada escalado intermedio cuesta
+// nitidez en lo que el espectador mira de cerca —la cara— y encadenábamos tres:
+// imagen 576×1024 → clip 720p → montaje 1080×1920.
+// Se puede bajar con IMAGE_WIDTH/IMAGE_HEIGHT si un endpoint cobra por píxel.
+const IMAGE_SIZE = {
+  width: Math.max(512, Number(process.env.IMAGE_WIDTH ?? 1080) || 1080),
+  height: Math.max(512, Number(process.env.IMAGE_HEIGHT ?? 1920) || 1920),
+};
+
 // RETRY-ONLY fallback: runs when a prompt fails to generate. The old version
 // gutted the scene ("knife" → "object", "demon" → "mysterious figure"), which is
 // why retried horror shots came back toothless. Now it swaps only the few literal
@@ -119,7 +128,17 @@ async function callFlux(prompt: string, style: StyleConfig, seed?: number): Prom
             "blurry hands, extra fingers, deformed hands, " +
             "oversaturated, overexposed, blown out highlights, flat lighting, unnatural colors, " +
             "fake bokeh, AI generated look, uncanny valley, doll-like, perfect skin",
-        image_size: "portrait_16_9",
+        // RESOLUCIÓN NATIVA DEL VIDEO, no un preset.
+        //
+        // "portrait_16_9" son 576×1024 en fal: poco más de la mitad de los
+        // píxeles del video que publicamos (1080×1920). Ese cuadro se lo comía
+        // Seedance, que animaba a 720p, y el montaje lo estiraba a 1080. Tres
+        // escalados encadenados — y el detalle que se pierde es justo el que se
+        // mira: piel, tela, pelo, ojos.
+        //
+        // Pedir el tamaño final desde el principio cuesta lo mismo por imagen en
+        // los endpoints por-imagen y elimina los tres escalados de una vez.
+        image_size: IMAGE_SIZE,
         num_inference_steps: style.loras.length > 0 ? 40 : 32,
         guidance_scale: 4.5,
         num_images: 1,

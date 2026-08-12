@@ -48,7 +48,22 @@ function getApiKey(): string {
 const SAFETY_CHECKER_ON = (process.env.FAL_SAFETY_CHECKER ?? "off").toLowerCase() === "on";
 
 const VIDEO_MODEL = process.env.VIDEO_MODEL ?? "fal-ai/bytedance/seedance/v1.5/pro/image-to-video";
-const VIDEO_RESOLUTION = process.env.VIDEO_RESOLUTION ?? "720p";
+// 1080p por defecto: el video que publicamos ES 1080×1920, así que generar a
+// 720p garantizaba un escalado en el montaje sobre lo único que el espectador
+// mira de cerca, la cara. Se puede bajar con VIDEO_RESOLUTION=720p cuando el
+// presupuesto mande.
+//
+// Y se VALIDA: antes, un valor mal escrito ("1080", "HD", "1080P ") pasaba tal
+// cual al modelo, que lo rechazaba o lo ignoraba, y el video salía en 720p sin
+// que nada lo dijera. Un error de configuración que solo se nota mirando el
+// resultado terminado es el peor tipo de error.
+const RESOLUCIONES = new Set(["480p", "720p", "1080p"]);
+const VIDEO_RESOLUTION = (() => {
+  const pedida = (process.env.VIDEO_RESOLUTION ?? "1080p").trim().toLowerCase();
+  if (RESOLUCIONES.has(pedida)) return pedida;
+  console.warn(`[video] VIDEO_RESOLUTION="${process.env.VIDEO_RESOLUTION}" no es válida (480p|720p|1080p) — se usa 1080p`);
+  return "1080p";
+})();
 
 // Cinematography prefix prepended to every animation_prompt so Seedance
 // consistently generates film-quality motion even when the AI-generated prompt
@@ -79,6 +94,10 @@ export async function submitVideoJobs(params: {
   // Google Veo 3 uses a different param shape (generate_audio, string duration) and
   // produces NATIVE synchronized audio — the premium "Cinema" engine. Detected by name.
   const isVeo3 = /veo3|veo-3|veo\/3/i.test(VIDEO_MODEL);
+
+  // La resolución no aparecía en ningún log, así que llevábamos meses generando a
+  // 720p para un video 1080×1920 sin que nada lo dijera. Una línea por lote.
+  console.log(`[video] ${params.scenes.length} clip(s) a ${VIDEO_RESOLUTION} · modelo ${VIDEO_MODEL.split("/").pop()}`);
 
   const jobs: VideoJob[] = [];
   for (const scene of params.scenes) {
