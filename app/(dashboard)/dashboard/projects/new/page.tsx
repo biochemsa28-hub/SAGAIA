@@ -260,6 +260,49 @@ function PaginaDeGuion({ texto }: { texto: string }) {
   );
 }
 
+// El monitor del director: en toda sala de montaje hay una pantalla grande
+// donde se repasan los planos ya revelados mientras el resto se trabaja. Rota
+// por las escenas con imagen — fundido de entrada y un Ken Burns lento que las
+// hace respirar — y debajo la ficha real del guion: quién, dónde, y qué hace
+// la cámara en ese plano.
+function MonitorDeRodaje({ tomas }: {
+  tomas: Array<{ n: number; url: string; quien?: string; donde?: string; camara?: string }>;
+}) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (tomas.length <= 1) return;
+    const iv = setInterval(() => setIdx(i => i + 1), 4600);
+    return () => clearInterval(iv);
+  }, [tomas.length]);
+  if (!tomas.length) {
+    return (
+      <div className="relative aspect-[9/16] rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900">
+        <div className="absolute inset-0 vy-shimmer2 flex items-center justify-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">esperando el primer plano…</span>
+        </div>
+      </div>
+    );
+  }
+  const t = tomas[idx % tomas.length]!;
+  return (
+    <div className="relative aspect-[9/16] rounded-xl overflow-hidden border border-zinc-700 bg-black shadow-2xl">
+      {/* key con idx: cada cambio remonta el img y reinicia fundido + Ken Burns */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img key={`${t.n}-${idx}`} src={t.url} alt={`Escena ${t.n}`}
+        className="vy-monitor-frame absolute inset-0 w-full h-full object-cover" />
+      <span className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm border border-white/15">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+        <span className="text-[8px] font-bold uppercase tracking-wider text-white">En el monitor</span>
+      </span>
+      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent px-3 pt-8 pb-2.5">
+        <p className="text-[11px] font-extrabold text-white">Escena {t.n}{t.quien ? ` · ${t.quien}` : ""}</p>
+        {t.donde && <p className="text-[9px] text-zinc-400 truncate">{t.donde}</p>}
+        {t.camara && <p className="text-[9px] text-violet-300 truncate">🎥 {t.camara}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function NewProjectPage() {
   return <Suspense fallback={null}><NewProjectForm /></Suspense>;
 }
@@ -810,13 +853,23 @@ function NewProjectForm() {
           </div>
 
           <div className="grid lg:grid-cols-5 gap-5 items-start flex-1">
-            {/* ── Izquierda: el muro de escenas — la película apareciendo ── */}
+            {/* ── Izquierda: el monitor del director + el muro de escenas ── */}
             <div className="lg:col-span-3">
               <div className="flex items-center justify-between mb-2.5">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Tus escenas</p>
                 <p className="text-[10px] font-bold text-violet-300">{ready}/{total} reveladas</p>
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              <div className="flex gap-3 items-start">
+              {/* El monitor grande repasa los planos revelados; el muro al lado
+                  es la bandeja de clips. Como en una sala de verdad. */}
+              <div className="w-[38%] shrink-0">
+                <MonitorDeRodaje tomas={
+                  Array.from({ length: total }, (_, k) => ({ n: k + 1, url: scenePreviews[k + 1], esc: escenas[k] }))
+                    .filter(t => t.url)
+                    .map(t => ({ n: t.n, url: t.url!, quien: t.esc?.speaker, donde: t.esc?.location, camara: t.esc?.camera_move }))
+                } />
+              </div>
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {Array.from({ length: total }, (_, k) => {
                   const n = k + 1;
                   const url = scenePreviews[n];
@@ -845,6 +898,7 @@ function NewProjectForm() {
                     </div>
                   );
                 })}
+              </div>
               </div>
             </div>
 

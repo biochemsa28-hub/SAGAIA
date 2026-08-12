@@ -88,6 +88,9 @@
 .vy-pulse-soft { animation: vyPulseSoft 1.3s ease-in-out infinite; }
 .vy-rise { animation: vyRise 1.4s ease-in-out infinite; }
 .vy-ken2 { animation: vyKen2 6s ease-out forwards; }
+/* El plano en el monitor del director: entra con fundido y respira con un
+   Ken Burns lento hasta que llega el siguiente. */
+.vy-monitor-frame { animation: vyFadeUp .45s ease-out, vyKen2 4.6s linear forwards; }
 .vy-fadeup { animation: vyFadeUp .5s ease forwards; }
 .vy-pop { animation: vyPop .5s cubic-bezier(.2,1.2,.4,1) forwards; }
 .vy-shimmer2 { background: linear-gradient(100deg, #140f24 30%, #2a2142 50%, #140f24 70%); background-size: 200% 100%; animation: vyShimmer2 1.4s ease-in-out infinite; }
