@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
+import { createHash, randomBytes } from "crypto";
 import type { StoryOutput } from "@/lib/validators/story.schema";
 import { FREE_SIGNUP_NAVOS } from "@/lib/config";
 
@@ -57,6 +58,52 @@ export async function createUser(params: {
     credits: FREE_SIGNUP_NAVOS,
     created_at: new Date().toISOString(),
   };
+}
+
+// ─── Recuperación de contraseña ───────────────────────────────────────────────
+// Se guarda el HASH del token, nunca el token. Quien lea esta tabla no puede
+// entrar a ninguna cuenta con lo que ve: para eso necesitaría el valor original,
+// que solo existe en el correo del dueño.
+
+const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
+// Crea un token de un solo uso. Invalida los anteriores del mismo usuario: pedir
+// el enlace dos veces no debe dejar dos llaves vivas.
+export async function createPasswordReset(userId: string, minutos = 60): Promise<string> {
+  const db = getDb();
+  await db.execute({
+    sql: "UPDATE password_resets SET used_at = datetime('now') WHERE user_id = ? AND used_at IS NULL",
+    args: [userId],
+  });
+  const token = randomBytes(32).toString("hex");
+  await db.execute({
+    sql: `INSERT INTO password_resets (token_hash, user_id, expires_at)
+          VALUES (?, ?, datetime('now', ?))`,
+    args: [hashToken(token), userId, `+${Math.max(5, minutos)} minutes`],
+  });
+  return token;
+}
+
+// Consume el token y cambia la contraseña en un solo paso. Devuelve false si el
+// token no existe, ya se usó o venció — sin decir cuál de las tres, porque
+// distinguirlas le da información a quien esté probando tokens al azar.
+export async function consumePasswordReset(token: string, passwordHash: string): Promise<boolean> {
+  const db = getDb();
+  // La condición de un solo uso vive en el UPDATE, no en un IF previo: dos
+  // pedidos simultáneos con el mismo token no pueden ganar los dos.
+  const claim = await db.execute({
+    sql: `UPDATE password_resets SET used_at = datetime('now')
+          WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime('now')
+          RETURNING user_id`,
+    args: [hashToken(token)],
+  });
+  const row = claim.rows[0] as Record<string, unknown> | undefined;
+  if (!row) return false;
+  await db.execute({
+    sql: "UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?",
+    args: [passwordHash, String(row["user_id"])],
+  });
+  return true;
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

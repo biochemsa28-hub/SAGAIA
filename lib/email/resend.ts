@@ -7,6 +7,44 @@ function getResend() {
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://vynavo.com";
 const FROM = "VYNAVO <noreply@vynavo.com>";
 
+// Devuelve true si el correo se envió de verdad. Importa: sin RESEND_API_KEY el
+// enlace no llega a ninguna parte, y quien llama necesita saberlo para poder
+// dejarlo en el log del servidor en vez de perderlo — si no, el usuario queda
+// esperando un correo que nunca se mandó y nadie se entera.
+export async function sendPasswordResetEmail({
+  to,
+  userName,
+  resetUrl,
+}: {
+  to: string;
+  userName: string | null;
+  resetUrl: string;
+}): Promise<boolean> {
+  if (!process.env.RESEND_API_KEY) return false;
+  const firstName = (userName ?? "").split(" ")[0] || "Hola";
+
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: "Restablecé tu contraseña de VYNAVO",
+    html: `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#16171f">
+        <p style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#7c8095;margin:0 0 18px">VYNAVO</p>
+        <h1 style="font-size:22px;margin:0 0 12px">${firstName}, restablecé tu contraseña</h1>
+        <p style="color:#4a4d5c;line-height:1.6;margin:0 0 24px">
+          Pediste volver a entrar a tu cuenta. Este enlace funciona <strong>una sola vez</strong> y vence en una hora.
+        </p>
+        <a href="${resetUrl}" style="display:inline-block;background:#4453c8;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:600">
+          Crear una contraseña nueva
+        </a>
+        <p style="color:#7c8095;font-size:13px;line-height:1.6;margin:26px 0 0">
+          Si no lo pediste, podés ignorar este correo: tu contraseña actual sigue funcionando y nadie entró a tu cuenta.
+        </p>
+      </div>`,
+  });
+  return true;
+}
+
 export async function sendVideoReadyEmail({
   to,
   userName,

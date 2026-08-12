@@ -177,6 +177,19 @@ export async function initDb(): Promise<void> {
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN location TEXT");
   // Qué se mueve en el ambiente: eje separado del personaje y de la cámara.
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN environment TEXT");
+
+  // ── RECUPERAR CONTRASEÑA ───────────────────────────────────────────────────
+  // Hasta ahora no existía: quien olvidaba la suya quedaba afuera para siempre,
+  // sin ninguna vía de vuelta. Se guarda el HASH del token, nunca el token: si
+  // alguien lee esta tabla no puede entrar a ninguna cuenta con lo que ve.
+  await runMigration(db, `CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id)");
   await runMigration(db, "ALTER TABLE project_cast ADD COLUMN bible_url TEXT");
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT");
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN stage TEXT");

@@ -82,6 +82,12 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Entrar"}
           </Button>
+
+          <p className="text-center text-xs mt-1">
+            <Link href="/forgot-password" className="text-zinc-500 hover:text-zinc-300 transition-colors">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </p>
         </form>
 
         <p className="text-center text-xs text-zinc-500 mt-6">
