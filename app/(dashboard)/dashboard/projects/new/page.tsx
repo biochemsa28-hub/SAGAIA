@@ -614,84 +614,60 @@ function NewProjectForm() {
     }
   }
 
-  // Run the full production pipeline inline (voice + images → clips → final),
-  // updating `prod` so the live screen reflects progress. No navigation.
-  async function produceInline(projectId: string, animTier: "kenburns" | "cinematic" | "talking") {
-    const post = (url: string, body: object) =>
-      fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  // Producción DESACOPLADA de la pestaña. Antes este método orquestaba el
+  // pipeline entero desde el navegador: si el usuario cerraba la pestaña, la
+  // producción moría — "No cierres esta pantalla" era un síntoma, no una
+  // solución. El worker del servidor (services/jobs/worker.ts) ya sabía hacer
+  // todo esto con heartbeat, reintentos y refund; el wizard simplemente no lo
+  // usaba. Ahora encola el job y OBSERVA: la pestaña es un espectador, no el
+  // director. Cerrala y la producción sigue; el correo de "video listo" sale
+  // del assemble como siempre.
+  async function produceInline(projectId: string, _animTier: "kenburns" | "cinematic" | "talking") {
+    setScenePreviews({});
+    setProd({ active: true, phase: "voice", error: null, videoUrl: null, projectId });
     try {
-      setScenePreviews({});
-      setProd({ active: true, phase: "voice", error: null, videoUrl: null, projectId });
+      const enq = await fetch("/api/produce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId }),
+      });
+      if (!enq.ok) {
+        const e = await enq.json().catch(() => ({})) as { error?: string };
+        throw new Error(e.error ?? "No se pudo encolar la producción");
+      }
 
-      // Voice + images in parallel
-      setProd(p => p && { ...p, phase: "voice" });
-      const [voiceRes, imgRes] = await Promise.all([
-        post("/api/voice", { project_id: projectId }),
-        post("/api/images", { project_id: projectId }),
-      ]);
-      const voiceOk = (await voiceRes.json() as { success?: boolean }).success;
-      const imgOk = (await imgRes.json() as { success?: boolean }).success;
-      if (!voiceOk || !imgOk) throw new Error("No se pudo generar la voz o las imágenes");
-      setProd(p => p && { ...p, phase: "images" });
-
-      // Poll a set of jobs until all complete; returns the completed {scene,url} list.
-      const pollStage = async (initial: Array<{ scene_number: number; request_id: string }>, stage?: "motion" | "lipsync") => {
-        let jobs = initial.filter(j => j.request_id);
-        if (!jobs.length) throw new Error("La animación no se pudo enviar");
-        const urls: Array<{ scene_number: number; video_url: string }> = [];
-        for (let i = 0; i < 200 && jobs.length; i++) {
-          await new Promise(r => setTimeout(r, 6000));
-          const col = await (await post("/api/videos", { project_id: projectId, action: "collect", stage, jobs: jobs.map(j => ({ scene_number: j.scene_number, request_id: j.request_id })) })).json() as
-            { all_done: boolean; scenes: Array<{ scene_number: number; status: string; url?: string }> };
-          for (const s of col.scenes) if (s.status === "completed" && s.url) urls.push({ scene_number: s.scene_number, video_url: s.url });
-          // RETURN, not break: breaking leaves the pending list populated and the
-          // check after the loop reads that as a timeout — so a fully successful
-          // animation reported failure and refunded a video that already existed.
-          if (col.all_done) return urls;
-          jobs = jobs.filter(j => { const s = col.scenes.find(s => s.scene_number === j.scene_number); return s?.status !== "completed" && s?.status !== "failed"; });
-        }
-        if (jobs.length) throw new Error("La animación tardó demasiado. Intenta de nuevo en un momento.");
-        return urls;
+      // El job avanza por etapas del lado del servidor; acá solo se traducen a
+      // las fases de la sala. La página del proyecto usa el mismo endpoint, así
+      // que recargar o volver más tarde muestra el mismo estado.
+      const FASE: Record<string, "voice" | "images" | "clips" | "final"> = {
+        voice_images: "images", continuity: "images", animation: "clips", render: "final", done: "final",
       };
-
-      // Clips — the server decides: every scene, only the hero beats (hybrid), or
-      // none. It answers "skipped" when there's nothing to animate.
-      {
-        setProd(p => p && { ...p, phase: "clips" });
-        const subData = await (await post("/api/videos", { project_id: projectId, action: "submit" })).json() as
-          { action?: string; pipeline?: string; jobs?: Array<{ scene_number: number; request_id: string; error?: string }> };
-        if (subData.action !== "skipped") {
-          const motionUrls = await pollStage(subData.jobs ?? [], subData.pipeline === "pro" ? "motion" : undefined);
-          // PRO pipeline stage 2: lip-sync the moving clips.
-          if (subData.pipeline === "pro") {
-            const ls = await (await post("/api/videos", { project_id: projectId, action: "lipsync_submit", motion: motionUrls })).json() as
-              { jobs?: Array<{ scene_number: number; request_id: string }> };
-            await pollStage(ls.jobs ?? [], "lipsync");
-          }
+      for (let i = 0; i < 400; i++) {
+        await new Promise(r => setTimeout(r, 4000));
+        const d = await (await fetch(`/api/produce?project_id=${projectId}`)).json() as
+          { job?: { status: string; stage: string | null; error: string | null } | null };
+        const job = d.job;
+        if (!job) continue;
+        if (job.status === "completed") {
+          // El video final vive en los assets del proyecto — la misma fuente que
+          // usa la página del proyecto, así el reveal y el detalle nunca difieren.
+          const det = await (await fetch(`/api/projects/${projectId}`)).json() as
+            { assets?: Array<{ asset_type: string; public_url: string | null }> };
+          const fv = det.assets?.find(a => a.asset_type === "final_video" && a.public_url);
+          setProd(p => p && { ...p, phase: "done", videoUrl: fv?.public_url ?? null });
+          confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 }, colors: ["#7c3aed", "#ec4899", "#f59e0b", "#10b981", "#fff"] });
+          return;
         }
+        if (job.status === "failed") {
+          // El refund ya lo hizo el worker al agotar los reintentos.
+          throw new Error(job.error ?? "La producción falló");
+        }
+        setProd(p => p && { ...p, phase: FASE[job.stage ?? ""] ?? p.phase });
       }
-
-      // Final assembly (Shotstack)
-      setProd(p => p && { ...p, phase: "final" });
-      const subFinal = await (await post("/api/assemble", { project_id: projectId, action: "submit", add_subtitles: true })).json() as { render_id?: string; error?: string };
-      if (!subFinal.render_id) throw new Error(subFinal.error ?? "No se pudo iniciar el montaje");
-      let videoUrl: string | null = null;
-      for (let i = 0; i < 96; i++) {
-        await new Promise(r => setTimeout(r, 5000));
-        const chk = await (await post("/api/assemble", { project_id: projectId, action: "check", render_id: subFinal.render_id })).json() as { status: string; url?: string };
-        if (chk.status === "done" && chk.url) { videoUrl = chk.url; break; }
-        if (chk.status === "failed") throw new Error("El montaje final falló");
-      }
-      if (!videoUrl) throw new Error("El montaje final tardó demasiado. Intenta de nuevo.");
-
-      setProd(p => p && { ...p, phase: "done", videoUrl });
-      const colors = ["#7c3aed", "#ec4899", "#f59e0b", "#10b981", "#fff"];
-      confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 }, colors });
+      throw new Error("La producción tardó demasiado. Revisa el proyecto en tu biblioteca.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setProd(p => p ? { ...p, phase: "error", error: msg } : p);
-      // Refund the credit since production failed (server-side guarded).
-      try { await post("/api/credits/refund", { project_id: projectId }); } catch {}
     }
   }
 
@@ -959,7 +935,14 @@ function NewProjectForm() {
                 <LiveFeed lines={feed} />
               </div>
 
-              <p className="text-[11px] text-zinc-600 text-center">No cierres esta pantalla mientras se crea tu video</p>
+              {/* La producción vive en el servidor: esta pantalla es un
+                  espectador, no el director. */}
+              <p className="text-[11px] text-zinc-600 text-center">
+                Puedes cerrar esta pantalla: la producción sigue sola y te avisamos por correo 📬
+              </p>
+              <Link href="/dashboard/library" className="block text-center text-[11px] text-violet-400 hover:text-violet-300 transition-colors">
+                Seguir usando VYNAVO mientras tanto →
+              </Link>
             </div>
           </div>
         </div>
