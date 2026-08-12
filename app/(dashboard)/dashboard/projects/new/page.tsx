@@ -266,7 +266,7 @@ function PaginaDeGuion({ texto }: { texto: string }) {
 // hace respirar — y debajo la ficha real del guion: quién, dónde, y qué hace
 // la cámara en ese plano.
 function MonitorDeRodaje({ tomas }: {
-  tomas: Array<{ n: number; url: string; quien?: string; donde?: string; camara?: string }>;
+  tomas: Array<{ n: number; url: string; quien?: string }>;
 }) {
   const [idx, setIdx] = useState(0);
   useEffect(() => {
@@ -294,10 +294,10 @@ function MonitorDeRodaje({ tomas }: {
         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
         <span className="text-[8px] font-bold uppercase tracking-wider text-white">En el monitor</span>
       </span>
+      {/* Solo escena y quién: la dirección de cámara interna es receta en
+          inglés técnico y no se muestra al usuario. */}
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent px-3 pt-8 pb-2.5">
         <p className="text-[11px] font-extrabold text-white">Escena {t.n}{t.quien ? ` · ${t.quien}` : ""}</p>
-        {t.donde && <p className="text-[9px] text-zinc-400 truncate">{t.donde}</p>}
-        {t.camara && <p className="text-[9px] text-violet-300 truncate">🎥 {t.camara}</p>}
       </div>
     </div>
   );
@@ -820,13 +820,23 @@ function NewProjectForm() {
       const p = (t ?? "").split(/\s+/);
       return p.slice(0, w).join(" ") + (p.length > w ? "…" : "");
     };
+    // La bitácora habla en idioma de RODAJE, nunca de receta: los prompts de
+    // cámara y las locaciones internas van en inglés técnico y enseñan la
+    // cocina. Lo que sí puede verse: los nombres del elenco (el usuario los
+    // eligió) y sus propias líneas de diálogo (las va a oír en el video).
     const feed: string[] =
       prod.phase === "voice"
-        ? escenas.map(s => `🎙 ${s.speaker ?? "Narrador"}: «${corto(s.narration_text)}»`)
+        ? escenas.map(s => `🎙 Grabando a ${s.speaker ?? "tu narrador"}: «${corto(s.narration_text)}»`)
         : prod.phase === "images"
-          ? escenas.map(s => `🎨 Iluminando ${s.location ?? `la escena ${s.scene_number}`}`)
+          ? escenas.map((s, i) => {
+              const verbos = ["🎨 Revelando", "💡 Iluminando", "🖌 Retocando", "🎨 Componiendo"];
+              return `${verbos[i % verbos.length]} la escena ${s.scene_number}${s.speaker ? ` — ${s.speaker} en cuadro` : ""}`;
+            })
           : prod.phase === "clips"
-            ? escenas.map(s => `🎬 Escena ${s.scene_number} · cámara: ${corto(s.camera_move, 5)}`)
+            ? escenas.map((s, i) => {
+                const tomas = ["🎬 ¡Acción! Escena", "🎥 Rodando la escena", "🎬 Otra toma de la escena", "🎥 La cámara sigue la escena"];
+                return `${tomas[i % tomas.length]} ${s.scene_number}${s.speaker ? ` · ${s.speaker}` : ""}`;
+              })
             : ["✂️ Cortando al ritmo del guion", "🎵 Mezclando música y voz", "💬 Quemando los subtítulos", "🎞 Empalmando las tomas", "✨ Pulido final de color"];
 
     return (
@@ -866,7 +876,7 @@ function NewProjectForm() {
                 <MonitorDeRodaje tomas={
                   Array.from({ length: total }, (_, k) => ({ n: k + 1, url: scenePreviews[k + 1], esc: escenas[k] }))
                     .filter(t => t.url)
-                    .map(t => ({ n: t.n, url: t.url!, quien: t.esc?.speaker, donde: t.esc?.location, camara: t.esc?.camera_move }))
+                    .map(t => ({ n: t.n, url: t.url!, quien: t.esc?.speaker }))
                 } />
               </div>
               <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -890,10 +900,11 @@ function NewProjectForm() {
                           {revelando && <span className="text-[8px] font-bold uppercase tracking-wider text-violet-300 vy-pulse-soft">revelando</span>}
                         </div>
                       )}
-                      {/* Ficha de la escena: quién y dónde, del guion real */}
+                      {/* Ficha de la escena: número y quién actúa. La locación
+                          interna va en inglés técnico — es receta, no rodaje,
+                          y no se muestra. */}
                       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 to-transparent px-1.5 pt-4 pb-1">
-                        <p className="text-[8px] font-bold text-white/90 truncate">{n} · {escenas[k]?.speaker ?? ""}</p>
-                        {escenas[k]?.location && <p className="text-[7px] text-zinc-400 truncate">{escenas[k].location}</p>}
+                        <p className="text-[8px] font-bold text-white/90 truncate">{n}{escenas[k]?.speaker ? ` · ${escenas[k].speaker}` : ""}</p>
                       </div>
                     </div>
                   );
