@@ -236,6 +236,30 @@ function LiveFeed({ lines }: { lines: string[] }) {
   );
 }
 
+// La página de guion escribiéndose a máquina. No es un adorno: mientras Claude
+// escribe el guion de verdad, el usuario ve SU historia — su universo, su
+// premisa, su elenco, su gancho — tomando forma de guion delante suyo. El
+// cursor sigue parpadeando al terminar: la máquina no se detuvo, está pensando.
+function PaginaDeGuion({ texto }: { texto: string }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    setN(0);
+    const iv = setInterval(() => {
+      setN(prev => {
+        if (prev >= texto.length) { clearInterval(iv); return prev; }
+        return prev + 2;
+      });
+    }, 40);
+    return () => clearInterval(iv);
+  }, [texto]);
+  return (
+    <pre className="font-mono text-[11px] leading-relaxed text-zinc-300 whitespace-pre-wrap break-words text-left">
+      {texto.slice(0, n)}
+      <span className="inline-block w-2 h-3.5 bg-violet-400 align-middle animate-pulse" />
+    </pre>
+  );
+}
+
 export default function NewProjectPage() {
   return <Suspense fallback={null}><NewProjectForm /></Suspense>;
 }
@@ -604,50 +628,74 @@ function NewProjectForm() {
     }
   }
 
-  // ── GENERATING ──────────────────────────────────────────────────────────────
+  // ── GENERATING — la mesa de guion ───────────────────────────────────────────
+  // Antes: un cubo holográfico girando — bonito y mudo, no contaba NADA de la
+  // historia del usuario. Mientras Claude escribe el guion de verdad, esta
+  // pantalla muestra la suya tomando forma de guion: su universo, su premisa,
+  // su elenco elegido retrato por retrato, su gancho. Los datos son reales;
+  // solo el tipeo es teatro.
   if (generating) {
+    const elenco = castCharacters.length
+      ? castCharacters.map(c => `  ${c.name.toUpperCase()} — ${c.role}`).join("\n")
+      : "  (diseñando personajes…)";
+    const gancho = selectedHook ? `"${selectedHook.text}"` : "(la IA está eligiendo la primera línea…)";
+    const paginaGuion =
+      `PRODUCCIÓN VYNAVO\n` +
+      `${"─".repeat(34)}\n\n` +
+      `UNIVERSO:  ${form.niche.toUpperCase()}\n` +
+      `TONO:      ${form.tone}\n` +
+      `ESTILO:    ${form.visual_style}\n\n` +
+      `PREMISA\n  "${form.topic}"\n\n` +
+      `ELENCO\n${elenco}\n\n` +
+      `ESCENA 1 — EL GANCHO\n  ${gancho}\n\n` +
+      `ESCENA 2 — …`;
+
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4 relative overflow-hidden">
-        {/* Atmospheric bg */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${theme.card} opacity-60 pointer-events-none`} />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full blur-3xl opacity-10 pointer-events-none" style={{ background: "radial-gradient(circle, #7c3aed, transparent)" }} />
+      <div className="min-h-screen bg-zinc-950 flex flex-col px-4 py-6 relative overflow-hidden">
+        <div className={`absolute inset-0 bg-gradient-to-br ${theme.card} opacity-40 pointer-events-none`} />
 
-        <div className="relative z-10 max-w-sm w-full text-center space-y-8">
-          {/* Cinematic 3D loader — rotating holographic cube + orbiting particles */}
-          <CinematicLoader icon={GEN_STEPS[genStep]?.icon} />
-
-          <div>
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">VYNAVO está creando</p>
-            <h2 className="text-xl font-extrabold text-white vy-glowtext">{GEN_STEPS[genStep]?.label}</h2>
-          </div>
-
-          {/* Progress bar */}
-          <div className="space-y-2">
-            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-violet-600 to-pink-600"
-                style={{ width: `${GEN_STEPS[genStep]?.pct ?? 0}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-[10px] text-zinc-600">
-              <span>Generando</span>
-              <span>{GEN_STEPS[genStep]?.pct ?? 0}%</span>
-            </div>
-          </div>
-
-          {/* Steps checklist */}
-          <div className="space-y-2 text-left">
-            {GEN_STEPS.slice(0, genStep + 1).map((s, i) => (
-              <div key={s.key} className="flex items-center gap-2.5">
-                {i < genStep
-                  ? <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                  : <div className="w-4 h-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin shrink-0" />}
-                <span className={`text-xs ${i < genStep ? "text-zinc-600 line-through" : "text-white font-medium"}`}>{s.label}</span>
+        <div className="relative z-10 max-w-5xl mx-auto w-full flex-1 flex flex-col">
+          {/* Claqueta — el mismo lenguaje que la sala de montaje */}
+          <div className="flex items-center justify-between gap-4 pb-4 border-b border-zinc-800/60 mb-5">
+            <div className="flex items-center gap-4 min-w-0">
+              <Timecode />
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500">Mesa de guion · VYNAVO</p>
+                <h2 className="text-sm font-extrabold text-white truncate">{GEN_STEPS[genStep]?.icon} {GEN_STEPS[genStep]?.label}</h2>
               </div>
-            ))}
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-28 h-1.5 bg-zinc-800 rounded-full overflow-hidden hidden sm:block">
+                <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-pink-600 transition-all duration-700" style={{ width: `${GEN_STEPS[genStep]?.pct ?? 0}%` }} />
+              </div>
+              <span className="text-xs font-bold text-violet-300 font-mono">{GEN_STEPS[genStep]?.pct ?? 0}%</span>
+            </div>
           </div>
 
-          <p className="text-xs text-zinc-700">💡 Los creadores que publican a diario crecen 3× más rápido</p>
+          <div className="grid lg:grid-cols-5 gap-5 items-start flex-1">
+            {/* ── Izquierda: la página escribiéndose ── */}
+            <div className="lg:col-span-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 min-h-[320px]">
+              <PaginaDeGuion texto={paginaGuion} />
+            </div>
+
+            {/* ── Derecha: el escritor trabajando ── */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="vy-glass rounded-2xl p-4">
+                <div className="flex justify-center mb-1"><CinematicLoader icon={GEN_STEPS[genStep]?.icon} /></div>
+                <div className="space-y-2 text-left">
+                  {GEN_STEPS.slice(0, genStep + 1).map((s, i) => (
+                    <div key={s.key} className="flex items-center gap-2.5">
+                      {i < genStep
+                        ? <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                        : <div className="w-4 h-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin shrink-0" />}
+                      <span className={`text-xs ${i < genStep ? "text-zinc-600 line-through" : "text-white font-medium"}`}>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-zinc-600 text-center">💡 Los creadores que publican a diario crecen 3× más rápido</p>
+            </div>
+          </div>
         </div>
       </div>
     );
