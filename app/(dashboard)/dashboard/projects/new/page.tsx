@@ -655,28 +655,54 @@ function NewProjectForm() {
       const FASE: Record<string, "voice" | "images" | "clips" | "final"> = {
         voice_images: "images", continuity: "images", animation: "clips", render: "final", done: "final",
       };
-      for (let i = 0; i < 400; i++) {
-        await new Promise(r => setTimeout(r, 4000));
-        const d = await (await fetch(`/api/produce?project_id=${projectId}`)).json() as
-          { job?: { status: string; stage: string | null; error: string | null } | null };
-        const job = d.job;
-        if (!job) continue;
-        if (job.status === "completed") {
-          // El video final vive en los assets del proyecto — la misma fuente que
-          // usa la página del proyecto, así el reveal y el detalle nunca difieren.
+      // EL VIDEO MANDA SOBRE EL ESTADO DEL JOB.
+      //
+      // Este bucle esperaba job.status === "completed", una palabra que la base
+      // de datos no usa nunca: el worker marca 'done'. La producción terminaba
+      // bien, el video quedaba guardado, y la pestaña seguía esperando hasta
+      // agotar los 400 intentos para después decir que había tardado demasiado.
+      // El video estaba listo todo ese tiempo y el usuario nunca lo vio.
+      //
+      // El arreglo no es solo corregir la palabra. La señal de que un video está
+      // listo es QUE EL VIDEO EXISTE, no que un campo de texto diga cierta cosa.
+      // Ahora se pregunta por el archivo, y el estado del job solo sirve para
+      // mover la barra y para detectar el fracaso.
+      const videoListo = async (): Promise<string | null> => {
+        try {
           const det = await (await fetch(`/api/projects/${projectId}`)).json() as
             { assets?: Array<{ asset_type: string; public_url: string | null }> };
-          const fv = det.assets?.find(a => a.asset_type === "final_video" && a.public_url);
-          setProd(p => p && { ...p, phase: "done", videoUrl: fv?.public_url ?? null });
-          confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 }, colors: ["#7c3aed", "#ec4899", "#f59e0b", "#10b981", "#fff"] });
-          return;
-        }
-        if (job.status === "failed") {
+          return det.assets?.find(a => a.asset_type === "final_video" && a.public_url)?.public_url ?? null;
+        } catch { return null; }
+      };
+      const revelar = (url: string | null) => {
+        setProd(p => p && { ...p, phase: "done", videoUrl: url });
+        confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 }, colors: ["#7c3aed", "#ec4899", "#f59e0b", "#10b981", "#fff"] });
+      };
+
+      for (let i = 0; i < 400; i++) {
+        await new Promise(r => setTimeout(r, 4000));
+        const d = await (await fetch(`/api/produce?project_id=${projectId}`)).json().catch(() => ({})) as
+          { job?: { status: string; stage: string | null; error: string | null } | null };
+        const job = d.job;
+
+        // Terminal por éxito: el worker dice 'done'. Se confirma con el archivo.
+        if (job?.status === "done") { revelar(await videoListo()); return; }
+        if (job?.status === "failed") {
           // El refund ya lo hizo el worker al agotar los reintentos.
           throw new Error(job.error ?? "La producción falló");
         }
-        setProd(p => p && { ...p, phase: FASE[job.stage ?? ""] ?? p.phase });
+        // Red de seguridad: cada ~40s se pregunta directamente por el archivo. Si
+        // el video existe, se muestra aunque el job diga otra cosa — un desajuste
+        // de vocabulario no puede volver a esconder un video terminado.
+        if (i > 0 && i % 10 === 0) {
+          const url = await videoListo();
+          if (url) { revelar(url); return; }
+        }
+        if (job) setProd(p => p && { ...p, phase: FASE[job.stage ?? ""] ?? p.phase });
       }
+      // Último intento antes de dar por perdida una producción que quizá terminó.
+      const tarde = await videoListo();
+      if (tarde) { revelar(tarde); return; }
       throw new Error("La producción tardó demasiado. Revisa el proyecto en tu biblioteca.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
