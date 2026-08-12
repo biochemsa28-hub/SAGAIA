@@ -87,6 +87,21 @@ export function creditCostForTier(tier: AnimationTier): number {
   return CREDIT_COST_BY_TIER[tier] ?? CREDIT_COST_BY_TIER.kenburns;
 }
 
+// El precio de referencia es POR 60 SEGUNDOS. Sin esto, un video de 30s cobraba
+// lo mismo que uno de 60s —el usuario pagaba el doble por segundo— y uno de 120s
+// costaba lo mismo que uno de 30 mientras nos costaba cuatro veces más: una
+// pérdida garantizada en cuanto se levante el tope de duración.
+//
+// Escala lineal porque el costo real lo es: cada bloque de ~10s es un clip de
+// Seedance, y el gasto crece con la cantidad de clips, no con el proyecto.
+export const SEGUNDOS_BASE_PRECIO = 60;
+
+export function creditCostFor(tier: AnimationTier, durationTarget?: string | null): number {
+  const base = creditCostForTier(tier);
+  const segundos = videoSecondsFor(durationTarget);
+  return Math.max(1, Math.round(base * (segundos / SEGUNDOS_BASE_PRECIO)));
+}
+
 // ── SPEND KILL-SWITCH ────────────────────────────────────────────────────────
 // Hard cap on how many videos the WHOLE app can produce per day. A bug, retry
 // loop, or abuse can't drain your fal/API balance beyond this. Generous default
@@ -338,7 +353,11 @@ export const ANCHOR_IMAGES_ONLY = NATIVE_AUDIO_ON
 // model that ignores the instruction, a legacy project, or a future edit to the
 // duration map would all reach the video step and bill per block regardless.
 // Blocks past this count are dropped before a single clip is submitted.
-export const MAX_VIDEO_SECONDS = Math.max(20, Number(process.env.MAX_VIDEO_SECONDS ?? 60) || 60);
+// 90 por defecto, no 60: el selector ofrece hasta 90s y el tope tiene que
+// permitirlo o vuelve a haber una opción que promete más de lo que sale. Sigue
+// siendo el techo absoluto de gasto — subirlo aquí no encarece nada por sí solo,
+// porque el precio ya escala con la duración que el usuario elige.
+export const MAX_VIDEO_SECONDS = Math.max(20, Number(process.env.MAX_VIDEO_SECONDS ?? 90) || 90);
 export const MAX_BLOCKS_PER_VIDEO = Math.max(2, Math.ceil(MAX_VIDEO_SECONDS / BLOCK_TARGET_SECONDS));
 
 // ── LA DURACIÓN ELEGIDA MANDA ────────────────────────────────────────────────
@@ -354,6 +373,9 @@ export const MAX_BLOCKS_PER_VIDEO = Math.max(2, Math.ceil(MAX_VIDEO_SECONDS / BL
 // La variable global queda como techo absoluto de gasto, nunca como el objetivo.
 const SEGUNDOS_POR_DURACION: Record<string, number> = {
   "15s": 15, "30s": 30, "60s": 60, "90s": 90, "120s": 120,
+  // Se conservan SOLO para no romper proyectos viejos que ya las tienen
+  // guardadas. No se ofrecen más en el selector: mapeaban a 120s, la producción
+  // recortaba a 60, y el usuario que pedía 20 minutos recibía uno.
   "3-5min": 120, "10-20min": 120,
 };
 

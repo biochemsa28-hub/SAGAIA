@@ -12,7 +12,11 @@ import {
 } from "lucide-react";
 import type { StoryOutput } from "@/lib/validators/story.schema";
 import type { HookVariant } from "@/app/api/generate/hooks/route";
-import { CREDIT_COST_BY_TIER } from "@/lib/config";
+import { CREDIT_COST_BY_TIER, creditCostFor, videoSecondsFor } from "@/lib/config";
+
+// Los segundos que la etiqueta PROMETE. Si videoSecondsFor devuelve menos, es
+// que el tope de producción la recorta y la opción no se ofrece.
+const segundosDe = (id: string) => Number(id.replace(/[^0-9]/g, "")) || 60;
 import { CinematicLoader } from "@/components/ui/CinematicLoader";
 
 interface CastCharacterOption {
@@ -355,6 +359,9 @@ function NewProjectForm() {
   const [userPlan, setUserPlan] = useState<string>("free");
   // Single premium tier — every video is the high-end "talking" obra de arte.
   const [tier] = useState<"kenburns" | "cinematic" | "talking">("talking");
+  // Precio real por 60s, dicho por el servidor (respeta FORCE_TIER y el plan).
+  // null hasta que responde: mejor no mostrar precio que mostrar uno falso.
+  const [navosPor60s, setNavosPor60s] = useState<number | null>(null);
   // "Sin NAVOS" recharge modal — shown when any step returns 402 so we capture the
   // sale at peak intention instead of dropping a plain error.
   const [rechargeInfo, setRechargeInfo] = useState<{ required: number; have: number } | null>(null);
@@ -398,9 +405,11 @@ function NewProjectForm() {
 
   useEffect(() => {
     fetch("/api/credits").then(r => r.json())
-      .then((d: { credits?: number; plan?: string }) => {
+      .then((d: { credits?: number; plan?: string; navos_por_60s?: number }) => {
         if (typeof d.credits === "number") setCredits(d.credits);
         if (d.plan) setUserPlan(d.plan);
+        // El servidor manda el precio que va a cobrar de verdad.
+        if (typeof d.navos_por_60s === "number") setNavosPor60s(d.navos_por_60s);
       })
       .catch(() => null);
     // Load saved recurring characters so the user can reuse one in this story.
@@ -1557,26 +1566,37 @@ function NewProjectForm() {
               técnica suelta. */}
           <div>
             <p className="text-xs font-bold text-zinc-400 mb-3">Duración del video</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DURATION_OPTIONS.map(d => (
-                <button
-                  key={d.id}
-                  onClick={() => set("duration_target")(d.id)}
-                  className={`vy-press p-3.5 rounded-xl border text-left transition-all ${
-                    form.duration_target === d.id
-                      ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg`
-                      : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
-                  }`}
-                >
-                  <p className={`text-sm font-extrabold ${form.duration_target === d.id ? "text-white" : "text-zinc-300"}`}>
-                    {d.label.split("(")[0]?.trim()}
-                  </p>
-                  <p className={`text-[10px] mt-0.5 ${form.duration_target === d.id ? theme.accent : "text-zinc-600"}`}>
-                    {d.scenes} escenas
-                  </p>
-                </button>
-              ))}
+            {/* Solo se ofrecen duraciones que la producción entrega de verdad: la
+                opción se filtra contra videoSecondsFor(), la MISMA función que
+                usa el pipeline. Antes la lista prometía 20 minutos y salían 60
+                segundos; derivándola de la fuente de verdad no puede repetirse. */}
+            <div className="grid grid-cols-3 gap-2">
+              {DURATION_OPTIONS.filter(d => videoSecondsFor(d.id) === segundosDe(d.id)).map(d => {
+                const activa = form.duration_target === d.id;
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => set("duration_target")(d.id)}
+                    className={`vy-press p-3 rounded-xl border text-left transition-all ${
+                      activa ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                    }`}
+                  >
+                    <p className={`text-sm font-extrabold ${activa ? "text-white" : "text-zinc-300"}`}>{d.label}</p>
+                    <p className={`text-[10px] mt-0.5 leading-tight ${activa ? theme.accent : "text-zinc-600"}`}>{d.hint}</p>
+                    {/* El costo se ve ANTES de generar, cambia con la duración, y
+                        sale del precio que el SERVIDOR va a cobrar. */}
+                    {navosPor60s !== null && (
+                      <p className="text-[10px] mt-1 font-bold text-violet-300/80">
+                        {Math.round(navosPor60s * (videoSecondsFor(d.id) / 60)).toLocaleString("es")} NAVOS
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+            <p className="text-[10px] text-zinc-600 mt-2">
+              ¿Necesitas más minutos? Se hacen como <span className="text-zinc-400">serie de episodios</span> — es el formato que se vuelve viral, y luego se unen en un video largo.
+            </p>
           </div>
 
           </div>

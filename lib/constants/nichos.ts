@@ -90,11 +90,22 @@ export const TONES = [
   { id: "confesion", label: "Confesión" },
 ] as const;
 
+// SOLO DURACIONES QUE EL SISTEMA ENTREGA DE VERDAD.
+//
+// Antes esta lista ofrecía "3-5 minutos" y "10-20 minutos", y la producción
+// devolvía 60 segundos: la config mapeaba ambas a 120s y MAX_VIDEO_SECONDS las
+// recortaba a 60. El usuario elegía 20 minutos, pagaba, y recibía uno. Ofrecer
+// lo que no se entrega no es una limitación técnica: es cobrar por algo que no
+// existe.
+//
+// Los minutos no desaparecen — llegan como SERIE de episodios encadenados, que
+// además es el formato que de verdad se vuelve viral en Reels y TikTok. Un
+// video de 10 minutos se abandona al minuto dos; ocho episodios con cliffhanger
+// se ven los ocho.
 export const DURATION_OPTIONS = [
-  { id: "30s", label: "30 segundos (TikTok viral)", scenes: "3-5" },
-  { id: "60s", label: "60 segundos (Reel/Short)", scenes: "5-8" },
-  { id: "3-5min", label: "3-5 minutos (YouTube Short largo)", scenes: "8-15" },
-  { id: "10-20min", label: "10-20 minutos (YouTube largo)", scenes: "15-40" },
+  { id: "30s", label: "30 segundos", hint: "Gancho puro · TikTok", scenes: "3-5" },
+  { id: "60s", label: "60 segundos", hint: "El estándar viral · Reels/Shorts", scenes: "5-8" },
+  { id: "90s", label: "90 segundos", hint: "Historia completa", scenes: "7-11" },
 ] as const;
 
 export const VISUAL_STYLES = [

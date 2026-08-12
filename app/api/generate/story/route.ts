@@ -7,7 +7,7 @@ import {
   deductCredits, createApiLog, setProjectCharacter, getUserById, setProjectCast,
   refundCreditForProject,
 } from "@/lib/db/repository";
-import { resolveProjectTier, creditCostForTier, videoSecondsFor } from "@/lib/config";
+import { resolveProjectTier, creditCostFor, videoSecondsFor } from "@/lib/config";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -86,7 +86,9 @@ export async function POST(req: NextRequest) {
     // The tier determines how many NAVOS the video costs (premium tiers cost more).
     const user = userId ? await getUserById(userId).catch(() => null) : null;
     const animationTier = resolveProjectTier(parsed.data.animation_tier ?? null, user?.plan ?? "free");
-    const creditCost = creditCostForTier(animationTier);
+    // El precio escala con la duración pedida: 30s cuesta la mitad que 60s, y un
+    // video largo cuesta lo que de verdad cuesta producirlo.
+    const creditCost = creditCostFor(animationTier, parsed.data.duration_target);
 
     // ── Check & deduct credits (tier-aware) ───────────────────────────────────
     if (userId) {
