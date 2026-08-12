@@ -432,11 +432,23 @@ async function buildSceneClip(
   // tiene que entender que se movió en el espacio o en el tiempo, y para eso el
   // fundido tiene que durar lo suficiente como para leerse. Sin esta distinción
   // todos los cortes pesan igual y el video se siente desarmado.
-  const fadeIn = deco?.isFirst
+  // CORTE SECO, no fundido desde negro.
+  //
+  // Antes cada segmento arrancaba con fade=t=in, así que TODOS los empalmes
+  // pasaban por oscuridad. Medido sobre un video real: en el corte del segundo
+  // 25.12 el brillo iba 51 → 0 → 0 → 2 → 15 → 51. Dos décimas de negro absoluto
+  // en cada junta.
+  //
+  // En cine un fundido a negro significa "pasó el tiempo" o "terminó el acto".
+  // Entre dos planos de la misma escena va CORTE SECO — es lo que hace que se lea
+  // como una edición y no como clips pegados. Usarlo en cada corte es justo lo que
+  // hace que un montaje se sienta amateur.
+  //
+  // Se conserva un fundido corto SOLO cuando cambia el escenario, que es el único
+  // caso donde el negro significa algo: el espectador se movió en el espacio.
+  const fadeIn = deco?.isFirst || !scene.newLocation
     ? ""
-    : scene.newLocation
-      ? ",fade=t=in:st=0:d=0.75"
-      : ",fade=t=in:st=0:d=0.4";
+    : ",fade=t=in:st=0:d=0.35";
   const fadeOut = deco?.isLast ? `,fade=t=out:st=${Math.max(0, dur - 0.5).toFixed(2)}:d=0.5` : "";
   const transition = `${fadeIn}${fadeOut}`;
   const opts = { maxBuffer: 1 << 26, cwd: dir };
