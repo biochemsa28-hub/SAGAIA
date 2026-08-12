@@ -4,7 +4,7 @@ import { getProjectDetail, updateProjectStatus, upsertAsset } from "@/lib/db/rep
 import { generateProjectVoice } from "@/services/elevenlabs/voice-generator";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
-import { NATIVE_AUDIO_ON } from "@/lib/config";
+import { NATIVE_AUDIO_ON, esBorrador } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 120; // voice generation takes time
@@ -29,14 +29,19 @@ export async function POST(req: NextRequest) {
     // HERE rather than in each caller: the browser "new story" flow, the project
     // screen and the job worker all hit this route, and one of them forgetting
     // would silently pay ElevenLabs for a track that gets discarded downstream.
-    if (NATIVE_AUDIO_ON) {
+    const detail = await getProjectDetail(parsed.data.project_id, userId);
+    if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+
+    // EL BORRADOR SÍ NECESITA ESTA VOZ. El audio nativo viene DENTRO de los clips
+    // de Seedance, y un borrador no genera ninguno: cortar acá lo dejaría mudo,
+    // que es justamente lo que no sirve para juzgar si la historia engancha.
+    // Por eso la decisión mira el proyecto, no solo la variable global.
+    if (NATIVE_AUDIO_ON && !esBorrador(detail.project.quality)) {
       return NextResponse.json({
         success: true, skipped: true, reason: "native_audio",
         total: 0, succeeded: 0, failed: 0,
       });
     }
-    const detail = await getProjectDetail(parsed.data.project_id, userId);
-    if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     if (!detail.story) return NextResponse.json({ error: "El proyecto no tiene historia generada" }, { status: 422 });
 
     await updateProjectStatus(parsed.data.project_id, "voice_pending");

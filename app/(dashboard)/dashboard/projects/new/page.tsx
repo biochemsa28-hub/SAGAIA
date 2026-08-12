@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { StoryOutput } from "@/lib/validators/story.schema";
 import type { HookVariant } from "@/app/api/generate/hooks/route";
-import { CREDIT_COST_BY_TIER, creditCostFor, videoSecondsFor } from "@/lib/config";
+import { CREDIT_COST_BY_TIER, videoSecondsFor, BORRADOR_NAVOS } from "@/lib/config";
 
 // Los segundos que la etiqueta PROMETE. Si videoSecondsFor devuelve menos, es
 // que el tope de producción la recorta y la opción no se ofrece.
@@ -362,6 +362,10 @@ function NewProjectForm() {
   // Precio real por 60s, dicho por el servidor (respeta FORCE_TIER y el plan).
   // null hasta que responde: mejor no mostrar precio que mostrar uno falso.
   const [navosPor60s, setNavosPor60s] = useState<number | null>(null);
+  // Borrador (sin animación, ~10% del precio) o estreno. Por defecto borrador:
+  // la primera vez casi nadie acierta la historia, y descubrirlo debería costar
+  // centavos, no el video entero.
+  const [calidad, setCalidad] = useState<"borrador" | "estreno">("borrador");
   // "Sin NAVOS" recharge modal — shown when any step returns 402 so we capture the
   // sale at peak intention instead of dropping a plain error.
   const [rechargeInfo, setRechargeInfo] = useState<{ required: number; have: number } | null>(null);
@@ -595,7 +599,7 @@ function NewProjectForm() {
       const res = await fetch("/api/generate/story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, additional_instructions: extraInstructions, character_id: characterId ?? undefined, animation_tier: tier, cast: castPayload }),
+        body: JSON.stringify({ ...form, additional_instructions: extraInstructions, character_id: characterId ?? undefined, animation_tier: tier, quality: calidad, cast: castPayload }),
       });
       clearInterval(iv);
       if (res.status === 402) {
@@ -1597,6 +1601,47 @@ function NewProjectForm() {
             <p className="text-[10px] text-zinc-600 mt-2">
               ¿Necesitas más minutos? Se hacen como <span className="text-zinc-400">serie de episodios</span> — es el formato que se vuelve viral, y luego se unen en un video largo.
             </p>
+          </div>
+
+          {/* ── BORRADOR o ESTRENO ──
+              Casi todo el costo de un video está en animar. Con un borrador el
+              usuario prueba diez premisas por lo que hoy cuesta una, y paga el
+              render caro solo cuando la historia ya lo convenció. */}
+          <div>
+            <p className="text-xs font-bold text-zinc-400 mb-3">Calidad</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: "borrador", t: "Borrador", s: "Para probar la historia", d: "Imágenes con movimiento y voz. Sin animación." },
+                { id: "estreno", t: "Estreno", s: "Para publicar", d: "Personajes animados que hablan en cámara." },
+              ] as const).map(q => {
+                const activa = calidad === q.id;
+                const navos = navosPor60s === null ? null
+                  : Math.round((q.id === "borrador" ? BORRADOR_NAVOS : navosPor60s) * (videoSecondsFor(form.duration_target) / 60));
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => setCalidad(q.id)}
+                    className={`vy-press p-3 rounded-xl border text-left transition-all ${
+                      activa ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                    }`}
+                  >
+                    <div className="flex items-baseline gap-2">
+                      <p className={`text-sm font-extrabold ${activa ? "text-white" : "text-zinc-300"}`}>{q.t}</p>
+                      <p className={`text-[9px] ${activa ? theme.accent : "text-zinc-600"}`}>{q.s}</p>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 leading-tight mt-0.5">{q.d}</p>
+                    {navos !== null && (
+                      <p className="text-[10px] mt-1 font-bold text-violet-300/80">{navos.toLocaleString("es")} NAVOS</p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {calidad === "borrador" && (
+              <p className="text-[10px] text-emerald-400/80 mt-2">
+                ✓ Si te gusta, lo pasas a Estreno después — el guion, el elenco y las imágenes ya no se vuelven a pagar.
+              </p>
+            )}
           </div>
 
           </div>

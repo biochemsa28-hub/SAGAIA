@@ -479,6 +479,9 @@ export interface DbProject {
   series_id: string | null;             // groups all episodes of one story
   episode_number: number;               // 1 for a standalone / first episode
   parent_project_id: string | null;     // the episode this one continues
+  // "borrador" = sin modelo de video (el 82,5% del costo). NULL = estreno, para
+  // que todo lo creado antes de esta columna siga comportándose igual.
+  quality: string | null;
   created_at: string;
   updated_at: string;
   // joined fields
@@ -509,13 +512,14 @@ export async function createProject(params: {
   seriesId?: string | null;
   episodeNumber?: number;
   parentProjectId?: string | null;
+  quality?: string | null;
 }): Promise<string> {
   const db = getDb();
   const id = uuidv4();
   await db.execute({
     sql: `INSERT INTO projects
-      (id, user_id, title, niche, sub_niche, topic, tone, duration_target, language, visual_style, status, ai_provider, animation_tier, credits_spent, reference_image_url, reference_image_urls, series_id, episode_number, parent_project_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, user_id, title, niche, sub_niche, topic, tone, duration_target, language, visual_style, status, ai_provider, animation_tier, credits_spent, reference_image_url, reference_image_urls, series_id, episode_number, parent_project_id, quality)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id, params.userId, params.title, params.niche,
       params.subNiche ?? null, params.topic, params.tone,
@@ -529,9 +533,22 @@ export async function createProject(params: {
       params.seriesId ?? id,
       Math.max(1, Math.floor(params.episodeNumber ?? 1)),
       params.parentProjectId ?? null,
+      params.quality ?? null,
     ],
   });
   return id;
+}
+
+// Asciende un borrador a estreno. Solo cambia la marca: el guion, el elenco, las
+// imágenes y las escenas aprobadas ya existen y no se vuelven a pagar — lo único
+// que falta comprar es la animación.
+export async function ascenderAEstreno(projectId: string, userId: string): Promise<boolean> {
+  const db = getDb();
+  const r = await db.execute({
+    sql: "UPDATE projects SET quality = NULL, updated_at = datetime('now') WHERE id = ? AND user_id = ? AND quality IS NOT NULL",
+    args: [projectId, userId],
+  });
+  return (r.rowsAffected ?? 0) > 0;
 }
 
 // ── Series helpers ───────────────────────────────────────────────────────────

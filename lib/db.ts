@@ -118,6 +118,15 @@ export async function initDb(): Promise<void> {
   // of its own series. Safe to re-run — it only touches NULLs.
   await runMigration(db, "UPDATE projects SET series_id = id WHERE series_id IS NULL");
 
+  // ── BORRADOR vs ESTRENO ────────────────────────────────────────────────────
+  // El 82,5% del costo de un video se va en los clips de Seedance; el guion
+  // cuesta el 0,4%. Sin una calidad barata, el usuario paga el render completo
+  // solo para descubrir si la historia funcionaba — y si no funcionaba, perdió
+  // el video entero. Con esta columna un proyecto puede producirse primero como
+  // borrador (sin animación) y ascender a estreno cuando convence.
+  // NULL = estreno, para que todo lo ya creado siga comportándose igual.
+  await runMigration(db, "ALTER TABLE projects ADD COLUMN quality TEXT");
+
   // ── CHARACTER BIBLE ────────────────────────────────────────────────────────
   // A single multi-view sheet per character (front / three-quarter / profile /
   // expression) generated ONCE from the chosen portrait. Passed to nano-banana

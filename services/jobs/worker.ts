@@ -52,8 +52,12 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
   // With native character audio the clips speak for themselves, so the narration
   // step is not just unnecessary — paying for it and then discarding it is how the
   // "sounds narrated" problem survived so long.
+  // Se llama SIEMPRE a /api/voice y es esa ruta la que decide si corresponde.
+  // Antes el worker decidía con la variable global, y un borrador —que no genera
+  // clips y por lo tanto no tiene audio nativo— salía mudo. La decisión depende
+  // del proyecto, así que vive donde el proyecto se conoce.
   const [voiceRes, imgRes] = await Promise.all([
-    NATIVE_AUDIO_ON ? Promise.resolve(null) : post("/api/voice", { project_id: job.project_id }),
+    post("/api/voice", { project_id: job.project_id }),
     post("/api/images", { project_id: job.project_id }),
   ]);
   if (voiceRes && !(await voiceRes.json() as { success?: boolean }).success) throw new Error("Falló la voz");

@@ -9,7 +9,7 @@ import { generateShotSheet } from "@/services/fal/shot-grid";
 import { planNarrativeBlocks, blockPanelFramings, CHARS_PER_SECOND, type BlockScene } from "@/services/video/narrative-blocks";
 import { buildDialogueDirection, transcribeClip } from "@/services/video/native-audio";
 import { trimClipHead } from "@/services/ffmpeg/trim";
-import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor } from "@/lib/config";
+import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor, esBorrador } from "@/lib/config";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -50,6 +50,17 @@ export async function POST(req: NextRequest) {
     if (parsed.data.action === "submit") {
       const detail = await getProjectDetail(parsed.data.project_id, userId);
       if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+
+      // ── BORRADOR: acá se corta el 82,5% del costo ──────────────────────────
+      // Este endpoint es el ÚNICO que gasta en modelo de video, y los clips son
+      // ~$2,89 cada uno contra $0,04 que cuesta el guion. Un borrador sale por
+      // este return sin llamar a nadie: el worker ya sabe seguir con "skipped"
+      // —era el camino para cuando no hay nada que animar— así que el resto del
+      // pipeline (imágenes, voz, montaje Ken Burns) corre sin cambios.
+      if (esBorrador(detail.project.quality)) {
+        console.log(`[videos] proyecto ${parsed.data.project_id.slice(0, 8)} es BORRADOR — sin animación, $0 en modelo de video`);
+        return NextResponse.json({ success: true, action: "skipped", reason: "borrador", total: 0, jobs: [] });
+      }
 
       // Effective tier = project's choice, clamped to the owner's plan.
       const user = await getUserById(userId).catch(() => null);

@@ -37,6 +37,26 @@ export function resolveProjectTier(_projectTier: string | null | undefined, _pla
   return forcedTier() ?? "talking";
 }
 
+// ─── BORRADOR ────────────────────────────────────────────────────────────────
+// El 82,5% del costo de un video se va en UN solo punto: los clips de Seedance,
+// a ~$2,89 cada uno. El guion —lo mejor que tiene el producto— cuesta $0,04.
+// Eso significa que hoy el usuario paga el render caro para descubrir si la
+// historia funcionaba, y si no funcionaba pierde el video entero. Nadie
+// experimenta en esas condiciones.
+//
+// El borrador salta el único paso caro: guion, elenco, imágenes, voz de
+// ElevenLabs y montaje con Ken Burns — todo lo que hace falta para juzgar si la
+// historia engancha, sin animar un solo cuadro. Después, si convence, el mismo
+// proyecto se manda a estreno.
+//
+// Se apoya en el camino "skipped" que /api/videos ya tenía para cuando no hay
+// nada que animar: el worker lo entiende desde siempre y no hay que tocarlo.
+export const BORRADOR = "borrador";
+
+export function esBorrador(qualityOrTier: string | null | undefined): boolean {
+  return (qualityOrTier ?? "").trim().toLowerCase() === BORRADOR;
+}
+
 // ─── CREDIT ECONOMY (single source of truth) ─────────────────────────────────
 // NAVO = the in-app credit. Devalued ON PURPOSE into big numbers: each video costs
 // THOUSANDS of NAVOS, not 1. Big buckets feel generous (Magnific/Krea/Topaz tactic)
@@ -87,6 +107,14 @@ export function creditCostForTier(tier: AnimationTier): number {
   return CREDIT_COST_BY_TIER[tier] ?? CREDIT_COST_BY_TIER.kenburns;
 }
 
+// Un borrador cuesta lo que cuesta producirlo: guion + imágenes + voz + montaje
+// local, sin un centavo de modelo de video. MEDIDO sobre api_logs de un video
+// real — fal (Seedance + flux) fue el 95,5% del gasto y Claude el 0,4% — así que
+// quitar la animación quita casi todo. El valor sigue siendo una ESTIMACIÓN
+// hasta que se produzca el primer borrador y se lea su costo real.
+export const BORRADOR_COST_USD = Number(process.env.BORRADOR_COST_USD ?? 0.45) || 0.45;
+export const BORRADOR_NAVOS = Math.round(BORRADOR_COST_USD * MARGIN_MULTIPLIER * NAVOS_PER_USD);
+
 // El precio de referencia es POR 60 SEGUNDOS. Sin esto, un video de 30s cobraba
 // lo mismo que uno de 60s —el usuario pagaba el doble por segundo— y uno de 120s
 // costaba lo mismo que uno de 30 mientras nos costaba cuatro veces más: una
@@ -96,8 +124,12 @@ export function creditCostForTier(tier: AnimationTier): number {
 // Seedance, y el gasto crece con la cantidad de clips, no con el proyecto.
 export const SEGUNDOS_BASE_PRECIO = 60;
 
-export function creditCostFor(tier: AnimationTier, durationTarget?: string | null): number {
-  const base = creditCostForTier(tier);
+export function creditCostFor(
+  tier: AnimationTier,
+  durationTarget?: string | null,
+  quality?: string | null,
+): number {
+  const base = esBorrador(quality) ? BORRADOR_NAVOS : creditCostForTier(tier);
   const segundos = videoSecondsFor(durationTarget);
   return Math.max(1, Math.round(base * (segundos / SEGUNDOS_BASE_PRECIO)));
 }

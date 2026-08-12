@@ -39,6 +39,9 @@ export const StoryInputSchema = z.object({
   // Content format: a narrative micro-series (default) or a UGC-style ADVERTISING
   // video (product pitch). Same pipeline, different script brain.
   format: z.enum(["story", "ad"]).default("story"),
+  // "borrador" salta el modelo de video — el 82,5% del costo — para poder juzgar
+  // la historia antes de pagar el render caro. Ausente = estreno.
+  quality: z.enum(["borrador", "estreno"]).optional(),
 });
 
 export type StoryInput = z.infer<typeof StoryInputSchema>;

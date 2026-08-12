@@ -7,7 +7,7 @@ import {
   deductCredits, createApiLog, setProjectCharacter, getUserById, setProjectCast,
   refundCreditForProject,
 } from "@/lib/db/repository";
-import { resolveProjectTier, creditCostFor, videoSecondsFor } from "@/lib/config";
+import { resolveProjectTier, creditCostFor, videoSecondsFor, esBorrador, BORRADOR } from "@/lib/config";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -32,6 +32,9 @@ const BodySchema = z.object({
   additional_instructions: z.string().optional(),
   character_id: z.string().uuid().optional(), // reuse a saved recurring character
   animation_tier: z.enum(["kenburns", "cinematic", "talking"]).optional(),
+  // "borrador" salta el modelo de video — el 82,5% del costo — para poder juzgar
+  // la historia antes de pagar el render caro. Ausente = estreno.
+  quality: z.enum(["borrador", "estreno"]).optional(),
   format: z.enum(["story", "ad"]).optional(), // "ad" = UGC advertising video
   reference_image_url: z.string().url().optional(), // user-uploaded product/creative image
   reference_image_urls: z.array(z.string().url()).max(4).optional(), // multiple product angles
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
     const animationTier = resolveProjectTier(parsed.data.animation_tier ?? null, user?.plan ?? "free");
     // El precio escala con la duración pedida: 30s cuesta la mitad que 60s, y un
     // video largo cuesta lo que de verdad cuesta producirlo.
-    const creditCost = creditCostFor(animationTier, parsed.data.duration_target);
+    const creditCost = creditCostFor(animationTier, parsed.data.duration_target, parsed.data.quality);
 
     // ── Check & deduct credits (tier-aware) ───────────────────────────────────
     if (userId) {
@@ -125,6 +128,7 @@ export async function POST(req: NextRequest) {
         seriesId: parsed.data.series_id ?? null,
         episodeNumber: parsed.data.episode_number ?? 1,
         parentProjectId: parsed.data.parent_project_id ?? null,
+        quality: esBorrador(parsed.data.quality) ? BORRADOR : null,
       });
       await updateProjectStatus(projectId, "generating");
       // Link a saved recurring character so all scenes reuse its locked-in look.
