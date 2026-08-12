@@ -24,7 +24,7 @@ export type IssueSeverity = "blocking" | "warning";
 
 export interface ContinuityIssue {
   severity: IssueSeverity;
-  code: "duplicate_scenes" | "palette_outlier" | "black_frame" | "missing_image";
+  code: "duplicate_scenes" | "palette_outlier" | "black_frame" | "missing_image" | "face_drift";
   scenes: number[];
   message: string;
 }
@@ -79,6 +79,106 @@ const median = (xs: number[]) => {
   const s = [...xs].sort((p, q) => p - q);
   return s[Math.floor(s.length / 2)] ?? 0;
 };
+
+// ── ¿ES LA MISMA PERSONA? ────────────────────────────────────────────────────
+// La compuerta de píxeles detecta imágenes IGUALES. No detecta personas
+// DISTINTAS — y ese es el defecto que más se nota al mirar un video: la
+// protagonista cambia de cara a mitad de la historia.
+//
+// Un hash perceptual nunca va a resolverlo: dos fotos de dos mujeres distintas en
+// el mismo cuarto están, en píxeles, tan lejos como dos fotos legítimas de la
+// misma. Hace falta mirar las caras, y para eso hace falta un modelo que vea.
+//
+// Cuesta unos centavos por video contra los $0.65 de cada clip que se evita
+// generar mal. Corre en UNA sola llamada con todas las anclas juntas: comparar de
+// a pares multiplicaría el costo sin agregar información.
+const FACE_GATE = (process.env.FACE_GATE ?? "warn").toLowerCase();
+
+async function miniatura(dir: string, url: string, i: number): Promise<string | null> {
+  try {
+    const src = join(dir, `f${i}.img`);
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    writeFileSync(src, Buffer.from(await res.arrayBuffer()));
+    // 384px de ancho alcanza para juzgar una cara y baja mucho el costo de tokens.
+    const out = join(dir, `f${i}.jpg`);
+    await exec(FFMPEG, ["-v", "error", "-i", src, "-vf", "scale=384:-2", "-q:v", "6", "-y", out]);
+    return readFileSync(out).toString("base64");
+  } catch { return null; }
+}
+
+async function revisarCaras(
+  dir: string,
+  imagenes: Array<{ scene: number; url: string }>,
+): Promise<{ scenes: number[]; message: string } | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (FACE_GATE === "off" || !apiKey || imagenes.length < 2) return null;
+
+  // Tope de gasto: con 8 miniaturas ya se ve si el reparto se sostiene.
+  const lote = imagenes.slice(0, 8);
+  const b64 = await Promise.all(lote.map((im, i) => miniatura(dir, im.url, i)));
+  const utiles = lote
+    .map((im, i) => ({ ...im, data: b64[i] }))
+    .filter((x): x is { scene: number; url: string; data: string } => Boolean(x.data));
+  if (utiles.length < 2) return null;
+
+  const content: Array<Record<string, unknown>> = [];
+  utiles.forEach((u, i) => {
+    content.push({ type: "text", text: `Imagen ${i + 1} (escena ${u.scene}):` });
+    content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: u.data } });
+  });
+  content.push({
+    type: "text",
+    text:
+      "Estas imágenes son fotogramas de UN MISMO microdrama. Los personajes deben ser las mismas " +
+      "personas en todas.\n\n" +
+      "Decime si algún personaje CAMBIA DE PERSONA entre imágenes: otra cara, otra edad, otro color " +
+      "o largo de pelo, otro tono de piel. Cambios de ropa, de peinado, de luz, de ángulo o de " +
+      "expresión NO cuentan — solo si claramente es OTRO ser humano.\n\n" +
+      "Ante la duda, respondé que es consistente: marcar de más obliga a regenerar un video que " +
+      "estaba bien.\n\n" +
+      'Respondé SOLO este JSON: {"consistente": true|false, "imagenes_raras": [números], "motivo": "una frase"}',
+  });
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
+        max_tokens: 300,
+        system: "Respondé SOLO con JSON válido, sin markdown.",
+        messages: [{ role: "user", content }],
+      }),
+    });
+    if (!res.ok) {
+      console.warn("[caras] no se pudo revisar:", res.status, (await res.text()).slice(0, 120));
+      return null;
+    }
+    const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+    const raw = json.content?.find((c) => c.type === "text")?.text ?? "{}";
+    const m = /\{[\s\S]*\}/.exec(raw);
+    const veredicto = JSON.parse(m ? m[0] : "{}") as
+      { consistente?: boolean; imagenes_raras?: number[]; motivo?: string };
+
+    if (veredicto.consistente !== false) {
+      console.log(`[caras] ${utiles.length} imágenes revisadas — el reparto se sostiene`);
+      return null;
+    }
+    const escenas = (veredicto.imagenes_raras ?? [])
+      .map((n) => utiles[n - 1]?.scene)
+      .filter((n): n is number => typeof n === "number");
+    return {
+      scenes: escenas.length ? escenas : utiles.map((u) => u.scene),
+      message:
+        `Un personaje cambia de persona entre escenas${escenas.length ? ` (${escenas.join(", ")})` : ""}. ` +
+        `${veredicto.motivo ?? ""} Animar así produce un video donde el protagonista tiene dos caras.`,
+    };
+  } catch (e) {
+    console.warn("[caras] error:", e instanceof Error ? e.message.slice(0, 120) : e);
+    return null;
+  }
+}
 
 // ── The gate ─────────────────────────────────────────────────────────────────
 
@@ -165,6 +265,23 @@ export async function checkContinuity(
     // R2_PUBLIC_URL had been misconfigured when those rows were written, so none
     // could be fetched — and the gate reported "sin bloqueos" on nothing at all,
     // letting the run proceed to a render that could never work.
+    // 4. ¿ES LA MISMA PERSONA? Lo único de esta compuerta que no se puede resolver
+    //    con píxeles, y el defecto que más se nota al mirar el video.
+    //
+    //    Arranca en "warn": bloquear de entrada haría que un falso positivo tire
+    //    abajo un video que estaba bien, y todavía no tenemos medido cada cuánto
+    //    se equivoca. Con FACE_GATE=block pasa a frenar antes de gastar en clips,
+    //    que es para lo que existe.
+    const caras = await revisarCaras(dir, withImages.map((s) => ({ scene: s.scene_number, url: s.image_url! })));
+    if (caras) {
+      issues.push({
+        severity: FACE_GATE === "block" ? "blocking" : "warning",
+        code: "face_drift",
+        scenes: caras.scenes,
+        message: caras.message,
+      });
+    }
+
     if (withImages.length > 0 && usable.length === 0) {
       issues.push({
         severity: "blocking",
