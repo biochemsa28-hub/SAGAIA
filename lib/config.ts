@@ -210,6 +210,28 @@ export const SHOT_FRAMINGS: string[] = [
   ", over-the-shoulder shot from behind the character, seeing what they see, same moment and lighting",
 ];
 
+// ── PRESUPUESTO DE CLIPS ─────────────────────────────────────────────────────
+// Animar cuesta el 82,5% del video, y Seedance no vale lo mismo en cada plano.
+// Se gana su precio en tres momentos —el gancho, el quiebre emocional y el
+// cliffhanger— porque ahí el movimiento ES la emoción: una cara que habla
+// detiene el scroll, una foto no. En un establecimiento o un inserto, un Ken
+// Burns bien hecho con grano, look de género y un corte cada segundo y medio no
+// se distingue, y cuesta cero.
+//
+// Con CLIP_BUDGET=3 se animan solo los bloques que contienen un beat héroe y el
+// resto se resuelve en el montaje. Baja el costo ~30% y concentra el dinero
+// donde se nota.
+//
+// ⚠️ NO se aplica con audio nativo, y no es una limitación menor: con audio
+// nativo la voz viene DENTRO del clip, así que un bloque sin clip queda MUDO.
+// Para usar el presupuesto hay que tener la voz en ElevenLabs — que además es lo
+// que da una voz distinta por personaje en vez de la misma para todos.
+// Efecto secundario afortunado y no accidental: ANCHOR_IMAGES_ONLY exige audio
+// nativo, y el presupuesto exige que esté apagado. Son mutuamente excluyentes,
+// así que cuando el presupuesto está activo TODAS las escenas reciben su propia
+// imagen — ninguna puede quedarse sin cuadro que mostrar al no ser animada.
+export const CLIP_BUDGET = Math.max(0, Number(process.env.CLIP_BUDGET ?? 0) || 0);
+
 // Which scene numbers deserve the paid animation, given the total scene count.
 // Deterministic on purpose: predictable cost beats clever-but-variable.
 export function heroSceneNumbers(totalScenes: number): number[] {

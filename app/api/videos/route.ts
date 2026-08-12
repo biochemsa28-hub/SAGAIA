@@ -9,7 +9,7 @@ import { generateShotSheet } from "@/services/fal/shot-grid";
 import { planNarrativeBlocks, blockPanelFramings, CHARS_PER_SECOND, type BlockScene } from "@/services/video/narrative-blocks";
 import { buildDialogueDirection, transcribeClip } from "@/services/video/native-audio";
 import { trimClipHead } from "@/services/ffmpeg/trim";
-import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor, esBorrador } from "@/lib/config";
+import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor, esBorrador, CLIP_BUDGET } from "@/lib/config";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -213,6 +213,52 @@ export async function POST(req: NextRequest) {
         }
         console.log(`[blocks] ${detail.scenes.length} escenas → ${blocks.length} bloques (${blocks.reduce((n, b) => n + b.scenes.length, 0)} escenas cubiertas)`);
 
+        // ── PRESUPUESTO DE CLIPS ───────────────────────────────────────────
+        // Animar es el 82,5% del costo, y no todos los planos lo necesitan: el
+        // gancho, el quiebre y el cliffhanger sí; un establecimiento no. Con
+        // presupuesto activo se animan solo los bloques que contienen un beat
+        // héroe y el resto lo resuelve el montaje con Ken Burns.
+        //
+        // Con audio nativo NO se aplica: ahí la voz viene dentro del clip, así
+        // que un bloque sin clip quedaría mudo. Se dice en voz alta porque es
+        // justo el tipo de cosa que se descubre mirando el video terminado.
+        let paraAnimar = blocks;
+        if (CLIP_BUDGET > 0) {
+          if (NATIVE_AUDIO_ON) {
+            console.warn(
+              `[blocks] CLIP_BUDGET=${CLIP_BUDGET} IGNORADO: con audio nativo la voz vive dentro del clip y ` +
+              "los bloques sin animar quedarían mudos. Para usarlo, poné NATIVE_AUDIO=off (la voz pasa a " +
+              "ElevenLabs, con una voz distinta por personaje).",
+            );
+          } else {
+            const total = detail.scenes.length;
+            const heroes = new Set(heroSceneNumbers(total));
+            const elegidos = blocks.filter((b) => b.scenes.some((n) => heroes.has(n)));
+            // PRIORIDAD, no orden de aparición. Si sobran candidatos para el
+            // presupuesto, recortar por el final descartaba el CLIFFHANGER —el
+            // plano que decide si comentan "Parte 2"— para conservar un beat del
+            // medio. El gancho abre, el cliffhanger cierra: esos dos primero, y
+            // los del medio con lo que quede.
+            const rango = (b: typeof blocks[number]) =>
+              b.scenes.includes(1) ? 0 : b.scenes.includes(total) ? 1 : 2;
+            const ordenados = [...elegidos].sort((a, b) => rango(a) - rango(b) || a.leadScene - b.leadScene);
+            // Si los beats héroe no caen en ningún bloque —guiones muy cortos—,
+            // se anima al menos el primero: quedarse sin un solo clip convierte
+            // el video en una presentación de diapositivas.
+            paraAnimar = (ordenados.length ? ordenados : blocks.slice(0, 1))
+              .slice(0, CLIP_BUDGET)
+              // Se reordena por escena: el encadenado usa el cuadro final de un
+              // bloque como inicial del siguiente, y eso solo tiene sentido en el
+              // orden en que se ven.
+              .sort((a, b) => a.leadScene - b.leadScene);
+            const ahorro = blocks.length - paraAnimar.length;
+            console.log(
+              `[blocks] presupuesto ${CLIP_BUDGET}: se animan ${paraAnimar.length}/${blocks.length} bloques ` +
+              `(beats ${[...heroes].join(", ")}) — ${ahorro} bloque(s) van con Ken Burns, ~${(ahorro * 100 / Math.max(1, blocks.length)).toFixed(0)}% menos de gasto en video`,
+            );
+          }
+        }
+
         // Un bloque que pide más segundos de los que un clip puede durar termina
         // SIEMPRE en cuadro congelado o en bucle: no hay arreglo en el montaje,
         // porque el video que falta nunca se generó. Solo puede pasar cuando una
@@ -241,8 +287,8 @@ export async function POST(req: NextRequest) {
           // rather than seven clips butted together. The dialogue is quoted in the
           // prompt, which is what makes the characters say the script instead of
           // improvising — verified against a transcript of the generated audio.
-          blockJobs = blocks.map((block, bi) => {
-            const nextBlock = blocks[bi + 1];
+          blockJobs = paraAnimar.map((block, bi) => {
+            const nextBlock = paraAnimar[bi + 1];
             // EL CUADRO FINAL ES DEL PROPIO BLOQUE, no del siguiente.
             //
             // Un bloque cubre varias líneas con una sola imagen, y las que no son la
@@ -375,7 +421,7 @@ export async function POST(req: NextRequest) {
         } else {
           // Sheets in parallel: waiting for each clip to chain off the previous one
           // would multiply wall-clock by the block count.
-          const prepared = await Promise.all(blocks.map(async (b) => {
+          const prepared = await Promise.all(paraAnimar.map(async (b) => {
             const sheet = await generateShotSheet({
               basePrompt: b.beats[0] ?? "",
               primaryImageUrl: b.referenceImageUrl,
