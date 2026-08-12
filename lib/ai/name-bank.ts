@@ -43,6 +43,32 @@ const ORIGENES = [
 ];
 const EPOCAS = ["hoy", "hoy", "hoy", "principios de los 2000", "los años 90", "los años 80", "época indefinida atemporal"];
 
+// ── CUERPOS Y CARAS ──────────────────────────────────────────────────────────
+// Pedirle "personajes variados" a un modelo no produce variedad: produce el
+// mismo protagonista guapo con otra camisa. Los dos hombres salían con camisa
+// oscura abierta y las dos mujeres con suéter tejido color óxido, generación
+// tras generación. La variedad sale de darle EJES CONCRETOS y distintos en cada
+// casting, igual que con los nombres.
+const CUERPOS = [
+  "delgada y angulosa, de hombros estrechos", "robusto y de espalda ancha", "bajo y compacto, de andar firme",
+  "alta y desgarbada, siempre un poco encorvada", "menuda, de manos pequeñas", "corpulento, con barriga de años de oficina",
+  "atlética por trabajo físico, no por gimnasio", "con peso y postura segura", "flaco de nervios, incapaz de quedarse quieto",
+  "de caderas anchas y pisada pesada", "espigado, todavía sin llenar el cuerpo", "fornida, de brazos de cargar cosas",
+  "encorvado por la edad pero de mirada firme", "de complexión media que pasa desapercibida",
+];
+const RASGOS = [
+  "una cicatriz que le parte la ceja", "un diente astillado que se le ve al reír", "pecas densas en toda la cara",
+  "un mechón blanco prematuro", "ojeras que no se le van nunca", "manos ásperas y agrietadas",
+  "la nariz quebrada y mal soldada", "dientes separados adelante", "una quemadura vieja en el antebrazo",
+  "un lunar grande junto a la boca", "cejas espesísimas que casi se juntan", "el pelo canoso a los treinta",
+  "una oreja con el lóbulo partido", "los ojos de dos colores distintos", "una marca de nacimiento en el cuello",
+  "las uñas comidas hasta la carne", "anteojos gruesos, siempre torcidos", "una calva incipiente que disimula mal",
+  "la piel marcada por el acné de la adolescencia", "un tatuaje casero desteñido en la mano",
+];
+
+// Solo para diagnóstico y pruebas.
+export const EJES_FISICOS = { CUERPOS, RASGOS };
+
 // Los listados de arriba se escribieron a mano y a mano se cuelan dos cosas: un
 // nombre repetido entre generaciones, y alguno de los que después prohibimos
 // —ofrecer "Sofía" y en la línea siguiente prohibirla es una instrucción
@@ -93,7 +119,9 @@ export function materialDeCasting(): string {
     `EJES DE VESTUARIO para inspirarte (adaptalos a la premisa, no los copies literal):\n` +
     `- oficio posible: ${tomar(OFICIOS, 5).join(" · ")}\n` +
     `- origen social: ${tomar(ORIGENES, 4).join(" · ")}\n` +
-    `- época: ${tomar(EPOCAS, 1)[0]}\n`
+    `- época: ${tomar(EPOCAS, 1)[0]}\n\n` +
+    `CUERPOS disponibles (elegí uno DISTINTO para cada personaje): ${tomar(CUERPOS, 5).join(" · ")}\n` +
+    `RASGOS DISTINTIVOS disponibles (uno por personaje, que se vea en un primer plano): ${tomar(RASGOS, 6).join(" · ")}\n`
   );
 }
 

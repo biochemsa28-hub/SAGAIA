@@ -675,8 +675,15 @@ export async function generateCharacterOptions(params: {
   const urls = await mapWithConcurrency(OPTION_VARIATIONS.slice(0, count), count, async (variation) => {
     // Casting-quality portrait: this face carries the whole series, so ask for real
     // screen presence and a dressed environment instead of a flat headshot.
+    // "immaculate wardrobe" + "magnetic, striking" empujaban a TODOS los
+    // personajes al mismo catálogo pulido: los hombres salían con camisa oscura
+    // abierta y las mujeres con suéter tejido, casting tras casting. La
+    // descripción del personaje ya trae su cuerpo, su rasgo y su ropa con el
+    // estado en que está — el prompt tiene que RESPETARLA, no lavarla.
     const prompt = `Cinematic character portrait for a premium vertical drama series. ${params.description}. ${variation}. ` +
-      `Magnetic screen presence, striking expressive face with real skin texture, immaculate character-appropriate wardrobe and styling, ` +
+      `Follow the description EXACTLY — body type, distinctive feature, and the wardrobe with the wear and state described. ` +
+      `A face you remember, not a catalogue face: real skin with its texture, pores, lines and marks. ` +
+      `The clothes belong to this person's life and look lived-in, never styled for a shoot. ` +
       `placed in a richly dressed environment that fits the character (never an empty studio backdrop), ` +
       `${style.promptSuffix}`;
     return callTextToImage(prompt);

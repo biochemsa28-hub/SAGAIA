@@ -67,7 +67,8 @@ REGLAS:
 - Los personajes deben CONTRASTAR fuerte entre sí (visual, edad y emocionalmente) — que se distingan de un vistazo, nunca dos parecidos.
 - Evita el arquetipo más obvio: dale a cada uno un giro que lo haga inesperado (el villano que da ternura, la víctima que esconde algo, el niño que sabe demasiado).
 - Piensa en identificación + obsesión: que el espectador vea a alguien que reconoce Y quiera saber su secreto.
-- ATRACTIVO Y MAGNETISMO: los protagonistas deben ser guapos, con presencia y carisma innegable — belleza real y creíble, no de catálogo. En romance/drama esto es lo que engancha: el espectador tiene que sentir atracción por ellos. Dale a cada uno un detalle sensual concreto (la forma en que se muerde el labio, la clavícula marcada, la mirada que desarma, el mechón que se acomoda). En "visual_description" incluye ese magnetismo: piel luminosa, mirada intensa, cuerpo y postura con seguridad.
+- MAGNETISMO, QUE NO ES LO MISMO QUE BELLEZA DE CATÁLOGO. El protagonista tiene que tener presencia — que el ojo se le vaya a él — y en romance un detalle sensual concreto (cómo se muerde el labio, la clavícula marcada, la mirada que desarma). Pero magnetismo NO significa que todos sean jóvenes, delgados y simétricos: la gente que engancha en pantalla tiene una cara que se recuerda, y las caras que se recuerdan tienen algo raro. Un diente astillado, una nariz quebrada, treinta kilos de más y una seguridad que no se discute.
+- QUE SE DISTINGAN EN SILUETA. Si tapás las caras y no podés decir quién es quién, el elenco está mal diseñado. Cada personaje lleva un CUERPO distinto y un RASGO DISTINTIVO propio de las listas que te doy abajo — nunca dos con la misma complexión, y nunca el mismo tipo de prenda en dos personajes (si uno lleva camisa oscura abierta, el otro no).
 
 voice_profile permitidos: ${VOICE_PROFILES.join(", ")}.
 (Para animal/monster usa "creature". "narrator" solo si la historia realmente necesita una voz narradora aparte.)
