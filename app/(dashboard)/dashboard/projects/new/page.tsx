@@ -187,6 +187,55 @@ function RechargeModal({ info, onClose }: { info: { required: number; have: numb
   );
 }
 
+// Timecode de rodaje: el reloj corriendo es la señal más vieja del cine de que
+// la cámara está grabando DE VERDAD. Un porcentaje dice "espera"; un timecode
+// dice "está pasando ahora".
+function Timecode() {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setSecs(s => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+  const ss = String(secs % 60).padStart(2, "0");
+  return (
+    <span className="inline-flex items-center gap-1.5 font-mono text-xs text-zinc-300">
+      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+      <span className="text-red-400 font-bold">REC</span> {mm}:{ss}
+    </span>
+  );
+}
+
+// Bitácora de la sala: recorre lo que la IA está haciendo AHORA, línea por
+// línea, construida con los datos reales del guion (quién habla, dónde ocurre,
+// cómo se mueve la cámara). No es decoración: es la diferencia entre una barra
+// que avanza y una sala donde se ve trabajar al equipo.
+function LiveFeed({ lines }: { lines: string[] }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (lines.length <= 1) return;
+    const iv = setInterval(() => setIdx(i => i + 1), 2600);
+    return () => clearInterval(iv);
+  }, [lines.length]);
+  if (!lines.length) return null;
+  // Las últimas 3 líneas como un log: la nueva entra viva, las viejas se apagan.
+  const visibles = [2, 1, 0].map(off => lines[(idx - off + lines.length * 100) % lines.length]);
+  return (
+    <div className="space-y-1.5 text-left overflow-hidden">
+      {visibles.map((l, i) => (
+        <p
+          key={`${idx}-${i}`}
+          className={`text-[11px] leading-snug truncate ${
+            i === 2 ? "text-white font-semibold vy-rise" : i === 1 ? "text-zinc-500" : "text-zinc-700"
+          }`}
+        >
+          {l}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export default function NewProjectPage() {
   return <Suspense fallback={null}><NewProjectForm /></Suspense>;
 }
@@ -658,64 +707,118 @@ function NewProjectForm() {
       );
     }
 
-    // ── LIVE (en producción) ──
+    // ── LIVE — la sala de montaje ──
+    // Antes: una tarjeta angosta con una barra de progreso. Una barra dice
+    // "espera"; una sala de montaje muestra al equipo TRABAJANDO. Todo lo que se
+    // ve aquí sale de datos reales: el guion (quién habla, dónde, cómo se mueve
+    // la cámara), las imágenes que van llegando del pipeline, y un timecode
+    // corriendo. Nada es teatro — es la producción en vivo.
+    const escenas = result?.scenes ?? [];
+    const total = escenas.length || Math.max(Object.keys(scenePreviews).length, 3);
+    const ready = Object.keys(scenePreviews).length;
+    // La escena "en cámara": la primera sin imagen — la que el pipeline está
+    // revelando en este momento.
+    const enCamara = Array.from({ length: total }, (_, k) => k + 1).find(n => !scenePreviews[n]);
+    const corto = (t?: string, w = 6) => {
+      const p = (t ?? "").split(/\s+/);
+      return p.slice(0, w).join(" ") + (p.length > w ? "…" : "");
+    };
+    const feed: string[] =
+      prod.phase === "voice"
+        ? escenas.map(s => `🎙 ${s.speaker ?? "Narrador"}: «${corto(s.narration_text)}»`)
+        : prod.phase === "images"
+          ? escenas.map(s => `🎨 Iluminando ${s.location ?? `la escena ${s.scene_number}`}`)
+          : prod.phase === "clips"
+            ? escenas.map(s => `🎬 Escena ${s.scene_number} · cámara: ${corto(s.camera_move, 5)}`)
+            : ["✂️ Cortando al ritmo del guion", "🎵 Mezclando música y voz", "💬 Quemando los subtítulos", "🎞 Empalmando las tomas", "✨ Pulido final de color"];
+
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
-        <div className="relative max-w-sm w-full vy-glass rounded-3xl p-7 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-300 mb-1">VYNAVO está creando</p>
-          <div className="relative">
-            <CinematicLoader icon={cur.emoji} />
-            <div className="absolute top-2 right-1/2 translate-x-16 w-10 h-10 rounded-full bg-zinc-950 border-2 border-cyan-400 flex items-center justify-center vy-pulse-soft">
-              <span className="text-xs font-bold text-cyan-300">{pct}</span>
+      <div className="min-h-screen bg-zinc-950 flex flex-col px-4 py-6 relative overflow-hidden">
+        {/* Atmósfera del género detrás de todo */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${theme.card} opacity-40 pointer-events-none`} />
+
+        <div className="relative z-10 max-w-5xl mx-auto w-full flex-1 flex flex-col">
+          {/* ── Claqueta: REC + timecode + fase + avance ── */}
+          <div className="flex items-center justify-between gap-4 pb-4 border-b border-zinc-800/60 mb-5">
+            <div className="flex items-center gap-4 min-w-0">
+              <Timecode />
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500">Sala de montaje · VYNAVO</p>
+                <h2 className="text-sm font-extrabold text-white truncate">{cur.emoji} {cur.label}…</h2>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-28 h-1.5 bg-zinc-800 rounded-full overflow-hidden hidden sm:block">
+                <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-pink-600 transition-all duration-700" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-xs font-bold text-violet-300 font-mono">{pct}%</span>
             </div>
           </div>
-          <h2 className="text-lg font-bold vy-grad-text mb-1">{cur.label}…</h2>
-          <p className="text-sm text-fuchsia-200 mb-5">✨ Tu historia cobra vida en tiempo real</p>
-          <div className="space-y-2.5 text-left">
-            {phases.map((ph, i) => (
-              <div key={ph.key} className={`flex items-center gap-2.5 text-xs ${i === curIdx ? "vy-rise" : ""}`}>
-                {i < curIdx ? <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                  : i === curIdx ? <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />
-                  : <span className="w-4 h-4 rounded-full border border-zinc-700 shrink-0" />}
-                <span className={i < curIdx ? "text-emerald-300" : i === curIdx ? "text-white font-semibold" : "text-zinc-600"}>{ph.label}</span>
-              </div>
-            ))}
-          </div>
 
-          {/* ── Preview EN VIVO de las escenas — aparecen al generarse ── */}
-          {(() => {
-            const total = result?.scenes?.length || Math.max(Object.keys(scenePreviews).length, 3);
-            const ready = Object.keys(scenePreviews).length;
-            return (
-              <div className="mt-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Tus escenas</p>
-                  <p className="text-[10px] font-bold text-violet-300">{ready}/{total} listas</p>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {Array.from({ length: total }, (_, k) => {
-                    const n = k + 1;
-                    const url = scenePreviews[n];
-                    return (
-                      <div key={n} className="relative aspect-[9/16] rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900">
-                        {url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={url} alt={`Escena ${n}`} className="vy-pop w-full h-full object-cover" />
-                        ) : (
-                          <div className="absolute inset-0 vy-shimmer2 flex items-center justify-center">
-                            <span className="text-[10px] font-bold text-zinc-600">{n}</span>
-                          </div>
-                        )}
-                        {url && <span className="absolute bottom-0.5 left-1 text-[8px] font-bold text-white/90 drop-shadow">{n}</span>}
+          <div className="grid lg:grid-cols-5 gap-5 items-start flex-1">
+            {/* ── Izquierda: el muro de escenas — la película apareciendo ── */}
+            <div className="lg:col-span-3">
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Tus escenas</p>
+                <p className="text-[10px] font-bold text-violet-300">{ready}/{total} reveladas</p>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {Array.from({ length: total }, (_, k) => {
+                  const n = k + 1;
+                  const url = scenePreviews[n];
+                  const revelando = n === enCamara;
+                  return (
+                    <div
+                      key={n}
+                      className={`relative aspect-[9/16] rounded-xl overflow-hidden border bg-zinc-900 transition-all duration-500 ${
+                        revelando ? `${theme.selected ?? "border-violet-500"} shadow-lg` : url ? "border-zinc-700" : "border-zinc-800"
+                      }`}
+                    >
+                      {url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={url} alt={`Escena ${n}`} className="vy-pop w-full h-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 vy-shimmer2 flex flex-col items-center justify-center gap-1">
+                          <span className="text-sm font-bold text-zinc-600">{n}</span>
+                          {revelando && <span className="text-[8px] font-bold uppercase tracking-wider text-violet-300 vy-pulse-soft">revelando</span>}
+                        </div>
+                      )}
+                      {/* Ficha de la escena: quién y dónde, del guion real */}
+                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 to-transparent px-1.5 pt-4 pb-1">
+                        <p className="text-[8px] font-bold text-white/90 truncate">{n} · {escenas[k]?.speaker ?? ""}</p>
+                        {escenas[k]?.location && <p className="text-[7px] text-zinc-400 truncate">{escenas[k].location}</p>}
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Derecha: el equipo trabajando ── */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="vy-glass rounded-2xl p-4">
+                <div className="flex justify-center mb-1"><CinematicLoader icon={cur.emoji} /></div>
+                <div className="space-y-2.5">
+                  {phases.map((ph, i) => (
+                    <div key={ph.key} className={`flex items-center gap-2.5 text-xs ${i === curIdx ? "vy-rise" : ""}`}>
+                      {i < curIdx ? <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                        : i === curIdx ? <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />
+                        : <span className="w-4 h-4 rounded-full border border-zinc-700 shrink-0" />}
+                      <span className={i < curIdx ? "text-emerald-300" : i === curIdx ? "text-white font-semibold" : "text-zinc-600"}>{ph.label}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            );
-          })()}
 
-          <p className="text-[11px] text-zinc-600 mt-5">No cierres esta pantalla mientras se crea tu video</p>
+              {/* Bitácora en vivo, con los datos del guion */}
+              <div className="vy-glass rounded-2xl p-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500 mb-2">En el set ahora</p>
+                <LiveFeed lines={feed} />
+              </div>
+
+              <p className="text-[11px] text-zinc-600 text-center">No cierres esta pantalla mientras se crea tu video</p>
+            </div>
+          </div>
         </div>
       </div>
     );
