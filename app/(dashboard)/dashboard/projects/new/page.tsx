@@ -1556,10 +1556,17 @@ function NewProjectForm() {
           {/* ── Izquierda: lo visual ── */}
           <div className="lg:col-span-3 space-y-5">
 
-          {/* Estilo visual — con mini frame cinematográfico de referencia */}
+          {/* Estilo visual — el MISMO fotograma renderizado en los cinco estilos
+              (generados con nano-banana): el usuario compara el estilo, no la
+              suerte. El fotograma manda: el texto vive sobre la imagen en un
+              degradado, no en una franja gris aparte — como se rotula un still
+              de película, no una opción de formulario. */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-3">Estilo visual</p>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="flex items-baseline justify-between mb-3">
+              <p className="text-xs font-bold text-zinc-400">Estilo visual</p>
+              <p className="text-[10px] text-zinc-600">La misma escena · así se verá tu historia</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {VISUAL_STYLES.map(v => {
                 const active = form.visual_style === v.id;
                 const thumb = STYLE_THUMB[v.id] ?? STYLE_THUMB.cinematic!;
@@ -1567,23 +1574,32 @@ function NewProjectForm() {
                   <button
                     key={v.id}
                     onClick={() => set("visual_style")(v.id)}
-                    className={`group rounded-xl border overflow-hidden text-left transition-all ${
-                      active ? `${theme.border} ring-2 ring-violet-500/40` : "border-zinc-800 hover:border-zinc-600"
+                    className={`group relative rounded-xl overflow-hidden border-2 text-left transition-all duration-300 ${
+                      active
+                        ? `${theme.selected} shadow-xl scale-[1.02] z-10`
+                        : "border-zinc-800/80 hover:border-zinc-600 hover:-translate-y-0.5 hover:shadow-lg"
                     }`}
                   >
-                    {/* Real AI reference frame — same scene in this style */}
-                    <div className="relative aspect-video overflow-hidden" style={{ background: thumb.bg }}>
+                    <div className="relative aspect-video overflow-hidden bg-zinc-900">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={thumb.img} alt={`Estilo ${v.label}`} loading="lazy"
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      {/* letterbox bars = sello de cine */}
-                      <span className="absolute top-0 inset-x-0 h-1.5 bg-black/60" />
-                      <span className="absolute bottom-0 inset-x-0 h-1.5 bg-black/60" />
-                      {active && <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-violet-500 border-2 border-white/90 shadow-lg" />}
-                    </div>
-                    <div className={`px-2 py-1.5 ${active ? `bg-gradient-to-br ${theme.card}` : "bg-zinc-900"}`}>
-                      <p className={`text-[11px] font-extrabold leading-tight ${active ? "text-white" : "text-zinc-300"}`}>{v.label}</p>
-                      <p className="text-[9px] text-zinc-500 leading-tight truncate">{v.description}</p>
+                      {/* Carga inmediata: estas cinco imágenes SON el paso — el
+                          usuario llega aquí a mirarlas, no hay nada que diferir. */}
+                      <img src={thumb.img} alt={`Estilo ${v.label}`}
+                        className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${active ? "scale-[1.04]" : "group-hover:scale-[1.06]"}`} />
+                      {/* Degradado para rotular sobre el fotograma */}
+                      <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/90 via-black/35 to-transparent" />
+                      {/* Los no elegidos se apagan un poco cuando hay elegido */}
+                      {!active && form.visual_style && <div className="absolute inset-0 bg-black/35 group-hover:bg-transparent transition-colors duration-300" />}
+                      {active && (
+                        <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm border border-white/20">
+                          <CheckCircle className={`w-3 h-3 ${theme.accent}`} />
+                          <span className="text-[8px] font-bold uppercase tracking-wider text-white">Tu estilo</span>
+                        </span>
+                      )}
+                      <div className="absolute bottom-0 inset-x-0 px-2.5 pb-2">
+                        <p className="text-xs font-extrabold text-white leading-tight drop-shadow">{v.label}</p>
+                        <p className="text-[9px] text-zinc-300/90 leading-tight truncate">{v.description}</p>
+                      </div>
                     </div>
                   </button>
                 );
