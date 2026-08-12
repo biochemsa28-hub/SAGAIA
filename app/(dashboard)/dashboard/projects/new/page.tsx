@@ -254,6 +254,12 @@ function NewProjectForm() {
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [credits, setCredits] = useState<number | null>(null);
   const [ideaIdx, setIdeaIdx] = useState(0);
+  // El tono elegido A MANO es una decisión del usuario y sobrevive a los cambios
+  // de nicho. Sin esto, elegir Comedia y después el nicho Terror borraba la
+  // Comedia en silencio: las combinaciones cruzadas (terror+comedia,
+  // misterio+fantasía) eran imposibles de armar en ese orden. El auto-ajuste
+  // solo aplica mientras el usuario no haya tocado la cinta de tonos.
+  const [toneTouched, setToneTouched] = useState(() => Boolean(searchParams.get("tone")));
   const [generating, setGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
   const [genError, setGenError] = useState<string | null>(null);
@@ -1265,7 +1271,7 @@ function NewProjectForm() {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => { set("niche")(n.id); set("sub_niche")(""); setIdeaIdx(0); const dt = NICHE_DEFAULT_TONE[n.id]; if (dt) set("tone")(dt); }}
+                    onClick={() => { set("niche")(n.id); set("sub_niche")(""); setIdeaIdx(0); const dt = NICHE_DEFAULT_TONE[n.id]; if (dt && !toneTouched) set("tone")(dt); }}
                     className={`vy-press relative overflow-hidden rounded-2xl border text-left transition-all duration-300 group ${
                       active
                         ? `bg-gradient-to-br ${t.card} ${t.selected} shadow-2xl scale-[1.03] z-10`
@@ -1345,14 +1351,14 @@ function NewProjectForm() {
                 Antes era una grilla 3x3 que estiraba la página hacia abajo y
                 dejaba los costados vacíos — justo al revés de cómo se lee una
                 pantalla ancha. */}
-            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2">
               {TONES.map(t => {
                 const v = TONE_VISUAL[t.id] ?? { emoji: "🎬", sub: "", active: theme.pill };
                 const active = form.tone === t.id;
                 return (
                   <button
                     key={t.id}
-                    onClick={() => set("tone")(t.id)}
+                    onClick={() => { set("tone")(t.id); setToneTouched(true); }}
                     className={`vy-press flex flex-col items-center gap-0.5 px-1.5 py-2.5 rounded-xl border transition-all duration-200 ${
                       active
                         ? `${v.active} scale-[1.06] shadow-lg`

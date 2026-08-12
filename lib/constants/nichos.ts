@@ -83,6 +83,11 @@ export const TONES = [
   { id: "documentary", label: "Documental" },
   { id: "fantasy", label: "Fantasía" },
   { id: "drama", label: "Drama" },
+  // Estos dos existían completos en el backend (schema, guía de tono, visual)
+  // pero no estaban en la cinta: dos formatos que dominan el feed
+  // hispanohablante eran inalcanzables desde la UI.
+  { id: "chisme", label: "Chisme" },
+  { id: "confesion", label: "Confesión" },
 ] as const;
 
 export const DURATION_OPTIONS = [
