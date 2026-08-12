@@ -177,11 +177,53 @@ function assTime(t: number): string {
   const c = cs % 100;
   return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(c).padStart(2, "0")}`;
 }
+// Normaliza para comparar: sin tildes, sin puntuacion, en minusculas. Sirve para
+// medir cuanto se parece lo que Whisper oyo a lo que el guion dice.
+const normalizar = (t: string) =>
+  t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+
+// Devuelve los tiempos con las palabras del GUION cuando la transcripcion no es
+// de fiar. Ver el comentario largo en buildAssContent.
+function conciliarConGuion(
+  timings: Array<{ word: string; start: number; end: number }>,
+  guion?: string,
+): Array<{ word: string; start: number; end: number }> {
+  const delGuion = (guion ?? "").trim();
+  if (!timings.length || !delGuion) return timings;
+
+  const oidas = normalizar(timings.map((t) => t.word).join(" "));
+  const escritas = normalizar(delGuion);
+  if (!escritas.length) return timings;
+
+  // Cuantas palabras del guion aparecen de verdad en la transcripcion. Con 80% o
+  // mas se confia en Whisper: acerto y su sincronia palabra-a-palabra es mejor
+  // que cualquier reparto proporcional.
+  const set = new Set(oidas);
+  const aciertos = escritas.filter((p) => set.has(p)).length;
+  if (aciertos / escritas.length >= 0.8) return timings;
+
+  // Difiere demasiado: se conserva el TRAMO hablado que Whisper detecto y se
+  // reparten sobre el las palabras reales del guion, ponderadas por largo —
+  // las palabras largas se leen mas lento.
+  const inicio = timings[0]!.start;
+  const fin = timings[timings.length - 1]!.end;
+  const span = Math.max(0.4, fin - inicio);
+  const palabras = delGuion.split(/\s+/).filter(Boolean);
+  const total = palabras.reduce((n, p) => n + p.length + 1, 0);
+  let t = inicio;
+  return palabras.map((p) => {
+    const d = (span * (p.length + 1)) / total;
+    const w = { word: p, start: t, end: t + d };
+    t += d;
+    return w;
+  });
+}
+
 // Build an ASS subtitle file for one scene: CapCut captions from word timings,
 // plus optional watermark (free plan) and a CTA card on the closing seconds.
 function buildAssContent(
   timings: Array<{ word: string; start: number; end: number }> | undefined,
-  opts?: { durSec?: number; watermark?: boolean; cta?: string | null; niche?: string },
+  opts?: { durSec?: number; watermark?: boolean; cta?: string | null; niche?: string; guion?: string },
 ): string {
   const hi = NICHE_COLOR[(opts?.niche ?? "").toLowerCase()] ?? NICHE_COLOR.default;
   const header =
@@ -204,7 +246,21 @@ function buildAssContent(
     "[Events]\nFormat: Layer, Start, End, Style, MarginL, MarginR, Effect, Text\n";
 
   const lines: string[] = [];
-  const clean = (timings ?? []).filter((w) => w.word && Number.isFinite(w.start) && Number.isFinite(w.end));
+  const crudo = (timings ?? []).filter((w) => w.word && Number.isFinite(w.start) && Number.isFinite(w.end));
+  // EL GUION MANDA SOBRE LA TRANSCRIPCION.
+  //
+  // Whisper transcribe el audio que genera el modelo de video, y se equivoca con
+  // lo que mas importa: los nombres propios. Medido en un video real, el
+  // subtitulo decia "ELÉ NUNCA DELIGIÓ, VALE." — dos palabras inventadas y
+  // "Valeria" cortada a "Vale". Pero el texto correcto lo tenemos: es el guion
+  // que nosotros mismos escribimos y que el personaje esta diciendo.
+  //
+  // Asi que Whisper aporta lo unico que el guion no sabe —CUANDO se habla— y el
+  // guion aporta lo unico que Whisper no sabe: QUE se dice. Si la transcripcion
+  // se parece bastante al guion se conserva tal cual (mantiene la precision
+  // palabra por palabra); si difiere, se reparten las palabras del guion sobre
+  // el tramo hablado que Whisper detecto.
+  const clean = conciliarConGuion(crudo, opts?.guion);
 
   // ── Smart chunking ─────────────────────────────────────────────────────────
   // Break on: char budget, word count, long pause, OR sentence-ending punctuation.
@@ -229,7 +285,15 @@ function buildAssContent(
     const spanTooLong = w.end - cur[0]!.start >= MAX_CHUNK_SECONDS;
     const endsSentence = /[.!?…]$/.test(raw);
     // Puntuacion y pausa mandan siempre: son limites reales del habla.
-    const corteDuro = endsSentence || gapToNext > 0.45 || spanTooLong;
+    // Una PAUSA no es un final de frase. El guion pide pausas dramáticas y el
+    // modelo las actúa: con el umbral en 0.45s, cada respiración partía la
+    // oración. Medido en un video real: "¿Qué hago ahora / con todo lo que /
+    // construí para / nosotros?" — una sola frase en cuatro carteles, imposible
+    // de leer como una idea.
+    //
+    // Ahora la pausa solo corta si además el cartel ya se sostiene solo (3+
+    // palabras). La puntuación sigue mandando siempre: ahí sí terminó la frase.
+    const corteDuro = endsSentence || (gapToNext > 0.6 && cur.length >= 3) || spanTooLong;
     // Los limites de tamaño, en cambio, son estéticos — y no valen un corte a
     // mitad de sintagma. Si la ultima palabra es un articulo o una preposicion,
     // se estira hasta la que la completa.
@@ -268,7 +332,17 @@ function buildAssContent(
   }
   if (opts?.cta) {
     const ctaText = opts.cta.replace(/[{}\\]/g, "").slice(0, 60).toUpperCase();
-    const start = Math.max(0, dur - 2.6);
+    // EL CTA ESPERA A QUE EL DIALOGO TERMINE.
+    //
+    // Arrancaba siempre a dur-2.6 sin mirar si aún se estaba hablando. Medido en
+    // un video real: a los 28s aparecía "COMENTA PARTE 2..." mientras el
+    // subtítulo seguía diciendo "construí para / nosotros?" — dos textos
+    // compitiendo en pantalla justo en el remate emocional, que es el peor
+    // momento posible para dividir la atención.
+    const finDialogo = chunks.length ? chunks[chunks.length - 1]!.end : 0;
+    // Si el diálogo llega hasta el final, el CTA se muestra igual sobre el último
+    // segundo: perderlo sería perder la llamada a la acción.
+    const start = Math.min(Math.max(dur - 2.6, finDialogo + 0.2), Math.max(0, dur - 0.9));
     lines.push(`Dialogue: 1,${assTime(start)},${assTime(dur)},CTA,,,,{\\fad(250,0)}${ctaText}`);
   }
   return header + lines.join("\n") + "\n";
@@ -422,6 +496,9 @@ async function buildSceneClip(
       watermark: deco?.watermark,
       cta: deco?.isLast ? deco?.cta ?? null : null,
       niche: deco?.niche,
+      // El guion de esta escena: la verdad sobre QUÉ se dice, para corregir a
+      // Whisper cuando inventa palabras o parte los nombres propios.
+      guion: scene.narrationText,
     }));
   }
   const subFilter = assName ? `,ass=${assName}` : "";
