@@ -339,7 +339,10 @@ export async function POST(req: NextRequest) {
                 // emoción y mostraba una sola acción mientras se oían tres diálogos.
                 emotion: sc!.emotion,
                 action: sc!.animation_prompt,
-
+                // Lo que hacen los cuerpos ANTES y DESPUÉS de la línea. Sin esto
+                // el clip es gente hablando: la acción llegaba solo como algo
+                // simultáneo al diálogo, así que nadie se besaba ni se miraba.
+                physicalAction: (sc as { physical_action?: string | null }).physical_action,
                 environment: (sc as { environment?: string | null }).environment,
               }));
             // ENCADENAR SOLO DENTRO DEL MISMO LUGAR.
@@ -509,6 +512,7 @@ export async function POST(req: NextRequest) {
             action: scene.animation_prompt,
 
             environment: (scene as { environment?: string | null }).environment,
+            physicalAction: (scene as { physical_action?: string | null }).physical_action,
           }];
           const movimiento = (scene.camera_move ?? "").trim();
           return {

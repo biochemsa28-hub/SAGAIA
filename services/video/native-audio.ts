@@ -27,6 +27,8 @@ export interface SpokenLine {
   emotion?: string | null;
   /** Qué hace el personaje mientras dice ESTA línea (animation_prompt de su escena). */
   action?: string | null;
+  /** "antes | después": lo que hacen los cuerpos alrededor de la línea. */
+  physicalAction?: string | null;
   /** Qué se mueve en el AMBIENTE durante esta línea (lluvia, cortina, humo). */
   environment?: string | null;
 }
@@ -63,16 +65,27 @@ export function buildDialogueDirection(lines: SpokenLine[]): string {
       const verbo = i === 0 ? "says" : "answers";
       const accion = (l.action ?? "").trim();
       const tells = (l.emotion ?? "").trim() ? tellsDe(l.emotion) : "";
+      // LA ACCIÓN FÍSICA VA EN EL TIEMPO, NO EN PARALELO.
+      //
+      // Todo lo que se le mandaba al modelo ocurría MIENTRAS se hablaba, así que
+      // el clip era gente diciendo frases y, de fondo, una cortina moviéndose.
+      // Lo que hace que una escena sea una escena pasa ANTES de que alguien
+      // hable —se están besando, ella se separa— y DESPUÉS —se sostienen la
+      // mirada—. Sin ese orden no hay beso ni hay miradas: hay una videollamada.
+      const [antes, despues] = (l.physicalAction ?? "").split("|").map((s) => s.trim());
       // El ambiente es un TERCER eje, aparte del personaje y de la cámara. Sin él,
       // en un plano solo se mueve la cara y el resultado se lee como una foto que
       // habla. La lluvia corriendo por el vidrio detrás convierte el mismo plano en
       // una toma.
       const ambiente = (l.environment ?? "").trim();
       return (
+        // Primero el cuerpo, después la voz: así es como se lee una escena.
+        (antes ? `FIRST, before any words: ${antes}. THEN, ` : "") +
         `${comoSeVe(l)} ${verbo}, in Spanish: "${l.text.trim()}"` +
         (accion ? ` — while doing this: ${accion}` : "") +
         (tells ? ` — performed with: ${tells}` : "") +
-        (ambiente ? ` — and in the environment, independently of the character: ${ambiente}` : "")
+        (ambiente ? ` — and in the environment, independently of the character: ${ambiente}` : "") +
+        (despues ? `. IMMEDIATELY AFTER the line, without speaking: ${despues}` : "")
       );
     })
     .join(" THEN, and only after the previous line is finished: ");

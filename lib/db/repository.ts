@@ -869,8 +869,8 @@ export async function saveGenerationResult(params: {
   for (const scene of story.scenes) {
     await db.execute({
       sql: `INSERT INTO scenes
-        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile, sfx_prompt, speaker_look, location, environment)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile, sfx_prompt, speaker_look, location, environment, physical_action)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         uuidv4(), projectId, storyId, scene.scene_number,
         scene.narration_text, scene.duration_seconds,
@@ -881,6 +881,7 @@ export async function saveGenerationResult(params: {
         scene.speaker_look || null,
         scene.location || null,
         scene.environment || null,
+        scene.physical_action || null,
       ],
     });
   }

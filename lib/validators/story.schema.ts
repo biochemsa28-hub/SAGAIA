@@ -105,6 +105,17 @@ export const SceneSchema = z.object({
     .string()
     .min(10)
     .describe("Motion prompt for video animation (Kling/Runway)"),
+  // LA ACCIÓN FÍSICA ENTRE LOS PERSONAJES, EN ORDEN.
+  //
+  // Sin esto el clip es gente hablando: animation_prompt pide "qué hace el
+  // personaje CON EL ENTORNO" —una cortina, el humo de una taza— y la dirección
+  // de diálogo la monta como algo simultáneo a la línea. Así nadie se besa,
+  // nadie se toca y nadie se mira: falta lo que ocurre ANTES de hablar y lo que
+  // ocurre DESPUÉS, que es donde vive la escena.
+  //
+  // Formato: "antes | después". Ej: "they are kissing, she pulls back an inch to
+  // speak | their eyes lock and neither looks away".
+  physical_action: z.string().max(220).optional(),
   emotion: z.string(),
   camera_move: z.string(),
 });

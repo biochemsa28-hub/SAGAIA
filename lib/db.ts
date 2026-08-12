@@ -186,6 +186,11 @@ export async function initDb(): Promise<void> {
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN location TEXT");
   // Qué se mueve en el ambiente: eje separado del personaje y de la cámara.
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN environment TEXT");
+  // La acción física entre los personajes, en orden ("antes | después"). Sin
+  // esto el clip era gente hablando con una cortina moviéndose al fondo: todo lo
+  // que se le mandaba al modelo ocurría MIENTRAS se hablaba, y lo que hace que
+  // una escena sea una escena pasa antes de la línea y después de ella.
+  await runMigration(db, "ALTER TABLE scenes ADD COLUMN physical_action TEXT");
 
   // ── RECUPERAR CONTRASEÑA ───────────────────────────────────────────────────
   // Hasta ahora no existía: quien olvidaba la suya quedaba afuera para siempre,
