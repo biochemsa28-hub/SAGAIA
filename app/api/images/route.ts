@@ -220,27 +220,61 @@ export async function POST(req: NextRequest) {
           if (url) map.set(s.scene_number, url);
         }
 
-        // Pass 2 — SAFETY NET. If the story AI drifted from the cast names (e.g. it
-        // wrote "Valeria" when the cast says "Valentina"), exact matching finds
-        // nothing and every scene would collapse onto scene 1's image, killing the
-        // visual thread. Instead, assign portraits stably by ORDER OF APPEARANCE so
-        // each distinct speaker keeps ONE consistent face for the whole story.
-        if (map.size === 0) {
-          const speakers: string[] = [];
-          for (const s of targetScenes) {
-            const sp = s.speaker ? norm(s.speaker) : "";
-            if (sp && !speakers.includes(sp)) speakers.push(sp);
-          }
-          if (speakers.length) {
-            console.warn(`[images] cast names don't match speakers (${speakers.join(", ")}) — mapping portraits by appearance order`);
-            for (const s of targetScenes) {
-              const sp = s.speaker ? norm(s.speaker) : "";
-              const idx = speakers.indexOf(sp);
-              if (idx >= 0) {
-                const portrait = withPortrait[idx % withPortrait.length]!.reference_image_url!;
-                map.set(s.scene_number, portrait);
-              }
-            }
+        // Pass 1.5 — NOMBRE PARCIAL. El guion escribe "Camila Restrepo" donde el
+        // elenco dice "Camila", o al reves. Comparar la cadena entera falla y esa
+        // escena se queda sin retrato.
+        const primerNombre = (s: string) => norm(s).split(/\s+/)[0] ?? "";
+        const porPrimerNombre = new Map(withPortrait.map((c) => [primerNombre(c.name), c.reference_image_url!]));
+        for (const s of targetScenes) {
+          if (map.has(s.scene_number) || !s.speaker) continue;
+          const url = porPrimerNombre.get(primerNombre(s.speaker));
+          if (url) map.set(s.scene_number, url);
+        }
+
+        // Pass 1.6 — APODOS. El guion llama "Vale" a quien el elenco registro como
+        // "Valeria": es como habla la gente, y el orden de aparicion le habria dado
+        // un rostro estable pero ajeno. Un prefijo de 3+ letras basta para
+        // reconocerlo, y solo se acepta si UN unico miembro del elenco encaja —
+        // con dos candidatos adivinar seria peor que caer a la red de seguridad.
+        for (const s of targetScenes) {
+          if (map.has(s.scene_number) || !s.speaker) continue;
+          const dicho = primerNombre(s.speaker);
+          if (dicho.length < 3) continue;
+          const candidatos = withPortrait.filter((c) => {
+            const real = primerNombre(c.name);
+            return real.startsWith(dicho) || dicho.startsWith(real);
+          });
+          if (candidatos.length === 1) map.set(s.scene_number, candidatos[0]!.reference_image_url!);
+        }
+
+        // Pass 2 — RED DE SEGURIDAD, escena por escena.
+        //
+        // Antes esta red solo se desplegaba si NINGUNA escena habia coincidido
+        // (map.size === 0). Con coincidencia parcial —la mitad de las escenas
+        // encuentra su retrato y la otra mitad no— las que fallaban se quedaban
+        // SIN referencia y el modelo reinventaba la cara. Medido en un video real:
+        // Camila sale morena en un plano y pelirroja en otro, dentro de la misma
+        // conversacion.
+        //
+        // Ahora cada escena con hablante que siga sin retrato recibe uno por ORDEN
+        // DE APARICION, estable: el mismo nombre recibe siempre el mismo retrato en
+        // toda la historia. Un rostro asignado por orden es una apuesta; ninguno es
+        // una cara nueva garantizada.
+        const speakers: string[] = [];
+        for (const s of targetScenes) {
+          const sp = s.speaker ? norm(s.speaker) : "";
+          if (sp && !speakers.includes(sp)) speakers.push(sp);
+        }
+        const huerfanas = targetScenes.filter((s) => s.speaker && !map.has(s.scene_number));
+        if (huerfanas.length && speakers.length) {
+          console.warn(
+            `[images] ${huerfanas.length}/${targetScenes.length} escenas sin retrato por nombre ` +
+            `(hablantes: ${speakers.join(", ")} | elenco: ${withPortrait.map((c) => c.name).join(", ")}) ` +
+            `— asignando por orden de aparicion`,
+          );
+          for (const s of huerfanas) {
+            const idx = speakers.indexOf(norm(s.speaker!));
+            if (idx >= 0) map.set(s.scene_number, withPortrait[idx % withPortrait.length]!.reference_image_url!);
           }
         }
         if (map.size) sceneReferences = map;
