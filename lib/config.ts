@@ -438,6 +438,14 @@ export function videoSecondsFor(durationTarget: string | null | undefined): numb
   return Math.min(pedido, MAX_VIDEO_SECONDS);
 }
 
-export function maxBlocksFor(durationTarget: string | null | undefined): number {
-  return Math.max(1, Math.ceil(videoSecondsFor(durationTarget) / BLOCK_TARGET_SECONDS));
-}
+// ELIMINADA: maxBlocksFor(duración) = segundos / BLOCK_TARGET_SECONDS.
+//
+// Dividir por 10 asumía que cada bloque narrativo dura 10 segundos. No los dura:
+// un bloque son 2 escenas y una escena de diálogo dura ~2,5s, así que un bloque
+// real ronda los 5s. La cuenta permitía la mitad de los bloques necesarios, y en
+// un video medido de 39s los últimos 14 segundos —incluido el cliffhanger— se
+// quedaron sin animar.
+//
+// El tope ahora se acumula en SEGUNDOS REALES dentro de /api/videos, donde se
+// conocen los bloques de verdad. No se repone esta función: una cuenta que
+// parece razonable y está mal es peor que no tener ninguna.

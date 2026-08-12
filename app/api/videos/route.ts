@@ -9,7 +9,7 @@ import { generateShotSheet } from "@/services/fal/shot-grid";
 import { planNarrativeBlocks, blockPanelFramings, CHARS_PER_SECOND, type BlockScene } from "@/services/video/narrative-blocks";
 import { buildDialogueDirection, transcribeClip } from "@/services/video/native-audio";
 import { trimClipHead } from "@/services/ffmpeg/trim";
-import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, maxBlocksFor, esBorrador, CLIP_BUDGET } from "@/lib/config";
+import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, esBorrador, CLIP_BUDGET } from "@/lib/config";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -203,13 +203,34 @@ export async function POST(req: NextRequest) {
         }
         // El tope sale de la duración que el usuario ELIGIÓ, no de una variable
         // global: pedir 30s y pedir 60s tienen que producir cosas distintas.
+        // ── EL TOPE SE CUENTA EN SEGUNDOS, NO EN BLOQUES ───────────────────
+        //
+        // maxBlocksFor() divide los segundos pedidos entre BLOCK_TARGET_SECONDS
+        // (10s), o sea que ASUME que cada bloque dura 10 segundos. No los dura:
+        // un bloque son 2 escenas y una escena de diálogo dura ~2,5s, así que un
+        // bloque real dura ~5s. Medido en un video de produccion: 6 bloques
+        // permitidos × 5s = 25s de animacion en un video de 39s, y los ultimos
+        // 14 segundos salieron como imagenes fijas con zoom. El final de la
+        // historia —el cliffhanger, lo que decide si comentan— quedaba sin animar
+        // justo por esta cuenta.
+        //
+        // Se acumulan los segundos REALES de cada bloque hasta llegar al tope.
+        // Lo que se recorta ahora es lo que de verdad sobra.
         const topeSegundos = videoSecondsFor(detail.project.duration_target);
-        const blocks = conImagen.slice(0, maxBlocksFor(detail.project.duration_target));
+        const blocks: typeof conImagen = [];
+        let segAcumulados = 0;
+        for (const b of conImagen) {
+          if (segAcumulados >= topeSegundos) break;
+          blocks.push(b);
+          segAcumulados += b.seconds;
+        }
         if (conImagen.length > blocks.length) {
           console.warn(
-            `[blocks] recortado a ${blocks.length} bloques (elegiste ${topeSegundos}s) — el guion pedía ${conImagen.length}. ` +
-            "Lo que no entra debería ser la Parte 2, no una historia cortada: si pasa seguido, el guion se está pasando del presupuesto.",
+            `[blocks] recortado a ${blocks.length}/${conImagen.length} bloques: ${segAcumulados.toFixed(1)}s cubren el tope de ${topeSegundos}s. ` +
+            "Lo que no entra debería ser la Parte 2, no una historia cortada.",
           );
+        } else {
+          console.log(`[blocks] ${blocks.length} bloques = ${segAcumulados.toFixed(1)}s animados (tope ${topeSegundos}s)`);
         }
         console.log(`[blocks] ${detail.scenes.length} escenas → ${blocks.length} bloques (${blocks.reduce((n, b) => n + b.scenes.length, 0)} escenas cubiertas)`);
 
