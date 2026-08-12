@@ -83,6 +83,16 @@ export const SceneSchema = z.object({
   // feo. Sabiendo la locación se puede encadenar cuando corresponde y cortar
   // limpio cuando no.
   location: z.string().max(80).optional(),
+  // QUÉ SE MUEVE EN EL AMBIENTE, aparte del personaje y de la cámara. En inglés.
+  // Lluvia en la ventana, una cortina, el humo de una taza, una lámpara que
+  // parpadea, polvo en el haz de luz.
+  //
+  // Es un eje separado a propósito: el movimiento de cámara, lo que hace el
+  // personaje y lo que hace el MUNDO son tres cosas distintas, y meterlas en un
+  // solo texto hace que el modelo elija una y descarte las otras. Un plano donde
+  // solo se mueve la cara se lee como una foto que habla; el mismo plano con la
+  // lluvia corriendo por el vidrio detrás se lee como una toma.
+  environment: z.string().max(100).optional(),
   duration_seconds: z.number().int().min(2).max(120),
   image_prompt: z
     .string()

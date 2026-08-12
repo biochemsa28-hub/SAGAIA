@@ -645,8 +645,8 @@ export async function saveGenerationResult(params: {
   for (const scene of story.scenes) {
     await db.execute({
       sql: `INSERT INTO scenes
-        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile, sfx_prompt, speaker_look, location)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile, sfx_prompt, speaker_look, location, environment)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         uuidv4(), projectId, storyId, scene.scene_number,
         scene.narration_text, scene.duration_seconds,
@@ -656,6 +656,7 @@ export async function saveGenerationResult(params: {
         scene.sfx_prompt || null,
         scene.speaker_look || null,
         scene.location || null,
+        scene.environment || null,
       ],
     });
   }
@@ -710,6 +711,7 @@ export interface DbScene {
   sfx_prompt: string | null;    // el ruido concreto de esta escena (puerta, vidrio, pasos)
   speaker_look: string | null;  // cómo se ve quien habla, para que el modelo lo distinga
   location: string | null;      // dónde transcurre; decide encadenado vs corte limpio
+  environment: string | null;   // qué se mueve en el ambiente (lluvia, cortina, humo)
 }
 
 export interface DbSeoPackage {

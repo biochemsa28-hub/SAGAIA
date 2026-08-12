@@ -175,6 +175,8 @@ export async function initDb(): Promise<void> {
   // Dónde transcurre la escena. Decide si el clip se encadena con el siguiente
   // (mismo lugar, toma continua) o corta limpio (cambio de escenario).
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN location TEXT");
+  // Qué se mueve en el ambiente: eje separado del personaje y de la cámara.
+  await runMigration(db, "ALTER TABLE scenes ADD COLUMN environment TEXT");
   await runMigration(db, "ALTER TABLE project_cast ADD COLUMN bible_url TEXT");
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN heartbeat_at TEXT");
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN stage TEXT");

@@ -261,6 +261,8 @@ export async function POST(req: NextRequest) {
                 // emoción y mostraba una sola acción mientras se oían tres diálogos.
                 emotion: sc!.emotion,
                 action: sc!.animation_prompt,
+
+                environment: (sc as { environment?: string | null }).environment,
               }));
             // ENCADENAR SOLO DENTRO DEL MISMO LUGAR.
             //
@@ -310,15 +312,23 @@ export async function POST(req: NextRequest) {
                 // mostrar mientras sonaban los diálogos de las escenas siguientes.
                 const movimiento = (lead?.camera_move ?? "").trim();
                 return (
+                  // EL PROMPT DESCRIBE MOVIMIENTO, NO LA IMAGEN.
+                  //
+                  // La imagen inicial YA EXISTE: trae el encuadre, la paleta, la luz
+                  // y el estilo, generados con la referencia del personaje. Volver a
+                  // describir todo eso acá —"35mm anamorphic look, shallow depth of
+                  // field, motivated practical lighting"— le daba al modelo una foto
+                  // y a la vez una descripción de cómo debería verse una foto. Las
+                  // dos compiten, y es parte de por qué a veces reinterpretaba el
+                  // cuadro en lugar de animarlo.
+                  //
+                  // Queda SOLO lo que es movimiento y comportamiento. "Cámara con
+                  // peso que arranca y frena" describe cómo se mueve, así que se
+                  // queda; "anamórfico de 35mm" describe cómo se ve, así que se va.
                   "ONE CONTINUOUS SHOT, no cuts, no scene changes. " +
-                  "Keep the same location, the same lighting and the same framing for the whole clip; " +
-                  "the subject stays in frame and well composed at all times. " +
-                  // Gramática de cine, no "movimiento bonito": una cámara operada
-                  // por alguien tiene peso, arranca y frena, y se mueve PORQUE pasa
-                  // algo. Eso es lo que separa "clip de IA" de "plano rodado".
-                  "Shot like a feature film: 35mm anamorphic look, shallow depth of field, " +
-                  "motivated practical lighting, the camera settling rather than drifting, " +
-                  "a trace of handheld weight — it starts and stops with intention, never floats. " +
+                  "Do not restyle or redraw the frame: keep the given image's look, palette and framing exactly. " +
+                  "The subject stays in frame and well composed at all times. " +
+                  "The camera has weight — it settles rather than drifts, starts and stops with intention, never floats. " +
                   // LA CÁMARA NUNCA SE QUEDA QUIETA. Al pasar la acción de cada
                   // escena a su propia línea, la dirección de cámara quedó reducida
                   // a una frase corta del guion — y una instrucción escueta produce
@@ -419,15 +429,18 @@ export async function POST(req: NextRequest) {
             text: scene.narration_text ?? "",
             emotion: scene.emotion,
             action: scene.animation_prompt,
+
+            environment: (scene as { environment?: string | null }).environment,
           }];
           const movimiento = (scene.camera_move ?? "").trim();
           return {
             scene_number: scene.scene_number,
+            // Igual que la ruta de bloques: el prompt describe MOVIMIENTO, no la
+            // imagen. La foto inicial ya trae encuadre, luz y estilo.
             animation_prompt:
               "ONE CONTINUOUS SHOT, no cuts, no scene changes. " +
-              "Keep the same location, lighting and framing for the whole clip. " +
-              "Shot like a feature film: 35mm anamorphic look, shallow depth of field, " +
-              "motivated practical lighting, a trace of handheld weight. " +
+              "Do not restyle or redraw the frame: keep the given image's look, palette and framing exactly. " +
+              "The camera has weight — it settles rather than drifts, starts and stops with intention. " +
               `Camera: ${movimiento || "slow push in on the face"}. ` +
               "The camera is moving for the ENTIRE clip — never a locked-off static frame. " +
               "Consistent character appearance and wardrobe throughout." +

@@ -27,6 +27,8 @@ export interface SpokenLine {
   emotion?: string | null;
   /** Qué hace el personaje mientras dice ESTA línea (animation_prompt de su escena). */
   action?: string | null;
+  /** Qué se mueve en el AMBIENTE durante esta línea (lluvia, cortina, humo). */
+  environment?: string | null;
 }
 
 // Build the spoken part of a block's video prompt.
@@ -61,10 +63,16 @@ export function buildDialogueDirection(lines: SpokenLine[]): string {
       const verbo = i === 0 ? "says" : "answers";
       const accion = (l.action ?? "").trim();
       const tells = (l.emotion ?? "").trim() ? tellsDe(l.emotion) : "";
+      // El ambiente es un TERCER eje, aparte del personaje y de la cámara. Sin él,
+      // en un plano solo se mueve la cara y el resultado se lee como una foto que
+      // habla. La lluvia corriendo por el vidrio detrás convierte el mismo plano en
+      // una toma.
+      const ambiente = (l.environment ?? "").trim();
       return (
         `${comoSeVe(l)} ${verbo}, in Spanish: "${l.text.trim()}"` +
         (accion ? ` — while doing this: ${accion}` : "") +
-        (tells ? ` — performed with: ${tells}` : "")
+        (tells ? ` — performed with: ${tells}` : "") +
+        (ambiente ? ` — and in the environment, independently of the character: ${ambiente}` : "")
       );
     })
     .join(" THEN, and only after the previous line is finished: ");
