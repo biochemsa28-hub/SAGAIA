@@ -7,7 +7,7 @@ import { track } from "@/components/providers/PostHogProvider";
 import {
   ArrowLeft, Download, Loader2, Sparkles, CheckCircle2,
   Copy, Check, PlusCircle, Clock, TrendingUp, MessageSquare,
-  Hash, Lightbulb, Target, RefreshCw, PartyPopper, Star,
+  Hash, Lightbulb, Target, RefreshCw, PartyPopper, Star, Lock, Unlock,
 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { useToast } from "@/components/ui/toast";
@@ -357,6 +357,23 @@ function ProjectDetail() {
     }
   }
 
+  // Aprobar/desaprobar una escena. Es instantáneo y no cuesta nada: solo marca
+  // el asset. El servidor es quien hace cumplir el candado en /api/images.
+  async function toggleAprobada(sceneNumber: number, locked: boolean) {
+    try {
+      const r = await fetch("/api/scenes/lock", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id, scene_number: sceneNumber, locked }),
+      });
+      if (!r.ok) throw new Error("no");
+      const d = await fetch(`/api/projects/${id}`);
+      if (d.ok) setDetail(await d.json() as ProjectDetail);
+      toast(locked ? "🔒 Escena aprobada — no se regenerará" : "🔓 Aprobación quitada", "success");
+    } catch {
+      toast("No se pudo cambiar la aprobación.", "error");
+    }
+  }
+
   async function regenerateScene(sceneNumber: number) {
     setProducing(true);
     setFinalVideoUrl(null);
@@ -600,6 +617,16 @@ function ProjectDetail() {
         let v: string[] = [];
         try { const m = JSON.parse(a.metadata ?? "{}") as { versiones?: string[] }; v = m.versiones ?? []; } catch { v = []; }
         return [a.scene_id as string, v];
+      }),
+  );
+  // Escenas aprobadas — el servidor las protege de cualquier regeneración.
+  const aprobadaBySceneId = new Map<string, boolean>(
+    (detail.assets ?? [])
+      .filter((a) => a.asset_type === "image" && a.scene_id)
+      .map((a) => {
+        let ap = false;
+        try { ap = Boolean((JSON.parse(a.metadata ?? "{}") as { aprobada?: boolean }).aprobada); } catch { ap = false; }
+        return [a.scene_id as string, ap];
       }),
   );
 
@@ -860,14 +887,18 @@ function ProjectDetail() {
                 <div className="px-1">
                   <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">¿No te gustó una escena?</h2>
                   <p className="text-[11px] text-zinc-600 mt-0.5">
-                    Regenera solo esa escena — el resto del video se conserva. Si la nueva no te gusta, puedes volver a la anterior gratis.
+                    Regenera solo esa escena — el resto se conserva. Si la nueva no te gusta, vuelves a la anterior gratis.
+                    Y con 🔒 apruebas una escena para que nada vuelva a tocarla.
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {scenes.map((sc) => {
                     const thumb = imageBySceneId.get(sc.id);
+                    const aprobada = aprobadaBySceneId.get(sc.id) ?? false;
                     return (
-                      <div key={sc.id} className="relative group rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900 aspect-[9/16]">
+                      <div key={sc.id} className={`relative group rounded-xl overflow-hidden border bg-zinc-900 aspect-[9/16] ${
+                        aprobada ? "border-emerald-500/70 ring-1 ring-emerald-500/30" : "border-zinc-800"
+                      }`}>
                         {thumb ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={thumb} alt={`Escena ${sc.scene_number}`} className="w-full h-full object-cover" />
@@ -878,13 +909,28 @@ function ProjectDetail() {
                           {sc.scene_number}
                         </div>
                         {thumb && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); void saveAsCharacter(sc.scene_number, thumb); }}
-                            className="absolute top-1 right-1 z-10 p-1.5 rounded-lg bg-black/70 hover:bg-violet-600 text-violet-200 hover:text-white transition-colors"
-                            title="Guardar como personaje reutilizable"
-                          >
-                            <Star className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="absolute top-1 right-1 z-10 flex gap-1">
+                            {/* Aprobar: siempre visible, no en hover. Es un estado
+                                del contenido, no una acción escondida. */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void toggleAprobada(sc.scene_number, !aprobada); }}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                aprobada
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-black/70 text-zinc-300 hover:bg-emerald-600 hover:text-white"
+                              }`}
+                              title={aprobada ? "Aprobada — click para permitir regenerar" : "Aprobar: protege esta escena de regeneraciones"}
+                            >
+                              {aprobada ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void saveAsCharacter(sc.scene_number, thumb); }}
+                              className="p-1.5 rounded-lg bg-black/70 hover:bg-violet-600 text-violet-200 hover:text-white transition-colors"
+                              title="Guardar como personaje reutilizable"
+                            >
+                              <Star className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         )}
                         {/* Deshacer: visible SOLO si esta escena tiene una versión
                             anterior. No compite con Regenerar — vive abajo y se ve
@@ -900,13 +946,23 @@ function ProjectDetail() {
                             ↩ Volver a la anterior
                           </button>
                         )}
-                        <button
-                          onClick={() => regenerateScene(sc.scene_number)}
-                          className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/0 hover:bg-black/70 opacity-0 hover:opacity-100 transition-all"
-                        >
-                          <RefreshCw className="w-5 h-5 text-white" />
-                          <span className="text-[10px] font-semibold text-white">Regenerar</span>
-                        </button>
+                        {/* Una escena aprobada no ofrece regenerar: el candado se
+                            hace cumplir en el servidor, y la UI no debe invitar a
+                            una acción que va a ser rechazada. */}
+                        {aprobada ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/0 hover:bg-black/60 opacity-0 hover:opacity-100 transition-all pointer-events-none">
+                            <Lock className="w-5 h-5 text-emerald-300" />
+                            <span className="text-[9px] font-semibold text-emerald-200 px-2 text-center">Aprobada · protegida</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => regenerateScene(sc.scene_number)}
+                            className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/0 hover:bg-black/70 opacity-0 hover:opacity-100 transition-all"
+                          >
+                            <RefreshCw className="w-5 h-5 text-white" />
+                            <span className="text-[10px] font-semibold text-white">Regenerar</span>
+                          </button>
+                        )}
                       </div>
                     );
                   })}

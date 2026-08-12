@@ -825,6 +825,66 @@ export interface DbAsset {
   created_at: string;
 }
 
+// Marca (o desmarca) una escena como APROBADA. Una escena aprobada no se puede
+// regenerar: es la escena que el usuario ya dio por buena, y perderla por un
+// click de más en una miniatura de 100px es exactamente el accidente que hace
+// que la gente deje de tocar los controles.
+//
+// El candado se guarda en metadata del asset — misma columna que el historial,
+// sin migración — y se hace cumplir del lado del servidor en /api/images. Un
+// candado que solo apaga un botón no es un candado.
+export async function setSceneLock(params: {
+  projectId: string;
+  userId: string;
+  sceneNumber: number;
+  locked: boolean;
+}): Promise<boolean> {
+  const db = getDb();
+  const dueño = await db.execute({
+    sql: "SELECT 1 FROM projects WHERE id = ? AND user_id = ?",
+    args: [params.projectId, params.userId],
+  });
+  if (!dueño.rows[0]) return false;
+
+  const res = await db.execute({
+    sql: `SELECT a.id, a.metadata FROM assets a
+          JOIN scenes s ON s.id = a.scene_id
+          WHERE a.project_id = ? AND s.scene_number = ? AND a.asset_type = 'image'`,
+    args: [params.projectId, params.sceneNumber],
+  });
+  const fila = res.rows[0] as Record<string, unknown> | undefined;
+  if (!fila) return false;
+
+  let meta: Record<string, unknown> = {};
+  try { meta = JSON.parse(String(fila["metadata"] ?? "{}")) as Record<string, unknown>; } catch { meta = {}; }
+  meta["aprobada"] = params.locked;
+  await db.execute({
+    sql: "UPDATE assets SET metadata = ?, updated_at = datetime('now') WHERE id = ?",
+    args: [JSON.stringify(meta), fila["id"] as string],
+  });
+  return true;
+}
+
+// Números de escena aprobados en este proyecto. Lo consulta /api/images antes
+// de gastar un centavo en regenerar.
+export async function getLockedScenes(projectId: string): Promise<Set<number>> {
+  const db = getDb();
+  const res = await db.execute({
+    sql: `SELECT s.scene_number, a.metadata FROM assets a
+          JOIN scenes s ON s.id = a.scene_id
+          WHERE a.project_id = ? AND a.asset_type = 'image'`,
+    args: [projectId],
+  });
+  const bloqueadas = new Set<number>();
+  for (const r of res.rows as unknown as Array<Record<string, unknown>>) {
+    try {
+      const m = JSON.parse(String(r["metadata"] ?? "{}")) as { aprobada?: boolean };
+      if (m.aprobada) bloqueadas.add(Number(r["scene_number"]));
+    } catch { /* metadata ilegible = sin candado */ }
+  }
+  return bloqueadas;
+}
+
 // Vuelve una escena a una versión anterior de su imagen. Es gratis — la imagen
 // ya está generada y pagada — y por eso deshacer una regeneración fallida no
 // puede costar lo mismo que hacerla. El swap es simétrico: la que estaba pasa

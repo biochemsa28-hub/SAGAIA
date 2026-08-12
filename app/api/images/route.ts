@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveRequestUserId } from "@/lib/internal-auth";
-import { getProjectDetail, updateProjectStatus, upsertAsset, getCharacter, getProjectCast, createApiLog, setCastBible } from "@/lib/db/repository";
+import { getProjectDetail, updateProjectStatus, upsertAsset, getCharacter, getProjectCast, createApiLog, setCastBible, getLockedScenes } from "@/lib/db/repository";
 import { generateProjectImages, generateSceneShots, generateCharacterBible } from "@/services/fal/image-generator";
 import { generateShotGrid } from "@/services/fal/shot-grid";
 import { initDb } from "@/lib/db";
@@ -42,6 +42,18 @@ export async function POST(req: NextRequest) {
         .map((a) => sceneNumById.get(a.scene_id!))
         .filter((n): n is number => typeof n === "number")
     );
+
+    // ── CANDADO DE ESCENA APROBADA ─────────────────────────────────────────
+    // Aquí es donde el candado vale: este endpoint es el único camino por el
+    // que una imagen puede ser reemplazada. Bloquearlo solo en la UI dejaría la
+    // escena aprobada a merced de cualquier reintento o llamada directa.
+    const bloqueadas = await getLockedScenes(parsed.data.project_id);
+    if (parsed.data.scene_number && bloqueadas.has(parsed.data.scene_number)) {
+      return NextResponse.json(
+        { error: `La escena ${parsed.data.scene_number} está aprobada. Quítale la aprobación para regenerarla.`, locked: true },
+        { status: 409 },
+      );
+    }
 
     // Single-scene regen = force that one. Otherwise generate ONLY the missing scenes.
     let targetScenes = parsed.data.scene_number
