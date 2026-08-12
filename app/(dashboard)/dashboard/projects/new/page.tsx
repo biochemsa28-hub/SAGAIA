@@ -892,7 +892,7 @@ function NewProjectForm() {
           </div>
         </div>
 
-        <div className="flex-1 max-w-lg mx-auto w-full px-4 py-5 space-y-6 pb-32">
+        <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 space-y-5 pb-32">
 
           {castError && (
             <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-700/40 rounded-xl">
@@ -901,10 +901,16 @@ function NewProjectForm() {
             </div>
           )}
 
+          {/* Tablero de casting: los personajes uno al lado del otro, como las
+              fichas clavadas en la pared de una producción. Antes iban apilados
+              en una columna de max-w-lg — para comparar la cara de dos
+              personajes había que hacer scroll, que es exactamente lo que no se
+              puede hacer mientras eliges entre ellas. */}
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
           {castCharacters.map((char, ci) => (
-            <div key={char.name} className="space-y-3">
+            <div key={char.name} className={`space-y-3 rounded-2xl border ${theme.border} bg-zinc-900/40 p-3`}>
               {/* Character header */}
-              <div className={`flex items-start gap-3 p-4 rounded-2xl border bg-gradient-to-br ${theme.card} ${theme.border}`}>
+              <div className={`flex items-start gap-3 p-3 rounded-xl border bg-gradient-to-br ${theme.card} ${theme.border}`}>
                 <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-lg bg-zinc-900 border ${theme.border}`}>
                   {char.gender === "female" ? "👩" : char.gender === "male" ? "👨" : "🧑"}
                 </div>
@@ -958,11 +964,12 @@ function NewProjectForm() {
               )}
             </div>
           ))}
+          </div>
 
           {/* Divider + skip */}
           <button
             onClick={() => void loadHooks()}
-            className="w-full py-3 rounded-xl border border-zinc-800 text-zinc-600 text-xs hover:border-zinc-700 hover:text-zinc-400 transition-all"
+            className="w-full max-w-xs mx-auto block py-3 rounded-xl border border-zinc-800 text-zinc-600 text-xs hover:border-zinc-700 hover:text-zinc-400 transition-all"
           >
             Saltar selección de retratos
           </button>
@@ -971,8 +978,11 @@ function NewProjectForm() {
         {/* Fixed bottom CTA */}
         <div className="fixed bottom-0 left-0 right-0 z-20">
           <div className={`absolute inset-0 bg-gradient-to-t ${theme.card} opacity-30 pointer-events-none`} />
-          <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-lg mx-auto">
-            <div className="flex gap-3">
+          <div className="relative bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/60 px-4 py-3 max-w-5xl mx-auto">
+            {/* La barra acompaña el ancho del contenido, pero los botones no se
+                estiran a 992px: un CTA del ancho de la pantalla deja de leerse
+                como un botón. */}
+            <div className="flex gap-3 sm:max-w-lg sm:mx-auto">
               <button
                 onClick={() => setCastingStep(false)}
                 className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm font-medium hover:border-zinc-700 transition-all shrink-0"
@@ -1608,7 +1618,10 @@ function NewProjectForm() {
               <p className="text-xs text-red-300">Sin NAVOS. <a href="/pricing" className="underline font-bold">Recargar →</a></p>
             </div>
           )}
-          <div className="flex gap-3">
+          {/* La barra acompaña el ancho del contenido, pero los botones no se
+              estiran a 992px: un CTA del ancho de la pantalla deja de leerse
+              como un botón. */}
+          <div className="flex gap-3 sm:max-w-lg sm:mx-auto">
             {step > 0 && (
               <button
                 onClick={goBack}
