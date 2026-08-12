@@ -15,6 +15,10 @@ import { CountUp } from "@/components/ui/CountUp";
 import { formatDate } from "@/lib/utils";
 import type { ProjectDetail } from "@/lib/db/repository";
 
+// Lo que la biblioteca de movimientos necesita mostrar. El tipo completo vive en
+// el repositorio; acá solo lo que se dibuja.
+type MotionDnaUI = { id: string; name: string; camera_move: string | null; emotion: string | null };
+
 // Emotional, phase-aware messages shown on the live production stage. They make
 // the wait feel like a show ("ya casi…") instead of a progress bar.
 const EMO_MESSAGES: string[] = [
@@ -112,6 +116,7 @@ function ProjectDetail() {
   // El plan de rodaje arranca plegado: es para quien quiere dirigir, no ruido
   // para quien solo quiere su video.
   const [verPlan, setVerPlan] = useState(false);
+  const [dnaGuardados, setDnaGuardados] = useState<MotionDnaUI[]>([]);
   const [hasError, setHasError] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
@@ -328,6 +333,53 @@ function ProjectDetail() {
   // Volver a la versión anterior de una escena. Gratis: la imagen ya está
   // generada y pagada, solo cambia el puntero. Después re-monta el video, que
   // es el único paso con costo real y el que hace visible el cambio.
+  // ── Motion DNA ──
+  // Guardar el movimiento de una toma que salió bien, y poder aplicarlo después
+  // a otra historia. Nada de esto genera ni cuesta: son los mismos campos que el
+  // generador lee, movidos de un lado a otro.
+  async function cargarDna() {
+    try {
+      const r = await fetch("/api/motion-dna");
+      if (!r.ok) return;
+      const d = await r.json() as { dna?: MotionDnaUI[] };
+      setDnaGuardados(d.dna ?? []);
+    } catch { /* la biblioteca es opcional */ }
+  }
+
+  async function guardarDna(sceneNumber: number) {
+    const name = window.prompt("Nombre para este movimiento (ej: Acercamiento tenso):")?.trim();
+    if (!name) return;
+    try {
+      const r = await fetch("/api/motion-dna", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "guardar", project_id: id, scene_number: sceneNumber, name }),
+      });
+      const d = await r.json() as { error?: string };
+      if (!r.ok) throw new Error(d.error ?? "no");
+      await cargarDna();
+      toast(`🎞 "${name}" guardado — reusalo en cualquier historia`, "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "No se pudo guardar.", "error");
+    }
+  }
+
+  async function aplicarDna(dnaId: string, nombre: string) {
+    if (!scenes.length) return;
+    try {
+      const r = await fetch("/api/motion-dna", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "aplicar", dna_id: dnaId, project_id: id, scene_numbers: scenes.map(s => s.scene_number) }),
+      });
+      const d = await r.json() as { escenas?: number; error?: string };
+      if (!r.ok) throw new Error(d.error ?? "no");
+      const det = await fetch(`/api/projects/${id}`);
+      if (det.ok) setDetail(await det.json() as ProjectDetail);
+      toast(`🎞 "${nombre}" aplicado a ${d.escenas} escenas`, "success");
+    } catch {
+      toast("No se pudo aplicar.", "error");
+    }
+  }
+
   // Guarda una corrección del plan. No genera nada: solo cambia lo que el
   // generador va a leer cuando toque animar.
   async function guardarPlan(sceneNumber: number, campos: Record<string, string>) {
@@ -915,7 +967,7 @@ function ProjectDetail() {
                       recién en el video ya pagado. Verlo y corregirlo antes de
                       animar es la diferencia entre dirigir y apostar. */}
                   <button
-                    onClick={() => setVerPlan(v => !v)}
+                    onClick={() => { const abrir = !verPlan; setVerPlan(abrir); if (abrir) void cargarDna(); }}
                     className="shrink-0 text-[11px] px-2.5 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
                   >
                     {verPlan ? "Ocultar plan" : "🎬 Ver plan de rodaje"}
@@ -927,10 +979,30 @@ function ProjectDetail() {
                     <p className="px-3 py-2 text-[10px] text-zinc-500">
                       Esto es lo que la IA va a animar. Corrígelo y se anima así — es gratis y no genera nada.
                     </p>
+
+                    {/* MOTION DNA — el movimiento como algo que se reutiliza.
+                        Si una toma quedó bien, guardar su movimiento evita tener
+                        que volver a tener suerte en la próxima historia. */}
+                    {dnaGuardados.length > 0 && (
+                      <div className="px-3 py-2 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mr-1">Tu biblioteca</span>
+                        {dnaGuardados.map(d => (
+                          <button
+                            key={d.id}
+                            onClick={() => void aplicarDna(d.id, d.name)}
+                            title={`Cámara: ${d.camera_move ?? "—"} · Emoción: ${d.emotion ?? "—"}`}
+                            className="px-2 py-1 rounded-lg border border-violet-700/50 bg-violet-950/30 text-[10px] text-violet-200 hover:bg-violet-600 hover:text-white transition-colors"
+                          >
+                            🎞 {d.name}
+                          </button>
+                        ))}
+                        <span className="text-[9px] text-zinc-600 w-full mt-0.5">Toca uno para aplicarlo a TODAS las escenas.</span>
+                      </div>
+                    )}
                     {scenes.map((sc) => {
                       const s = sc as unknown as { camera_move?: string | null; emotion?: string | null; environment?: string | null };
                       return (
-                        <div key={`plan-${sc.id}`} className="px-3 py-2 grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-center">
+                        <div key={`plan-${sc.id}`} className="px-3 py-2 grid grid-cols-[auto_1fr_1fr_1fr_auto] gap-2 items-center">
                           <span className="text-[10px] font-bold text-zinc-500 w-5">{sc.scene_number}</span>
                           {([
                             { k: "camera_move" as const, ph: "cámara", v: s.camera_move ?? "" },
@@ -948,6 +1020,13 @@ function ProjectDetail() {
                               className="bg-zinc-950/60 border border-zinc-800 rounded px-2 py-1 text-[10px] text-zinc-300 focus:outline-none focus:border-violet-600 transition-colors"
                             />
                           ))}
+                          <button
+                            onClick={() => void guardarDna(sc.scene_number)}
+                            title="Guardar este movimiento para reusarlo en otras historias"
+                            className="text-[10px] px-1.5 py-1 rounded border border-zinc-800 text-zinc-500 hover:text-violet-300 hover:border-violet-700 transition-colors"
+                          >
+                            💾
+                          </button>
                         </div>
                       );
                     })}

@@ -204,6 +204,31 @@ export async function initDb(): Promise<void> {
   await runMigration(db, "ALTER TABLE jobs ADD COLUMN stage TEXT");
   await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, created_at)");
   await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id)");
+
+  // ── MOTION DNA ─────────────────────────────────────────────────────────────
+  // Hasta ahora el movimiento vivía atrapado dentro de un video: si una toma
+  // salía bien, esa forma de moverse se perdía con ella y la próxima historia
+  // volvía a empezar de cero. Guardarlo aparte lo convierte en algo que se
+  // reutiliza — la cámara y la actuación que funcionaron, aplicadas a otra
+  // escena y a otro personaje.
+  //
+  // No es un modelo ni una IA nueva: es la MISMA metadata que el guion ya
+  // produce (cámara, emoción, ambiente), sacada de una escena y guardada con
+  // nombre. Por eso es barato y por eso funciona: lo que se guarda es
+  // exactamente lo que el generador sabe leer.
+  await runMigration(db, `CREATE TABLE IF NOT EXISTS motion_dna (
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    camera_move  TEXT,
+    emotion      TEXT,
+    environment  TEXT,
+    niche        TEXT,          -- de qué género salió, para sugerir el adecuado
+    origin_project_id TEXT,     -- la toma que lo originó, para poder volver a verla
+    used_count   INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+  await runMigration(db, "CREATE INDEX IF NOT EXISTS idx_motion_dna_user ON motion_dna(user_id, created_at DESC)");
 }
 
 // Run a migration that may already have been applied; ignore "duplicate"/"exists" errors.

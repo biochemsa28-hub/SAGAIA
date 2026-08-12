@@ -579,6 +579,126 @@ export async function actualizarPlanDeEscena(params: {
   return (r.rowsAffected ?? 0) > 0;
 }
 
+// ─── MOTION DNA ──────────────────────────────────────────────────────────────
+// El movimiento como cosa reutilizable, no como algo atrapado dentro de un video.
+// Lo que se guarda es la MISMA metadata que el generador ya sabe leer —cámara,
+// emoción, ambiente— así que aplicar un DNA a otra escena es escribir esos tres
+// campos y nada más. Ahí está la gracia: no hace falta un modelo nuevo.
+
+export interface MotionDna {
+  id: string;
+  name: string;
+  camera_move: string | null;
+  emotion: string | null;
+  environment: string | null;
+  niche: string | null;
+  origin_project_id: string | null;
+  used_count: number;
+  created_at: string;
+}
+
+// Captura el plan de una escena que salió bien y lo guarda con nombre.
+export async function guardarMotionDna(params: {
+  userId: string;
+  projectId: string;
+  sceneNumber: number;
+  name: string;
+}): Promise<MotionDna | null> {
+  const db = getDb();
+  const r = await db.execute({
+    sql: `SELECT s.camera_move, s.emotion, s.environment, p.niche
+          FROM scenes s JOIN projects p ON p.id = s.project_id
+          WHERE s.project_id = ? AND s.scene_number = ? AND p.user_id = ?`,
+    args: [params.projectId, params.sceneNumber, params.userId],
+  });
+  const f = r.rows[0] as Record<string, unknown> | undefined;
+  if (!f) return null;
+  // Un DNA sin cámara ni emoción no describe ningún movimiento: guardarlo sería
+  // ofrecer después una plantilla vacía.
+  if (!f["camera_move"] && !f["emotion"]) return null;
+
+  const texto = (k: string): string | null => {
+    const v = f[k];
+    return typeof v === "string" && v.trim() ? v : null;
+  };
+  const id = uuidv4();
+  const nombre = params.name.slice(0, 60);
+  await db.execute({
+    sql: `INSERT INTO motion_dna (id, user_id, name, camera_move, emotion, environment, niche, origin_project_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, params.userId, nombre, texto("camera_move"), texto("emotion"),
+           texto("environment"), texto("niche"), params.projectId],
+  });
+  return {
+    id, name: nombre,
+    camera_move: texto("camera_move"),
+    emotion: texto("emotion"),
+    environment: texto("environment"),
+    niche: texto("niche"),
+    origin_project_id: params.projectId, used_count: 0, created_at: new Date().toISOString(),
+  };
+}
+
+export async function listarMotionDna(userId: string): Promise<MotionDna[]> {
+  const db = getDb();
+  const r = await db.execute({
+    sql: "SELECT * FROM motion_dna WHERE user_id = ? ORDER BY used_count DESC, created_at DESC LIMIT 60",
+    args: [userId],
+  });
+  return r.rows as unknown as MotionDna[];
+}
+
+// Aplica un DNA a una escena. Escribe los mismos campos que el generador lee, así
+// que la próxima animación de esa escena sale con ese movimiento.
+export async function aplicarMotionDna(params: {
+  userId: string;
+  dnaId: string;
+  projectId: string;
+  sceneNumbers: number[];
+}): Promise<number> {
+  const db = getDb();
+  const d = await db.execute({
+    sql: "SELECT camera_move, emotion, environment FROM motion_dna WHERE id = ? AND user_id = ?",
+    args: [params.dnaId, params.userId],
+  });
+  const dna = d.rows[0] as Record<string, unknown> | undefined;
+  if (!dna) return 0;
+
+  const dueño = await db.execute({
+    sql: "SELECT 1 FROM projects WHERE id = ? AND user_id = ?",
+    args: [params.projectId, params.userId],
+  });
+  if (!dueño.rows[0]) return 0;
+
+  const val = (k: string): string | null => {
+    const v = dna[k];
+    return typeof v === "string" && v.trim() ? v : null;
+  };
+  let tocadas = 0;
+  for (const n of params.sceneNumbers.slice(0, 40)) {
+    const r = await db.execute({
+      // El ambiente solo se pisa si el DNA trae uno: un DNA de cámara no tiene
+      // por qué borrar la lluvia que la escena ya tenía.
+      sql: `UPDATE scenes SET camera_move = ?, emotion = ?, environment = COALESCE(?, environment)
+            WHERE project_id = ? AND scene_number = ?`,
+      args: [val("camera_move"), val("emotion"), val("environment"), params.projectId, n],
+    });
+    tocadas += r.rowsAffected ?? 0;
+  }
+  if (tocadas) {
+    await db.execute({ sql: "UPDATE motion_dna SET used_count = used_count + 1 WHERE id = ?", args: [params.dnaId] });
+  }
+  return tocadas;
+}
+
+export async function borrarMotionDna(userId: string, dnaId: string): Promise<boolean> {
+  const r = await getDb().execute({
+    sql: "DELETE FROM motion_dna WHERE id = ? AND user_id = ?",
+    args: [dnaId, userId],
+  });
+  return (r.rowsAffected ?? 0) > 0;
+}
+
 // Asciende un borrador a estreno. Solo cambia la marca: el guion, el elenco, las
 // imágenes y las escenas aprobadas ya existen y no se vuelven a pagar — lo único
 // que falta comprar es la animación.
