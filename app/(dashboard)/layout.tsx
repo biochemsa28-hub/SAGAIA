@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { CommandBar } from "@/components/layout/CommandBar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="md:ml-60 min-h-screen pb-20 md:pb-0">{children}</main>
       {/* Mobile bottom nav */}
       <MobileNav />
+      {/* Ctrl+K en cualquier pantalla del estudio */}
+      <CommandBar />
     </div>
   );
 }

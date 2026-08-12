@@ -327,6 +327,8 @@ function NewProjectForm() {
   // misterio+fantasía) eran imposibles de armar en ese orden. El auto-ajuste
   // solo aplica mientras el usuario no haya tocado la cinta de tonos.
   const [toneTouched, setToneTouched] = useState(() => Boolean(searchParams.get("tone")));
+  // Las instrucciones adicionales viven plegadas hasta que alguien las pida.
+  const [notasAbiertas, setNotasAbiertas] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
   const [genError, setGenError] = useState<string | null>(null);
@@ -470,6 +472,28 @@ function NewProjectForm() {
 
   function goNext() { if (validateStep(step)) setStep(s => s + 1); }
   function goBack() { setStep(s => Math.max(0, s - 1)); setErrors({}); }
+
+  // Teclado en el formulario: Enter avanza, Esc retrocede. Solo entre los pasos
+  // 0→1→2 — el salto al casting gasta NAVOS y exige el click explícito. Dentro
+  // del textarea, Enter escribe; Ctrl+Enter avanza.
+  useEffect(() => {
+    if (castingStep || hookStep || generating || prod || result) return;
+    const onKey = (e: KeyboardEvent) => {
+      const enTexto = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
+      if (e.key === "Enter" && step < 2 && (!enTexto || e.ctrlKey)) { e.preventDefault(); goNext(); }
+      else if (e.key === "Escape" && step > 0 && !enTexto) goBack();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, form, castingStep, hookStep, generating, prod, result]);
+
+  // Velocidad percibida: las 5 referencias de estilo se descargan mientras el
+  // usuario todavía escribe su historia — al llegar al paso 3 ya están en caché
+  // y los fotogramas aparecen al instante.
+  useEffect(() => {
+    Object.values(STYLE_THUMB).forEach(t => { const i = new window.Image(); i.src = t.img; });
+  }, []);
 
   async function loadCasting() {
     setCastingLoading(true);
@@ -1821,16 +1845,30 @@ function NewProjectForm() {
             </div>
           </div>
 
-          {/* Additional instructions */}
+          {/* Instrucciones adicionales — plegadas: la mayoría no las usa, y un
+              textarea vacío siempre visible es ruido en el paso de decisión.
+              Si ya traen texto, se muestran abiertas. */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-2">Instrucciones adicionales <span className="text-zinc-700">(opcional)</span></p>
-            <textarea
-              value={form.additional_instructions}
-              onChange={e => set("additional_instructions")(e.target.value)}
-              rows={2}
-              placeholder="Ej: La protagonista debe ser mayor de 50 años. Incluir giro inesperado al final."
-              className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-300 placeholder-zinc-700 focus:outline-none resize-none transition-all"
-            />
+            {form.additional_instructions || notasAbiertas ? (
+              <>
+                <p className="text-xs font-bold text-zinc-400 mb-2">Instrucciones adicionales <span className="text-zinc-700">(opcional)</span></p>
+                <textarea
+                  value={form.additional_instructions}
+                  onChange={e => set("additional_instructions")(e.target.value)}
+                  rows={2}
+                  autoFocus={notasAbiertas && !form.additional_instructions}
+                  placeholder="Ej: La protagonista debe ser mayor de 50 años. Incluir giro inesperado al final."
+                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-300 placeholder-zinc-700 focus:outline-none resize-none transition-all"
+                />
+              </>
+            ) : (
+              <button
+                onClick={() => setNotasAbiertas(true)}
+                className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                + Agregar instrucciones para la IA <span className="text-zinc-700">(opcional)</span>
+              </button>
+            )}
           </div>
 
           {/* Calidad premium — un solo nivel, el mejor. Va al final de la columna
