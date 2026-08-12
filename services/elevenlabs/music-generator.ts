@@ -1,9 +1,11 @@
 // ─── ElevenLabs Music generator ────────────────────────────────────────────────
 // Composes an ORIGINAL background score from a text prompt via ElevenLabs' Music
 // API (/v1/music), then uploads it to fal storage so Shotstack can fetch a public
-// URL. Cached for the process lifetime per niche/mood so we don't regenerate the
-// same score on every render. Never throws — a null just means "render without
-// generated music" (the assembler falls back to env MUSIC_URL_* or no music).
+// URL. Cached por PROMPT (no por nicho: ver la nota en la clave del caché) para
+// no repagar la misma pista dentro de un reintento. Never throws — a null just
+// means "render without generated music" (the assembler falls back to env
+// MUSIC_URL_* or no music).
+import { createHash } from "node:crypto";
 
 const cache = new Map<string, string>();
 
@@ -51,7 +53,18 @@ export async function generateStoryMusic(
   const basePrompt = NICHE_MUSIC_MOOD[moodKey] ?? NICHE_MUSIC_MOOD["default"]!;
   const prompt = musicMood ? `${basePrompt}. ${musicMood}` : basePrompt;
   const lengthMs = Math.min(Math.max(Math.round(durationSeconds), 10), 120) * 1000;
-  const key = `${moodKey}_${Math.round(lengthMs / 1000)}`;
+  // LA CLAVE INCLUYE EL PROMPT ENTERO, NO SOLO EL NICHO.
+  //
+  // Antes la clave era nicho + duración, así que TODOS los videos de romance de
+  // la misma duración recibían la misma pista — y el music_mood que el guion
+  // escribe para ESTA historia entraba en el prompt pero no en la clave, o sea
+  // que se descartaba y volvía la música de la historia anterior. Un creador que
+  // publica cinco videos publicaba cinco veces la misma canción.
+  //
+  // El caché sigue existiendo para lo que sirve de verdad: no pagar dos veces la
+  // misma pista dentro de un reintento del mismo proyecto.
+  const huella = createHash("sha1").update(prompt).digest("hex").slice(0, 12);
+  const key = `${huella}_${Math.round(lengthMs / 1000)}`;
   if (cache.has(key)) return cache.get(key)!;
 
   try {
