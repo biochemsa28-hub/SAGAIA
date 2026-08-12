@@ -825,6 +825,52 @@ export interface DbAsset {
   created_at: string;
 }
 
+// Vuelve una escena a una versión anterior de su imagen. Es gratis — la imagen
+// ya está generada y pagada — y por eso deshacer una regeneración fallida no
+// puede costar lo mismo que hacerla. El swap es simétrico: la que estaba pasa
+// al historial, así se puede ir y volver sin perder ninguna de las dos.
+export async function revertAssetVersion(params: {
+  projectId: string;
+  userId: string;
+  sceneNumber: number;
+  assetType: string;
+  targetUrl: string;
+}): Promise<boolean> {
+  const db = getDb();
+  const dueño = await db.execute({
+    sql: "SELECT 1 FROM projects WHERE id = ? AND user_id = ?",
+    args: [params.projectId, params.userId],
+  });
+  if (!dueño.rows[0]) return false;
+
+  const res = await db.execute({
+    sql: `SELECT a.id, a.public_url, a.metadata FROM assets a
+          JOIN scenes s ON s.id = a.scene_id
+          WHERE a.project_id = ? AND s.scene_number = ? AND a.asset_type = ?`,
+    args: [params.projectId, params.sceneNumber, params.assetType],
+  });
+  const fila = res.rows[0] as Record<string, unknown> | undefined;
+  if (!fila) return false;
+
+  let meta: Record<string, unknown> = {};
+  try { meta = JSON.parse(String(fila["metadata"] ?? "{}")) as Record<string, unknown>; } catch { meta = {}; }
+  const versiones = Array.isArray(meta["versiones"]) ? (meta["versiones"] as string[]) : [];
+  // Solo se puede volver a una versión que este asset tuvo de verdad: sin esto,
+  // el endpoint aceptaría cualquier URL que alguien quisiera inyectar.
+  if (!versiones.includes(params.targetUrl)) return false;
+
+  const actual = fila["public_url"] as string | null;
+  const nuevas = versiones.filter(v => v !== params.targetUrl);
+  if (actual && actual !== params.targetUrl) nuevas.push(actual);
+  meta["versiones"] = nuevas.slice(-5);
+
+  await db.execute({
+    sql: "UPDATE assets SET public_url = ?, metadata = ?, updated_at = datetime('now') WHERE id = ?",
+    args: [params.targetUrl, JSON.stringify(meta), fila["id"] as string],
+  });
+  return true;
+}
+
 export async function upsertAsset(params: {
   projectId: string;
   sceneNumber?: number;
@@ -853,10 +899,30 @@ export async function upsertAsset(params: {
   });
 
   if (existing.rows[0]) {
-    const assetId = (existing.rows[0] as Record<string, unknown>)["id"] as string;
+    const fila = existing.rows[0] as Record<string, unknown>;
+    const assetId = fila["id"] as string;
+    // REGENERAR NO DESTRUYE. Antes este UPDATE pisaba public_url y la versión
+    // anterior desaparecía: si la nueva imagen salía peor, no había vuelta y el
+    // usuario había pagado dos veces por quedarse con la mala. Ahora la URL que
+    // se reemplaza se apila en metadata.versiones y se puede volver a ella
+    // gratis. Va en metadata (columna que ya existe) a propósito: guardar
+    // historial no justifica una tabla nueva ni una migración.
+    const previa = fila["public_url"] as string | null;
+    let meta: Record<string, unknown> = {};
+    try { meta = params.metadata ? JSON.parse(params.metadata) as Record<string, unknown> : {}; } catch { meta = {}; }
+    if (!params.metadata) {
+      const actual = await db.execute({ sql: "SELECT metadata FROM assets WHERE id = ?", args: [assetId] });
+      try { meta = JSON.parse(String((actual.rows[0] as Record<string, unknown>)?.["metadata"] ?? "{}")) as Record<string, unknown>; } catch { meta = {}; }
+    }
+    const versiones = Array.isArray(meta["versiones"]) ? (meta["versiones"] as string[]) : [];
+    if (previa && previa !== params.publicUrl && !versiones.includes(previa)) {
+      versiones.push(previa);
+      // Tope de 5: el historial es para deshacer un error reciente, no un archivo.
+      meta["versiones"] = versiones.slice(-5);
+    }
     await db.execute({
-      sql: "UPDATE assets SET public_url = ?, file_path = ?, status = 'done', metadata = COALESCE(?, metadata), updated_at = datetime('now') WHERE id = ?",
-      args: [params.publicUrl, params.filePath ?? null, params.metadata ?? null, assetId],
+      sql: "UPDATE assets SET public_url = ?, file_path = ?, status = 'done', metadata = ?, updated_at = datetime('now') WHERE id = ?",
+      args: [params.publicUrl, params.filePath ?? null, JSON.stringify(meta), assetId],
     });
   } else {
     await db.execute({

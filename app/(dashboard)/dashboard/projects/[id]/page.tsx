@@ -322,6 +322,41 @@ function ProjectDetail() {
   // Regenerate a single scene: new image → new clip → re-assemble final video.
   // Saves credits/time vs producing everything again. Progress shows the generic
   // "Produciendo tu video…" overlay (no internal steps exposed to the user).
+  // Volver a la versión anterior de una escena. Gratis: la imagen ya está
+  // generada y pagada, solo cambia el puntero. Después re-monta el video, que
+  // es el único paso con costo real y el que hace visible el cambio.
+  async function revertScene(sceneNumber: number) {
+    const versiones = (detail?.assets ?? [])
+      .filter(a => a.asset_type === "image" && a.scene_id === scenes.find(s => s.scene_number === sceneNumber)?.id)
+      .flatMap(a => { try { return (JSON.parse(a.metadata ?? "{}") as { versiones?: string[] }).versiones ?? []; } catch { return []; } });
+    const target = versiones[versiones.length - 1];
+    if (!target) return;
+
+    setProducing(true);
+    setHasError(false);
+    setErrorDetail(null);
+    setStepStatus({ voice: "done", images: "done", clips: "done", final: "running" });
+    try {
+      const r = await fetch("/api/scenes/revert", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: id, scene_number: sceneNumber, target_url: target }),
+      });
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? "No se pudo volver atrás");
+      await runFinal();
+      try {
+        const d = await fetch(`/api/projects/${id}`);
+        if (d.ok) setDetail(await d.json() as ProjectDetail);
+      } catch {}
+      toast("↩ Volviste a la versión anterior", "success");
+    } catch (err) {
+      setHasError(true);
+      setErrorDetail(err instanceof Error ? err.message : "Error desconocido");
+      toast("No se pudo volver atrás.", "error");
+    } finally {
+      setProducing(false);
+    }
+  }
+
   async function regenerateScene(sceneNumber: number) {
     setProducing(true);
     setFinalVideoUrl(null);
@@ -555,6 +590,17 @@ function ProjectDetail() {
   // Map each scene to its image thumbnail (assets link by scene_id)
   const imageBySceneId = new Map(
     (detail.assets ?? []).filter((a) => a.asset_type === "image" && a.scene_id).map((a) => [a.scene_id, a.public_url]),
+  );
+  // Versiones anteriores de cada imagen: lo que había antes de regenerar. Vive
+  // en metadata.versiones del asset — volver a una es gratis.
+  const versionesBySceneId = new Map<string, string[]>(
+    (detail.assets ?? [])
+      .filter((a) => a.asset_type === "image" && a.scene_id)
+      .map((a) => {
+        let v: string[] = [];
+        try { const m = JSON.parse(a.metadata ?? "{}") as { versiones?: string[] }; v = m.versiones ?? []; } catch { v = []; }
+        return [a.scene_id as string, v];
+      }),
   );
 
   // ── Live stats for the production stage (dopamine numbers) ──────────────────
@@ -813,7 +859,9 @@ function ProjectDetail() {
               <div className="space-y-2">
                 <div className="px-1">
                   <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">¿No te gustó una escena?</h2>
-                  <p className="text-[11px] text-zinc-600 mt-0.5">Regenera solo esa escena — el resto del video se conserva</p>
+                  <p className="text-[11px] text-zinc-600 mt-0.5">
+                    Regenera solo esa escena — el resto del video se conserva. Si la nueva no te gusta, puedes volver a la anterior gratis.
+                  </p>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {scenes.map((sc) => {
@@ -836,6 +884,20 @@ function ProjectDetail() {
                             title="Guardar como personaje reutilizable"
                           >
                             <Star className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {/* Deshacer: visible SOLO si esta escena tiene una versión
+                            anterior. No compite con Regenerar — vive abajo y se ve
+                            siempre, porque tras una regeneración fallida es lo
+                            primero que el usuario busca. */}
+                        {(versionesBySceneId.get(sc.id)?.length ?? 0) > 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); void revertScene(sc.scene_number); }}
+                            disabled={producing}
+                            className="absolute bottom-1 inset-x-1 z-10 py-1 rounded-lg bg-black/75 hover:bg-emerald-600 text-[9px] font-bold text-emerald-200 hover:text-white transition-colors disabled:opacity-40"
+                            title="Volver a la imagen anterior (gratis)"
+                          >
+                            ↩ Volver a la anterior
                           </button>
                         )}
                         <button
