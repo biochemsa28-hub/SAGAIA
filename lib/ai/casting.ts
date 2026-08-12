@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { materialDeCasting, NOMBRES_QUEMADOS } from "@/lib/ai/name-bank";
 
 // ─── Casting: design the CAST of a micro-story before producing it ──────────────
 // ChatGPT reads the premise and returns up to 4 characters the story needs. Each
@@ -58,6 +59,8 @@ Tu trabajo: leer la premisa de una historia y diseñar el ELENCO MÍNIMO necesar
 REGLAS:
 - Diseña entre 1 y ${MAX_CAST} personajes. SOLO los que la historia realmente necesita (no rellenes).
 - Cada personaje debe ser ESPECÍFICO y memorable: nombre real, edad concreta, un RASGO FÍSICO FIRMA inconfundible (una cicatriz, una mirada, un mechón blanco, una prenda que siempre lleva), y una CONTRADICCIÓN interna (lo que muestra vs lo que esconde). Nada genérico.
+- NOMBRE Y APELLIDO, siempre los dos, elegidos del material que te doy más abajo. PROHIBIDO usar: ${NOMBRES_QUEMADOS}. Son los que aparecen en todas las historias y ya no significan nada.
+- VESTUARIO QUE CUENTA QUIÉN ES. La ropa dice de qué vive alguien, de dónde viene y en qué década está — no si es "elegante". Nombrá prendas CONCRETAS con su estado: el uniforme con el logo descosido, la camisa planchada dos tallas grande que era del padre, las zapatillas gastadas de un lado, el reloj caro con la correa rota, el delantal con manchas que no salen. Dos personajes de la misma historia no pueden vestir del mismo mundo salvo que la premisa lo pida.
 - Define para cada uno: género (male/female/neutral), edad (child/teen/young/adult/elderly), tipo (human/animal/monster/other).
 - Asigna un "voice_profile" coherente con el personaje (de la lista permitida) para que después tenga su propia voz.
 - "visual_description": descripción física rica y CONCRETA para generar su retrato (rostro, edad, cabello, vestuario, expresión, iluminación, ambiente), incluyendo el rasgo firma. 1-3 frases potentes y cinematográficas.
@@ -83,6 +86,7 @@ TONO: ${input.tone}
 ESTILO VISUAL: ${input.visual_style}
 MÁXIMO DE PERSONAJES: ${max}
 
+${materialDeCasting()}
 Diseña el elenco (1 a ${max} personajes). Devuelve este JSON exacto:
 
 {
@@ -94,7 +98,7 @@ Diseña el elenco (1 a ${max} personajes). Devuelve este JSON exacto:
       "age": "child | teen | young | adult | elderly",
       "kind": "human | animal | monster | other",
       "personality": "1-2 frases: quién es, su contradicción, su deseo",
-      "visual_description": "descripción física rica para su retrato (rostro, edad, cabello, vestuario, expresión, ambiente), estilo ${input.visual_style}",
+      "visual_description": "descripción física rica para su retrato (rostro, edad, cabello, VESTUARIO CONCRETO con prendas y su estado, expresión, ambiente), estilo ${input.visual_style}",
       "voice_profile": "uno de: ${VOICE_PROFILES.join(" | ")}"
     }
   ]

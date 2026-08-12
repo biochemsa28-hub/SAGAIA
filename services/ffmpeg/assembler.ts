@@ -45,6 +45,34 @@ const LOUDNORM_LUFS = Number(process.env.LOUDNORM_LUFS ?? -16) || -16;
 // more memory than a small container has, and every segment died with a bare
 // "Command failed" — the render worked on a laptop and could not work in
 // production. 1.5x keeps the zoom clean at a third of the pixels.
+// ── EL LOOK DEL GÉNERO ───────────────────────────────────────────────────────
+// Lo que separa un video que parece generado de uno que parece filmado casi
+// nunca es el modelo: es el color. Una película de terror es fría y con los
+// negros aplastados; una de romance es cálida y con los blancos lavados. Eso no
+// se le pide al generador de imágenes —que da una imagen distinta cada vez— se
+// aplica DESPUÉS, igual a todo el video, y es lo que lo unifica.
+//
+// Cuesta $0 y milisegundos de CPU: son filtros de ffmpeg sobre un render que ya
+// estábamos haciendo. Es la mejora de percepción más barata disponible.
+//
+// Se aplica ANTES de los subtítulos a propósito: el texto tiene que quedar
+// limpio y a pleno contraste, no teñido ni con viñeta encima.
+const LOOK: Record<string, string> = {
+  terror:        "eq=contrast=1.14:saturation=0.80:gamma=0.93,colorbalance=rs=-0.05:gs=-0.02:bs=0.10,vignette=PI/4",
+  misterio:      "eq=contrast=1.10:saturation=0.88:gamma=0.97,colorbalance=rs=-0.04:bs=0.08,vignette=PI/4.5",
+  romance:       "eq=contrast=1.04:saturation=1.10:gamma=1.03,colorbalance=rs=0.06:gs=0.02:bs=-0.04,vignette=PI/6",
+  inspiracional: "eq=contrast=1.06:saturation=1.08:gamma=1.05,colorbalance=rs=0.05:gs=0.03:bs=-0.02,vignette=PI/7",
+  fantasia:      "eq=contrast=1.08:saturation=1.18:gamma=1.00,colorbalance=rs=0.03:bs=0.07,vignette=PI/5",
+  historia:      "eq=contrast=1.06:saturation=0.82:gamma=0.99,colorbalance=rs=0.07:gs=0.03:bs=-0.06,vignette=PI/5",
+  default:       "eq=contrast=1.06:saturation=1.00:gamma=1.00,vignette=PI/5",
+};
+const LOOK_ON = (process.env.LOOK ?? "on").toLowerCase() !== "off";
+function lookDe(niche?: string): string {
+  if (!LOOK_ON) return "";
+  const l = LOOK[(niche ?? "").toLowerCase()] ?? LOOK.default;
+  return `,${l}`;
+}
+
 const OVERSAMPLE = Math.max(1, Math.min(2, Number(process.env.KENBURNS_OVERSAMPLE ?? 1.5) || 1.5));
 const OVERSAMPLE_W = Math.round(1080 * OVERSAMPLE / 2) * 2;
 const OVERSAMPLE_H = Math.round(1920 * OVERSAMPLE / 2) * 2;
@@ -603,7 +631,7 @@ async function buildSceneClip(
         // La narración manda sobre la duración del segmento: un bloque narrativo
         // apila varias escenas sobre una sola generación, y cortar con -shortest
         // se comía líneas enteras. Pero el relleno ya no es una estatua indefinida.
-        "-filter_complex", `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${relleno}${subFilter}${outro}[v]`,
+        "-filter_complex", `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${relleno}${lookDe(deco?.niche)}${subFilter}${outro}[v]`,
         "-map", "[v]",
         "-map", hasAudio ? "1:a" : (clipConAudio ? "0:a" : `${idxSilencio}:a`),
         ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
@@ -630,7 +658,7 @@ async function buildSceneClip(
           "-y", "-loop", "1", "-i", shotImg,
           "-filter_complex",
           `[0:v]scale=${OVERSAMPLE_W}:${OVERSAMPLE_H}:force_original_aspect_ratio=increase,crop=${OVERSAMPLE_W}:${OVERSAMPLE_H},` +
-          `zoompan=z='${smo.z}':x='${smo.x}':y='${smo.y}':d=${perFrames}:s=1080x1920:fps=30,setsar=1${atmo}[v]`,
+          `zoompan=z='${smo.z}':x='${smo.x}':y='${smo.y}':d=${perFrames}:s=1080x1920:fps=30,setsar=1${atmo}${lookDe(deco?.niche)}[v]`,
           "-map", "[v]", "-t", per.toFixed(3),
           ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg,
         ], opts);
@@ -647,7 +675,7 @@ async function buildSceneClip(
       if (hasAudio) args2.push("-i", audioPath);
       // Igual que las otras dos ramas: nunca un segmento sin pista de audio.
       if (!hasAudio) args2.push(...SILENCIO);
-      args2.push("-filter_complex", `[0:v]setsar=1${subFilter}${transition}[v]`, "-map", "[v]");
+      args2.push("-filter_complex", `[0:v]setsar=1${lookDe(deco?.niche)}${subFilter}${transition}[v]`, "-map", "[v]");
       args2.push("-map", "1:a", "-shortest");
       args2.push(...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", ...SALIDA_UNIFORME, out);
       await exec(FFMPEG, args2, opts);
@@ -663,7 +691,7 @@ async function buildSceneClip(
       // aliveness needs a video model (see ANIMATE_HERO_SCENES).
       const atmo = ATMOSPHERE_ON ? `,noise=alls=6:allf=t+u` : "";
       const kb = `[0:v]scale=${OVERSAMPLE_W}:${OVERSAMPLE_H}:force_original_aspect_ratio=increase,crop=${OVERSAMPLE_W}:${OVERSAMPLE_H},` +
-        `zoompan=z='${mo.z}':x='${mo.x}':y='${mo.y}':d=1:s=1080x1920:fps=30,setsar=1${atmo}${subFilter}${transition}[v]`;
+        `zoompan=z='${mo.z}':x='${mo.x}':y='${mo.y}':d=1:s=1080x1920:fps=30,setsar=1${atmo}${lookDe(deco?.niche)}${subFilter}${transition}[v]`;
       // d=1, NOT d=frames. With -loop 1 the input never ends, so d=frames asks
       // zoompan for 150 output frames PER input frame — it buffers forever and
       // never emits the first one, which is the "frame= 0" every scene died on.
