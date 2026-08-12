@@ -1111,22 +1111,29 @@ function NewProjectForm() {
         </div>
       </div>
 
-      {/* ── STEP 0: Universo ── */}
+      {/* ── STEP 0: Universo ─────────────────────────────────────────────────────
+          Horizontal y cinematográfico. Elegir el nicho es elegir el MUNDO de una
+          película, no llenar un formulario: cada tarjeta lleva el aura de su
+          género (el mismo color que después tiñe subtítulos, música e imagen), un
+          "telón" que respira, y la selección se siente física — la tarjeta se
+          adelanta y las demás se apagan. Ancho completo: en desktop el paso vive
+          en una sola pantalla, sin scroll. */}
       {step === 0 && (
-        <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-5 pb-32">
+        <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 space-y-6 pb-32">
 
           {/* Trending */}
           <div>
             <div className="flex items-center gap-1.5 mb-2.5">
               <TrendingUp className="w-3.5 h-3.5 text-pink-400" />
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Trending ahora</p>
+              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 vy-pulse-soft" />
             </div>
             <div className="flex gap-2 flex-wrap">
               {TRENDING.map(t => (
                 <button
                   key={t.label}
                   onClick={() => { set("niche")(t.niche); set("tone")(t.tone); const ideas = QUICK_IDEAS[t.niche] ?? []; if (ideas.length) set("topic")(ideas[0] ?? ""); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 hover:border-pink-700/60 text-xs text-zinc-400 hover:text-white transition-all"
+                  className="vy-press flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 hover:border-pink-600/70 hover:bg-zinc-800/80 text-xs text-zinc-400 hover:text-white transition-all"
                 >
                   {t.emoji} {t.label}
                 </button>
@@ -1134,29 +1141,62 @@ function NewProjectForm() {
             </div>
           </div>
 
-          {/* Nicho grid */}
+          {/* Nicho — pósters horizontales, 3 columnas */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-3">Elige tu nicho <span className="text-red-400">*</span></p>
-            <div className="grid grid-cols-2 gap-3">
+            <p className="text-xs font-bold text-zinc-400 mb-3">Elige tu universo <span className="text-red-400">*</span></p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {NICHOS.map(n => {
                 const t = NICHO_THEME[n.id] ?? DEFAULT_THEME;
                 const active = form.niche === n.id;
+                const dimmed = Boolean(form.niche) && !active;
                 return (
                   <button
                     key={n.id}
                     onClick={() => { set("niche")(n.id); set("sub_niche")(""); setIdeaIdx(0); const dt = NICHE_DEFAULT_TONE[n.id]; if (dt) set("tone")(dt); }}
-                    className={`relative overflow-hidden rounded-2xl border p-4 text-left transition-all duration-300 group ${
+                    className={`vy-press relative overflow-hidden rounded-2xl border text-left transition-all duration-300 group ${
                       active
-                        ? `bg-gradient-to-br ${t.card} ${t.selected} shadow-xl scale-[1.02]`
-                        : `bg-zinc-900 ${t.border} hover:scale-[1.01] hover:brightness-110`
+                        ? `bg-gradient-to-br ${t.card} ${t.selected} shadow-2xl scale-[1.03] z-10`
+                        : dimmed
+                          ? `bg-zinc-900/60 ${t.border} opacity-55 hover:opacity-100 hover:scale-[1.01]`
+                          : `bg-zinc-900 ${t.border} hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-xl`
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-3xl">{t.emoji}</span>
-                      {active && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />}
+                    {/* Aura del género: respira detrás del contenido. En hover se
+                        enciende aunque la tarjeta no esté elegida — un vistazo de
+                        cómo se siente ese mundo antes de comprometerse. */}
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-br ${t.card} transition-opacity duration-500 ${active ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`}
+                      aria-hidden
+                    />
+                    <div
+                      className={`absolute -top-8 -right-8 w-28 h-28 rounded-full blur-2xl transition-opacity duration-500 ${t.bar} ${active ? "opacity-25 vy-pulse-soft" : "opacity-0 group-hover:opacity-15"}`}
+                      style={active ? { animationDuration: "3.2s" } : undefined}
+                      aria-hidden
+                    />
+
+                    <div className="relative flex items-center gap-3.5 p-4">
+                      <span className={`text-4xl shrink-0 transition-transform duration-300 ${active ? "vy-float2 scale-110" : "group-hover:scale-110"}`}>
+                        {t.emoji}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-extrabold text-white leading-tight">{n.label}</p>
+                        <p className={`text-[10px] mt-0.5 transition-colors ${active ? t.accent : "text-zinc-500 group-hover:text-zinc-400"}`}>{t.tagline}</p>
+                      </div>
+                      {active && <CheckCircle className={`w-4.5 h-4.5 ml-auto shrink-0 ${t.accent}`} style={{ animation: "vyPop .3s ease-out" }} />}
                     </div>
-                    <p className="text-sm font-extrabold text-white">{n.label}</p>
-                    <p className={`text-[10px] mt-0.5 transition-colors ${active ? t.accent : "text-zinc-600"}`}>{t.tagline}</p>
+
+                    {/* Barra de firma: el color del género recorriendo la base,
+                        vivo solo en la tarjeta elegida. */}
+                    <div className={`relative h-0.5 ${active ? "" : "opacity-0"}`} aria-hidden>
+                      <div
+                        className={`absolute inset-0 ${t.bar}`}
+                        style={{
+                          backgroundImage: "linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)",
+                          backgroundSize: "200% 100%",
+                          animation: active ? "vyShimmer2 2.4s linear infinite" : undefined,
+                        }}
+                      />
+                    </div>
                   </button>
                 );
               })}
@@ -1188,7 +1228,11 @@ function NewProjectForm() {
           <div>
             <p className="text-xs font-bold text-zinc-400 mb-1">Tono emocional <span className="text-zinc-600 font-normal">· se ajusta solo, cámbialo si quieres</span></p>
             <p className="text-[10px] text-zinc-600 mb-3">¿Qué quieres que SIENTA quien lo vea? Esto guía toda la historia.</p>
-            <div className="grid grid-cols-3 gap-2">
+            {/* Cinta horizontal: los nueve tonos en una sola fila en desktop.
+                Antes era una grilla 3x3 que estiraba la página hacia abajo y
+                dejaba los costados vacíos — justo al revés de cómo se lee una
+                pantalla ancha. */}
+            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
               {TONES.map(t => {
                 const v = TONE_VISUAL[t.id] ?? { emoji: "🎬", sub: "", active: theme.pill };
                 const active = form.tone === t.id;
@@ -1196,11 +1240,13 @@ function NewProjectForm() {
                   <button
                     key={t.id}
                     onClick={() => set("tone")(t.id)}
-                    className={`flex flex-col items-center gap-0.5 px-2 py-2.5 rounded-xl border transition-all ${
-                      active ? `${v.active} scale-[1.04] shadow-lg` : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:scale-[1.02]"
+                    className={`vy-press flex flex-col items-center gap-0.5 px-1.5 py-2.5 rounded-xl border transition-all duration-200 ${
+                      active
+                        ? `${v.active} scale-[1.06] shadow-lg`
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:-translate-y-0.5"
                     }`}
                   >
-                    <span className={`text-xl transition-transform ${active ? "scale-110" : ""}`}>{v.emoji}</span>
+                    <span className={`text-xl transition-transform duration-200 ${active ? "scale-125" : ""}`}>{v.emoji}</span>
                     <span className={`text-[11px] font-bold ${active ? "" : "text-zinc-300"}`}>{t.label}</span>
                     <span className={`text-[9px] leading-none ${active ? "opacity-80" : "text-zinc-600"}`}>{v.sub}</span>
                   </button>
