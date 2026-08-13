@@ -227,8 +227,40 @@ function conciliarConGuion(
   // mas se confia en Whisper: acerto y su sincronia palabra-a-palabra es mejor
   // que cualquier reparto proporcional.
   const set = new Set(oidas);
-  const aciertos = escritas.filter((p) => set.has(p)).length;
-  if (aciertos / escritas.length >= 0.8) return timings;
+  // ── LOS NOMBRES PROPIOS NO ADMITEN UMBRAL ──────────────────────────────────
+  //
+  // Con solo el 80% de coincidencia global, una frase que difiere en UNA palabra
+  // pasaba el filtro y se conservaba la transcripción entera — con el error
+  // adentro. Medido en producción: el guion decía "Alaia, ya no puedo seguir" y
+  // el subtítulo salió "ALALIA, ya no puedo seguir"; el resto de la frase
+  // coincidía, así que el umbral la dio por buena.
+  //
+  // Y esa única palabra es la que menos se puede equivocar: un nombre propio mal
+  // escrito en pantalla es lo primero que el espectador nota, y lo lee como
+  // descuido del producto entero.
+  //
+  // TODA palabra capitalizada del guion, sin excluir las que abren frase.
+  //
+  // La primera versión saltaba las iniciales de oración —para no confundir una
+  // mayúscula gramatical con un nombre— y por eso dejó pasar "Alaia, ya no puedo
+  // seguir": el vocativo casi siempre ABRE la frase, que es justo donde no
+  // miraba.
+  //
+  // Incluirlas no genera falsos positivos: si Whisper oyó bien un "No" o un
+  // "Entonces", la palabra está en lo transcripto y no dispara nada. Y si no la
+  // oyó, desconfiar de la transcripción es exactamente lo correcto.
+  const nombresDelGuion = (delGuion.match(/\p{Lu}\p{Ll}{2,}/gu) ?? [])
+    .map((n) => normalizar(n)[0])
+    .filter((n): n is string => Boolean(n));
+  const oidasSet = new Set(oidas);
+  const nombrePerdido = nombresDelGuion.find((n) => !oidasSet.has(n));
+  if (nombrePerdido) {
+    console.warn(`[subs] Whisper no oyó bien "${nombrePerdido}" — se usan las palabras del guion`);
+    // cae al reparto desde el guion, más abajo
+  } else {
+    const aciertos = escritas.filter((p) => set.has(p)).length;
+    if (aciertos / escritas.length >= 0.8) return timings;
+  }
 
   // Difiere demasiado: se conserva el TRAMO hablado que Whisper detecto y se
   // reparten sobre el las palabras reales del guion, ponderadas por largo —
