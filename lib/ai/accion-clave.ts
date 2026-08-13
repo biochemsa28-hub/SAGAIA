@@ -77,7 +77,24 @@ export const ACCION_CLAVE = new RegExp(
     // COMEDIA física.
     /slips?|trips?|stumbl\w+|resbal\w+|tropiez\w+|se vuelca|spills?/,
     // MISTERIO: descubrir con las manos.
-    /opens? the|unfolds?|flips? over|abre el|despliega|da vuelta|drops? the/,
+    /opens? the|unfolds?|flips? over|abre el|despliega|da vuelta/,
+    // ── Huecos encontrados por el banco de premisas ──────────────────────────
+    // Tres picos evidentes y virales que la regla NO reconocía, o sea que el
+    // sistema no les habría dibujado cuadro destino y habrían salido como amago:
+    //
+    //   "she tears the veil off her head in one pull"  → arrancar algo del cuerpo
+    //   "he drops a heavy folder on the table"         → solo cubría "drops THE"
+    //   "the body sits up inside the casket"           → incorporarse no es "rise"
+    //
+    // El banco existe para esto: probar premisas de a centavos encuentra los
+    // agujeros de la regla antes que un video de dos dólares.
+    // El verbo y la partícula NO van pegados: "tears THE VEIL off", "rips HER
+    // HAND away". Exigirlos contiguos dejaba fuera la forma en que se escribe de
+    // verdad — la primera versión de esta línea no reconocía el propio caso que
+    // la motivó. Se permite el objeto en el medio, sin cruzar puntuación.
+    /\b(tears?|rips?|yanks?|tugs?|pulls?)\b[^.,;]{0,24}\b(off|away|out of|from her|from his)\b|arranca|le quita de un/,
+    /drops? (the|a|an|his|her|their|it)\b|deja caer|se le cae|slams? down|sets? .* down hard/,
+    /sits? up|sits? upright|bolts? upright|se incorpora|se sienta de golpe/,
   ].map((r) => r.source).join("|"),
   "i",
 );
