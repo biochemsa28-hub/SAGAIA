@@ -333,6 +333,22 @@ export async function POST(req: NextRequest) {
 
           // Cuántos bloques ya se enrutaron a reference-to-video en este video.
           let rtvUsados = 0;
+          // Y CUÁNTO SE LLEVA GASTADO. En dólares, que es la unidad en la que se
+          // pierde plata — no en cantidad de bloques.
+          let gastoProyectado = 0;
+          // $3,50, y el número sale de la cuenta, no de la intuición. Con bloques
+          // de 6s: un plano premium cuesta $1,81 y cuatro normales $1,24, o sea
+          // $3,05 — cabe. Un SEGUNDO premium lo llevaría a $4,86 y no cabe, que es
+          // exactamente lo que se quiere: un pico caro por video, no dos.
+          //
+          // Probado con $3,00 primero: no entraba NINGUNO —el pico quedaba en
+          // $3,05 por cinco centavos— y el guardia terminaba matando la función
+          // que existe para proteger. Un tope mal elegido no protege, apaga.
+          //
+          // RTV_MODE=all necesita subir esto también; si no, el tope lo recorta
+          // bloque por bloque y el log lo dice en cada uno.
+          const PRESUPUESTO_ANIMACION = Math.max(0.5, Number(process.env.MAX_ANIMATION_SPEND_USD ?? 3.5) || 3.5);
+          const { costoClipReferencias, costoClipSeedance } = await import("@/lib/costs");
           blockJobs = paraAnimar.map((block, bi) => {
             const nextBlock = paraAnimar[bi + 1];
             // EL CUADRO FINAL ES DEL PROPIO BLOQUE, no del siguiente.
@@ -460,7 +476,36 @@ export async function POST(req: NextRequest) {
             // preferencia: con una sola imagen hace exactamente lo mismo que el
             // barato y cuesta seis veces más. Es dinero tirado, en silencio.
             const hayMaterial = refsPosibles.length >= 2;
-            const esContacto = (RTV_TODO || (esAccionClave && rtvUsados < RTV_MAX)) && hayMaterial;
+
+            // ── TECHO EN DÓLARES, NO EN CANTIDAD DE BLOQUES ──────────────────
+            //
+            // RTV_MAX_BLOCKS limita cuántos, no cuánto. Dos bloques de 12 segundos
+            // son $7,26 de animación contra $6,12 de precio de venta: el tope se
+            // respeta y el video igual sale a pérdida. Un límite que se cumple y
+            // aun así te hace perder dinero no es un límite.
+            //
+            // Ahora se cuenta el gasto REAL proyectado y el bloque caro solo pasa
+            // si cabe. El que no cabe sigue por image-to-video, que es peor plano
+            // pero video vivo — y el log dice exactamente cuánto faltaba.
+            const segundosDelBloque = Math.min(HOOK_BLOCK_SECONDS, Math.max(4, Math.ceil(block.seconds + 1)));
+            const costoSiEsCaro = costoClipReferencias(segundosDelBloque);
+            const costoSiEsNormal = costoClipSeedance({
+              segundos: segundosDelBloque,
+              resolucion: process.env.VIDEO_RESOLUTION ?? "720p",
+              conAudio: NATIVE_AUDIO_ON,
+            });
+            const cabeEnPresupuesto = gastoProyectado + costoSiEsCaro <= PRESUPUESTO_ANIMACION;
+
+            const quiereCaro = RTV_TODO || (esAccionClave && rtvUsados < RTV_MAX);
+            const esContacto = quiereCaro && hayMaterial && cabeEnPresupuesto;
+            gastoProyectado += esContacto ? costoSiEsCaro : costoSiEsNormal;
+
+            if (quiereCaro && hayMaterial && !cabeEnPresupuesto) {
+              console.warn(
+                `[gasto] bloque escena ${block.leadScene}: el plano caro costaría $${costoSiEsCaro.toFixed(2)} y ` +
+                `el presupuesto de animación es $${PRESUPUESTO_ANIMACION.toFixed(2)} (van $${gastoProyectado.toFixed(2)}) — va por image-to-video`,
+              );
+            }
             if (esAccionClave && !hayMaterial) {
               console.warn(
                 `[video] bloque escena ${block.leadScene}: acción física clave, pero solo ${refsPosibles.length} referencia(s) ` +
@@ -816,6 +861,36 @@ export async function POST(req: NextRequest) {
           return { scene_number: job.scene_number, request_id: job.request_id, ...status };
         })
       );
+
+      // ── LO QUE SE PAGÓ CARO SE VERIFICA, EN EL MOMENTO ───────────────────
+      // Medido en un video real: el único bloque premium volvió con el 51% de
+      // sus cuadros quietos — el plano MÁS congelado del video era el único que
+      // costó seis veces más. Nadie lo supo hasta que alguien miró el resultado
+      // terminado. Medir el clip cuesta ~1 segundo y ffmpeg lee la URL directo,
+      // así que la comprobación ocurre donde se hizo el gasto.
+      try {
+        const { esClipDePico } = await import("@/services/video/router");
+        const premium = results.filter(
+          (r) => r.status === "completed" && r.url &&
+                 esClipDePico(parsed.data.jobs?.find((j) => j.scene_number === r.scene_number)?.model),
+        );
+        if (premium.length) {
+          const { medirQuietud, PREMIUM_QUIETO_MAX } = await import("@/services/quality/auditor");
+          await Promise.all(premium.map(async (r) => {
+            const m = await medirQuietud(r.url!);
+            if (!m) return;
+            if (m.quietoPct > PREMIUM_QUIETO_MAX) {
+              console.warn(
+                `[gasto] escena ${r.scene_number}: se pagó el clip PREMIUM y volvió con ${m.quietoPct}% de cuadros ` +
+                `quietos (${m.segundos.toFixed(1)}s) — el endpoint barato habría dado lo mismo por la sexta parte. ` +
+                `Revisar las referencias y la acción física de este bloque.`,
+              );
+            } else {
+              console.log(`[gasto] escena ${r.scene_number}: clip premium OK — ${m.quietoPct}% quieto en ${m.segundos.toFixed(1)}s`);
+            }
+          }));
+        }
+      } catch { /* verificar nunca puede costar un video */ }
 
       // Stage "motion" clips are INTERMEDIATE (they still need lip-sync) — don't
       // save them as the scene's final video asset; just hand the URLs back.

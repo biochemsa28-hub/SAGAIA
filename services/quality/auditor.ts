@@ -110,6 +110,29 @@ async function audio(path: string): Promise<{ medioDb: number | null; silencios:
   return { medioDb: medio ? Number(medio[1]) : null, silencios };
 }
 
+// ── ¿SIRVIÓ LO QUE SE PAGÓ CARO? ─────────────────────────────────────────────
+// Un clip de referencias cuesta ~6x por segundo. Medido en un video real: el
+// bloque premium volvió con el 51% de sus cuadros quietos — el plano MÁS
+// congelado de todo el video era justamente el único caro. Nadie se enteró hasta
+// que alguien miró el resultado terminado, días después.
+//
+// Medir un clip suelto cuesta ~1 segundo. Si volvió congelado, se dice en el
+// mismo momento en que se pagó, no en la próxima revisión.
+export async function medirQuietud(path: string): Promise<{ quietoPct: number; segundos: number } | null> {
+  try {
+    const { valores, fps } = await serieDeMovimiento(path);
+    if (!valores.length) return null;
+    const quietos = valores.filter((v) => v < QUIETO).length;
+    return { quietoPct: Math.round((quietos * 100) / valores.length), segundos: valores.length / fps };
+  } catch {
+    return null;
+  }
+}
+
+/** Un clip caro que vuelve por encima de este porcentaje de cuadros quietos no
+ *  hizo nada que el endpoint barato no hubiera hecho por la sexta parte. */
+export const PREMIUM_QUIETO_MAX = TARTAMUDEO_PCT;
+
 export async function auditarVideo(path: string, contexto?: { escena?: string }): Promise<AuditoriaVideo | null> {
   try {
     const [{ valores, fps }, snd] = await Promise.all([serieDeMovimiento(path), audio(path)]);

@@ -144,6 +144,11 @@ export async function consultarClip(requestId: string, handle?: string): Promise
   return p.consultar(requestId);
 }
 
+/** ¿Este clip se generó por la cola cara? Lo que se paga premium se verifica. */
+export function esClipDePico(handle?: string): boolean {
+  return proveedorDeHandle(handle)?.sirvePara.includes("pico") ?? false;
+}
+
 /** El costo real de ese clip, en la cola donde de verdad se generó. */
 export function costoDeClip(handle: string | undefined, segundos: number, resolucion: string): number {
   const p = proveedorDeHandle(handle);
