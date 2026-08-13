@@ -1,6 +1,11 @@
 import { fal } from "@fal-ai/client";
 import { writeFileSync, mkdirSync } from "fs";
 import { join, isAbsolute, resolve } from "path";
+import {
+  registrarProveedor, encolarClip, consultarClip, resumenDeProveedores,
+  type TipoDePlano, type EstadoDeClip,
+} from "@/services/video/router";
+import { costoClipSeedance, costoClipReferencias } from "@/lib/costs";
 
 export interface VideoJob {
   sceneNumber: number;
@@ -81,6 +86,119 @@ const CINEMATIC_PREFIX =
   "breathing visibly. Hair and fabric move with physics. Fine details alive: " +
   "dust particles, flickering light, steam, rain. Motion is smooth and deliberate. ";
 
+// ─── Los dos proveedores de fal, registrados en el router ────────────────────
+// Son dos COLAS distintas del mismo proveedor, y siempre lo fueron: preguntar el
+// estado de un clip de referencias en la cola de image-to-video es un 404. Antes
+// eso se manejaba con un `if` a mano; ahora cada cola se declara una vez, con lo
+// que sirve, lo que cuesta y cómo se le pregunta.
+
+const falListo = () => Boolean(getApiKey());
+
+// Consultar es idéntico en las dos colas salvo por el modelo.
+async function consultarEnFal(modelo: string, requestId: string): Promise<EstadoDeClip> {
+  fal.config({ credentials: getApiKey() });
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const status = await (fal.queue.status as any)(modelo, { requestId, logs: false }) as { status: string };
+    if (status.status === "COMPLETED") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (fal.queue.result as any)(modelo, { requestId }) as Record<string, unknown>;
+      const data = (result?.["data"] ?? result) as Record<string, unknown>;
+      const video = data?.["video"] as { url: string } | undefined;
+      return { status: "completed", url: video?.url };
+    }
+    if (status.status === "FAILED") return { status: "failed", error: "Video job failed" };
+    if (status.status === "IN_PROGRESS") return { status: "in_progress" };
+    return { status: "queued" };
+  } catch (err) {
+    return { status: "failed", error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// Planos normales: Seedance 1.5 image-to-video. Barato y probado — es el caballo
+// de tiro del video entero.
+registrarProveedor({
+  nombre: "fal-seedance",
+  modelo: VIDEO_MODEL,
+  sirvePara: ["borrador", "normal"],
+  disponible: falListo,
+  costoPorSegundo: (resolucion) => costoClipSeedance({ segundos: 1, resolucion, conAudio: true }),
+  async enviar(p) {
+    fal.config({ credentials: getApiKey() });
+    const isVeo3 = /veo3|veo-3|veo\/3/i.test(VIDEO_MODEL);
+    const duracion = String(Math.min(12, Math.max(4, Math.round(p.segundos))));
+    const input: Record<string, unknown> = isVeo3
+      ? {
+          prompt: CINEMATIC_PREFIX + p.prompt,
+          image_url: p.imageUrl,
+          aspect_ratio: "9:16",
+          generate_audio: true,
+          resolution: p.resolucion === "1080p" ? "1080p" : "720p",
+          duration: "8s",
+        }
+      : {
+          prompt: CINEMATIC_PREFIX + p.prompt,
+          image_url: p.imageUrl,
+          resolution: p.resolucion,
+          aspect_ratio: "9:16",
+          // Seedance toma la duración como cadena y rechaza cualquier cosa por
+          // encima de 12 con un 422 seco.
+          duration: duracion,
+          enable_safety_checker: SAFETY_CHECKER_ON,
+          ...(p.endImageUrl ? { end_image_url: p.endImageUrl } : {}),
+          ...(p.generarAudio !== undefined ? { generate_audio: p.generarAudio } : {}),
+        };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await (fal.queue.submit as any)(VIDEO_MODEL, { input }) as { request_id: string };
+    return r.request_id;
+  },
+  consultar: (requestId) => consultarEnFal(VIDEO_MODEL, requestId),
+});
+
+// Picos de contacto: Seedance 2.0 reference-to-video. Cuesta ~6x por segundo y
+// es el único que cierra un beso — image-to-video interpola desde una foto que
+// no lo contiene y siempre deja el centímetro. Se paga solo donde no puede
+// fallar.
+registrarProveedor({
+  nombre: "fal-referencias",
+  modelo: REFERENCE_VIDEO_MODEL,
+  sirvePara: ["pico"],
+  disponible: falListo,
+  costoPorSegundo: () => costoClipReferencias(1),
+  async enviar(p) {
+    fal.config({ credentials: getApiKey() });
+    const refs = (p.referenceImageUrls ?? []).slice(0, 4);
+    if (!refs.length) throw new Error("un pico sin imágenes de referencia no puede generarse por referencias");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await (fal.queue.submit as any)(REFERENCE_VIDEO_MODEL, {
+      input: {
+        prompt: p.prompt,
+        image_urls: refs,
+        resolution: p.resolucion === "480p" ? "480p" : p.resolucion, // 2.0 acepta 1080p
+        duration: String(Math.min(12, Math.max(4, Math.round(p.segundos)))),
+        aspect_ratio: "9:16",
+        ...(p.generarAudio !== undefined ? { generate_audio: p.generarAudio } : {}),
+      },
+    }) as { request_id: string };
+    console.log(`[video] escena ${p.escena}: contacto físico → reference-to-video (${refs.length} refs)`);
+    return r.request_id;
+  },
+  consultar: (requestId) => consultarEnFal(REFERENCE_VIDEO_MODEL, requestId),
+});
+
+// ── AQUÍ ENTRA EL PROVEEDOR SIGUIENTE ────────────────────────────────────────
+// BytePlus ModelArk vende el MISMO Seedance 2.0 a ~$0.151/s contra los ~$0.30/s
+// que paga esta cuenta: la mitad, por el mismo modelo. Agregarlo es un
+// registrarProveedor() más, con sirvePara ["pico"], y ponerlo primero con
+// VIDEO_PROVIDER_ORDER="byteplus-referencias,fal-referencias".
+//
+// NO ESTÁ ESCRITO TODAVÍA, A PROPÓSITO. Su documentación se renderiza con
+// JavaScript y no pude leer el contrato real de la API —ni el formato del cuerpo
+// ni la forma de la respuesta—, y un cliente escrito de memoria contra una API
+// que no vi es la clase de código que parece terminado y falla en producción.
+// Requiere el paquete prepago de $30,10 y UNA prueba real; con las respuestas de
+// verdad a la vista, son unas 40 líneas.
+
 // ─── Submit jobs to fal queue (returns immediately) ───────────────────────────
 
 export async function submitVideoJobs(params: {
@@ -101,15 +219,9 @@ export async function submitVideoJobs(params: {
     reference_image_urls?: string[];
   }>;
 }): Promise<VideoJob[]> {
-  fal.config({ credentials: getApiKey() });
-
-  // Google Veo 3 uses a different param shape (generate_audio, string duration) and
-  // produces NATIVE synchronized audio — the premium "Cinema" engine. Detected by name.
-  const isVeo3 = /veo3|veo-3|veo\/3/i.test(VIDEO_MODEL);
-
   // La resolución no aparecía en ningún log, así que llevábamos meses generando a
   // 720p para un video 1080×1920 sin que nada lo dijera. Una línea por lote.
-  console.log(`[video] ${params.scenes.length} clip(s) a ${VIDEO_RESOLUTION} · modelo ${VIDEO_MODEL.split("/").pop()}`);
+  console.log(`[video] ${params.scenes.length} clip(s) a ${VIDEO_RESOLUTION} · proveedores: ${resumenDeProveedores()}`);
 
   const jobs: VideoJob[] = [];
   for (const scene of params.scenes) {
@@ -118,59 +230,27 @@ export async function submitVideoJobs(params: {
       // the clip covers the narration; Shotstack trims any excess.
       const duration = Math.min(15, Math.max(4, Math.round(scene.duration_seconds ?? 5)));
 
-      // ── PICO DE CONTACTO → reference-to-video ────────────────────────────
-      if (scene.reference_image_urls?.length) {
-        const refs = scene.reference_image_urls.slice(0, 4);
-        const rtvInput = {
-          prompt: scene.animation_prompt,
-          image_urls: refs,
-          resolution: VIDEO_RESOLUTION === "480p" ? "480p" : VIDEO_RESOLUTION, // 2.0 acepta 1080p
-          duration: String(Math.min(12, Math.max(4, duration))),
-          aspect_ratio: "9:16",
-          ...(scene.generate_audio !== undefined ? { generate_audio: scene.generate_audio } : {}),
-        };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rtv = await (fal.queue.submit as any)(REFERENCE_VIDEO_MODEL, { input: rtvInput }) as { request_id: string };
-        console.log(`[video] escena ${scene.scene_number}: contacto físico → reference-to-video (${refs.length} refs)`);
-        jobs.push({ sceneNumber: scene.scene_number, requestId: rtv.request_id, status: "queued", model: REFERENCE_VIDEO_MODEL });
-        continue;
-      }
+      // Traer imágenes de referencia ES la definición de un pico: sin ellas no
+      // hay nada que el endpoint de referencias pueda ejecutar.
+      const tipo: TipoDePlano = scene.reference_image_urls?.length ? "pico" : "normal";
+      const { requestId, handle } = await encolarClip(tipo, {
+        prompt: scene.animation_prompt,
+        imageUrl: scene.image_url,
+        endImageUrl: scene.end_image_url,
+        referenceImageUrls: scene.reference_image_urls,
+        segundos: duration,
+        resolucion: VIDEO_RESOLUTION,
+        generarAudio: scene.generate_audio,
+        escena: scene.scene_number,
+      });
 
-      const input: Record<string, unknown> = isVeo3
-        ? {
-            // Veo 3: cinematic motion + native ambient audio in one shot.
-            prompt: CINEMATIC_PREFIX + scene.animation_prompt,
-            image_url: scene.image_url,
-            aspect_ratio: "9:16",
-            generate_audio: true,
-            resolution: VIDEO_RESOLUTION === "1080p" ? "1080p" : "720p",
-            duration: "8s",                 // Veo 3 standard clip length
-          }
-        : {
-            prompt: CINEMATIC_PREFIX + scene.animation_prompt,
-            image_url: scene.image_url,
-            resolution: VIDEO_RESOLUTION,
-            aspect_ratio: "9:16",
-            // Seedance takes duration as a STRING enum capped at 12 — sending a
-            // number, or anything above 12, is a flat 422. HOOK_BLOCK_SECONDS was
-            // set to 15 and would have rejected every clip.
-            duration: String(Math.min(12, Math.max(4, duration))),
-            // The image models already run with the checker off; leaving it ON here
-            // meant every frame was generated uncensored and then sanitised by the
-            // video pass. That inconsistency is what flattens dramatic beats —
-            // grief, fear, violence-adjacent tension and intimacy all trip
-            // conservative false positives even when nothing explicit is involved.
-            enable_safety_checker: SAFETY_CHECKER_ON,
-            ...(scene.end_image_url ? { end_image_url: scene.end_image_url } : {}),
-            ...(scene.generate_audio !== undefined ? { generate_audio: scene.generate_audio } : {}),
-          };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (fal.queue.submit as any)(VIDEO_MODEL, { input }) as { request_id: string };
-
+      // El handle lleva el proveedor pegado: preguntarle el estado a otro es un
+      // 404, y un 404 acá mata el video por tiempo de espera.
       jobs.push({
         sceneNumber: scene.scene_number,
-        requestId: result.request_id,
+        requestId,
         status: "queued",
+        model: handle,
       });
     } catch (err) {
       jobs.push({
@@ -186,41 +266,15 @@ export async function submitVideoJobs(params: {
 
 // ─── Check status of a submitted job ─────────────────────────────────────────
 
-export async function checkVideoJob(requestId: string, model?: string): Promise<{
-  status: "queued" | "in_progress" | "completed" | "failed";
-  url?: string;
-  error?: string;
-}> {
-  fal.config({ credentials: getApiKey() });
-  // El estado se consulta al MISMO modelo que encoló: un job de
-  // reference-to-video preguntado en el endpoint de image-to-video es un 404.
-  const via = model || VIDEO_MODEL;
+export async function checkVideoJob(requestId: string, model?: string): Promise<EstadoDeClip> {
+  // Se le pregunta a QUIEN encoló. El handle lo dice; si viene vacío —jobs de
+  // antes del router— se cae al proveedor de planos normales, que es lo que
+  // aquellos trabajos usaban.
+  return consultarClip(requestId, model ?? armarHandleDelNormal());
+}
 
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const status = await (fal.queue.status as any)(
-      via,
-      { requestId, logs: false }
-    ) as { status: string };
-
-    if (status.status === "COMPLETED") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (fal.queue.result as any)(
-        via,
-        { requestId }
-      ) as Record<string, unknown>;
-
-      const data = (result?.["data"] ?? result) as Record<string, unknown>;
-      const video = data?.["video"] as { url: string } | undefined;
-      return { status: "completed", url: video?.url };
-    }
-
-    if (status.status === "FAILED") return { status: "failed", error: "Video job failed" };
-    if (status.status === "IN_PROGRESS") return { status: "in_progress" };
-    return { status: "queued" };
-  } catch (err) {
-    return { status: "failed", error: err instanceof Error ? err.message : String(err) };
-  }
+function armarHandleDelNormal(): string {
+  return `fal-seedance::${VIDEO_MODEL}`;
 }
 
 // ─── Download and save a completed video ─────────────────────────────────────

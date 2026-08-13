@@ -892,24 +892,33 @@ export async function POST(req: NextRequest) {
           // de un bloque. Es una aproximación, y la única de la cuenta: el resto
           // (píxeles, fps, tarifa) sale de la fórmula publicada.
           //
-          // Y CADA COLA TIENE SU PRECIO. Los jobs traen el modelo que los encoló;
-          // los de referencias cuestan ~6x por segundo y facturarlos con la
-          // fórmula de image-to-video subestimaba el gasto real seis veces. Con
-          // RTV_MODE=all eso sería TODO el video mal contado — el registro diría
-          // que un video costó $1,55 cuando costó $9,10.
-          const { costoClipReferencias } = await import("@/lib/costs");
+          // Y CADA CLIP SE FACTURA EN LA COLA DONDE DE VERDAD SE GENERÓ. Antes
+          // esto adivinaba mirando si el nombre del modelo decía
+          // "reference-to-video"; ahora el proveedor viaja en el handle y él
+          // mismo dice cuánto cobra por segundo. Es la razón de ser del router:
+          // sumar un proveedor nuevo no obliga a recordar que también hay que
+          // tocar la cuenta.
           const segundosClip = Number(process.env.CLIP_SECONDS_AVG ?? 6) || 6;
-          const idsRtv = new Set(
-            (parsed.data.jobs ?? []).filter((j) => /reference-to-video/i.test(j.model ?? "")).map((j) => j.scene_number),
+          const resolucionClip = process.env.VIDEO_RESOLUTION ?? "720p";
+          const { costoDeClip } = await import("@/services/video/router");
+          const handlePorEscena = new Map(
+            (parsed.data.jobs ?? []).map((j) => [j.scene_number, j.model] as const),
           );
-          const rtvHechos = results.filter((r) => r.status === "completed" && idsRtv.has(r.scene_number)).length;
-          const cost =
-            estimateVideos(doneCount - rtvHechos, model, isLipsyncStage, {
-              segundos: segundosClip,
-              resolucion: process.env.VIDEO_RESOLUTION ?? "720p",
-              conAudio: NATIVE_AUDIO_ON,
-            }) + rtvHechos * costoClipReferencias(segundosClip);
-          if (rtvHechos) console.log(`[video] ${rtvHechos} clip(s) de referencias facturados a ~$${costoClipReferencias(segundosClip).toFixed(2)} c/u`);
+          const completados = results.filter((r) => r.status === "completed");
+          const porRouter = completados.reduce(
+            (suma, r) => suma + costoDeClip(handlePorEscena.get(r.scene_number), segundosClip, resolucionClip), 0,
+          );
+          // Un cero del router significa que no reconoció el handle, no que el
+          // clip fue gratis. Antes de registrar $0 —que se lee como "no gastamos"—
+          // se vuelve a la estimación vieja y se avisa.
+          const cost = porRouter > 0 && !isLipsyncStage
+            ? porRouter
+            : (() => {
+                if (!isLipsyncStage) console.warn(`[video] el router no reconoció los handles — se factura con la estimación genérica`);
+                return estimateVideos(doneCount, model, isLipsyncStage, {
+                  segundos: segundosClip, resolucion: resolucionClip, conAudio: NATIVE_AUDIO_ON,
+                });
+              })();
           await createApiLog({
             userId: userId, projectId: parsed.data.project_id,
             provider: "fal", endpoint: "/api/videos", model: isLipsyncStage ? "lipsync" : model,
