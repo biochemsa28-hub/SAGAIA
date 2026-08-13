@@ -27,6 +27,8 @@ const LANG: Record<string, string> = {
 };
 
 // What FEELING each tone must evoke — so suggestions hit the emotion the user picked.
+// Faltaban "chisme" y "confesion": el sistema ofrece 11 tonos y esta tabla cubría
+// 9, así que dos de ellos caían a un texto genérico y devolvían ideas sin sabor.
 const EMOTION_BRIEF: Record<string, string> = {
   horror:        "MIEDO real: lo cotidiano que se vuelve siniestro, la amenaza cercana e invisible, el escalofrío.",
   romance:       "AMOR y ternura: el casi-roce, lo no dicho, el deseo que también duele.",
@@ -37,27 +39,95 @@ const EMOTION_BRIEF: Record<string, string> = {
   comedy:        "RISA: situación absurda pero creíble, remate inesperado.",
   documentary:   "ASOMBRO: 'no sabía esto', un hecho real que se siente revelación.",
   fantasy:       "MARAVILLA: lo imposible que se siente posible, con corazón humano debajo.",
+  chisme:        "COMPLICIDAD: el secreto que alguien cuenta bajando la voz y vos no podés dejar de escuchar.",
+  confesion:     "INTIMIDAD incómoda: alguien admite en voz alta algo que jamás debió decir.",
+};
+
+// ── ÁNGULOS NARRATIVOS ───────────────────────────────────────────────────────
+//
+// El motivo real de que las ideas se sintieran siempre iguales: el prompt era
+// IDÉNTICO en cada llamada. Mismo nicho y mismo tono producen el mismo pedido, y
+// un modelo con el mismo pedido vuelve al mismo puñado de situaciones — de ahí
+// "dos rivales atrapados en un ascensor" una y otra vez.
+//
+// La variedad no se pide ("sé creativo" no mueve nada): se FUERZA. Cada llamada
+// sortea tres ángulos distintos de esta lista, así que dos clics seguidos parten
+// de premisas estructuralmente diferentes aunque el nicho y el tono no cambien.
+const ANGULOS: string[] = [
+  "EL TESTIGO: alguien ve algo que no debía ver, y el otro se da cuenta de que lo vieron.",
+  "LA CUENTA REGRESIVA: algo va a ocurrir en pocos minutos y no se puede detener.",
+  "EL REGRESO: alguien vuelve después de años, y vuelve cambiado de una forma que asusta.",
+  "LA PRUEBA FÍSICA: un objeto pequeño —un ticket, una foto, un pelo— que destruye una versión de la realidad.",
+  "LA IDENTIDAD OCULTA: uno de los dos no es quien dice ser, y el otro está a punto de descubrirlo.",
+  "EL QUE SABE Y CALLA: un personaje tiene información que el otro no, y el espectador está del lado del que sabe.",
+  "EL ERROR IRREVERSIBLE: un segundo de decisión que ya no se puede deshacer.",
+  "LA DEUDA VIEJA: alguien viene a cobrar algo que pasó hace mucho.",
+  "EL ÚLTIMO DÍA: una despedida que uno de los dos todavía no sabe que es una despedida.",
+  "EL INTERCAMBIO: dos vidas que se cruzan por un error que nadie cometió a propósito.",
+  "LA HERENCIA ENVENENADA: recibir algo deseado que trae adentro la destrucción.",
+  "EL ESPEJO: alguien encuentra a otra persona viviendo exactamente la vida que le tocaba.",
+  "EL FAVOR: alguien pide algo pequeño que obliga a una traición grande.",
+  "LA REAPARICIÓN: alguien a quien todos daban por perdido aparece en el peor momento.",
+];
+
+// Cómo se VE el primer segundo. Es lo único que decide si alguien deja de
+// scrollear, y el prompt viejo no lo mencionaba ni una vez: pedía una historia,
+// no una imagen. Por eso devolvía situaciones ("atrapados en un ascensor") en
+// lugar de ganchos.
+const FORMAS_DE_GANCHO: string[] = [
+  "una persona congelada mirando algo que está fuera de cuadro",
+  "unas manos haciendo algo que claramente no deberían estar haciendo",
+  "un objeto en primerísimo plano que no encaja con el lugar",
+  "una cara que cambia mientras lee o escucha algo",
+  "dos personas en el mismo cuadro a una distancia imposible de explicar",
+  "alguien entrando a un lugar donde ya hay algo esperando",
+];
+
+const sortear = <T,>(lista: T[], n: number): T[] => {
+  const copia = [...lista];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j]!, copia[i]!];
+  }
+  return copia.slice(0, n);
 };
 
 function buildPrompt(input: z.infer<typeof BodySchema>): string {
   const lang = LANG[input.language] ?? LANG.es;
   const emotion = EMOTION_BRIEF[input.tone] ?? `la emoción "${input.tone}"`;
-  return `Eres VYNAVO, showrunner experto en microseries virales. Genera 3 ideas de historia ORIGINALES y adictivas para una microserie vertical corta.
+  const angulos = sortear(ANGULOS, 3);
+  const ganchos = sortear(FORMAS_DE_GANCHO, 3);
+
+  return `Eres VYNAVO, showrunner de microdramas verticales. Escribís para el feed: alguien con el pulgar apoyado, listo para irse.
 
 NICHO: ${input.niche}${input.sub_niche ? ` (${input.sub_niche})` : ""}
 EMOCIÓN A PROVOCAR: ${emotion}
 IDIOMA: ${lang}
 
-Cada idea debe:
-- Provocar exactamente esa emoción al leerla (que el usuario sienta "¡esa quiero!").
-- Partir de algo cotidiano y reconocible, con un GIRO que sorprenda ("esto me podría pasar a mí").
-- Ser concreta y específica (no abstracta). Una premisa que ya insinúa el conflicto y el misterio.
-- Ser DISTINTA a las otras dos (distintos ángulos).
+LO ÚNICO QUE IMPORTA SON LOS PRIMEROS 3 SEGUNDOS.
+Ahí se decide si el video se ve o muere. Una idea que "va poniéndose buena" ya perdió. La premisa tiene que abrir con una IMAGEN que detenga el pulgar y una pregunta que obligue a quedarse para saber la respuesta.
+
+Por eso cada premisa ARRANCA describiendo lo que se VE en el primer segundo, no el contexto. No "dos rivales quedan atrapados en un ascensor" —eso es una situación, no un gancho— sino "las puertas se cierran y él ve que ella todavía tiene puesto el anillo que le devolvió".
+
+Escribí UNA idea por cada ángulo, en este orden:
+1. ${angulos[0]}
+2. ${angulos[1]}
+3. ${angulos[2]}
+
+Y que el primer cuadro de cada una sea, respectivamente: ${ganchos[0]}; ${ganchos[1]}; ${ganchos[2]}.
+
+CADA IDEA TIENE QUE TENER UN MOMENTO FÍSICO. Algo que un cuerpo HACE y se puede fotografiar: un beso que se sostiene, una cachetada que llega, una mano que agarra una muñeca, alguien que se desploma, un objeto que se estrella. Si el momento más fuerte de tu idea es "él la mira con desprecio", no hay nada que filmar y no hay nada que compartir.
+
+REGLAS:
+- Concreta y cotidiana. Nombrá objetos y lugares reales, no conceptos.
+- Nada de nombres propios: el elenco se elige después.
+- Que las tres se sientan de historias DISTINTAS, no tres versiones de la misma.
+- PROHIBIDO empezar con "Una mujer descubre que...", "Un hombre encuentra..." o cualquier fórmula de resumen. Empezá por la imagen.
 
 Devuelve EXACTAMENTE este JSON, sin texto adicional:
 {
   "suggestions": [
-    { "emoji": "un emoji que capture la idea", "title": "título corto e impactante (máx 6 palabras)", "premise": "premisa de 1-2 frases que enganche y deje una pregunta abierta" },
+    { "emoji": "un emoji que capture la imagen del primer segundo", "title": "título corto que sea una PREGUNTA o una frase que deje colgando (máx 6 palabras)", "premise": "2 frases: la PRIMERA es lo que se ve en el primer segundo; la SEGUNDA abre la pregunta y adelanta el momento físico" },
     { "emoji": "...", "title": "...", "premise": "..." },
     { "emoji": "...", "title": "...", "premise": "..." }
   ]
@@ -79,6 +149,10 @@ async function generate(input: z.infer<typeof BodySchema>): Promise<StorySuggest
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
         max_tokens: 1024,
+        // Temperatura alta A PROPÓSITO: acá no queremos la respuesta más
+        // probable, queremos la que nadie vio venir. Los ángulos sorteados dan la
+        // variedad estructural; esto da la variedad de superficie.
+        temperature: 1,
         system: "Responde SOLO con JSON válido. Sin markdown, sin texto antes ni después.",
         messages: [{ role: "user", content: prompt }],
       }),
