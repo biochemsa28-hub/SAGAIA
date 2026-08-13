@@ -17,7 +17,20 @@ const BodySchema = z.object({
 export interface StorySuggestion {
   emoji: string;
   title: string;     // short hook-y title
-  premise: string;   // 1-2 sentence story premise (goes into the topic field)
+  /** UNA línea: la imagen del primer segundo. Es lo que se ve en la tarjeta.
+   *
+   *  Sin este campo la tarjeta mostraba la premisa entera, y al pedir premisas
+   *  ricas —las nuevas promedian 388 caracteres— eso son seis renglones de
+   *  texto de 11px donde antes había uno. Una tarjeta que hay que leer no se
+   *  elige: se saltea.
+   *
+   *  Opcional a propósito: las respuestas viejas no lo traen y la interfaz cae
+   *  a la premisa, como antes. */
+  gancho?: string;
+  /** La premisa completa. NO se acorta: va al campo "topic" y es lo que el
+   *  guionista recibe, y ahí cuanta más textura mejor. Lo que sobra en una
+   *  tarjeta es justo lo que le falta a un guion. */
+  premise: string;
 }
 
 const LANG: Record<string, string> = {
@@ -127,9 +140,9 @@ REGLAS:
 Devuelve EXACTAMENTE este JSON, sin texto adicional:
 {
   "suggestions": [
-    { "emoji": "un emoji que capture la imagen del primer segundo", "title": "título corto que sea una PREGUNTA o una frase que deje colgando (máx 6 palabras)", "premise": "2 frases: la PRIMERA es lo que se ve en el primer segundo; la SEGUNDA abre la pregunta y adelanta el momento físico" },
-    { "emoji": "...", "title": "...", "premise": "..." },
-    { "emoji": "...", "title": "...", "premise": "..." }
+    { "emoji": "un emoji que capture la imagen del primer segundo", "title": "título corto que sea una PREGUNTA o una frase que deje colgando (máx 6 palabras)", "gancho": "UNA línea de máximo 90 caracteres: solo la imagen del primer segundo, sin explicar nada", "premise": "2 frases: la PRIMERA es lo que se ve en el primer segundo; la SEGUNDA abre la pregunta y adelanta el momento físico" },
+    { "emoji": "...", "title": "...", "gancho": "...", "premise": "..." },
+    { "emoji": "...", "title": "...", "gancho": "...", "premise": "..." }
   ]
 }`;
 }

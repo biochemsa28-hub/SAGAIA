@@ -353,7 +353,7 @@ function NewProjectForm() {
   const [savedCharacters, setSavedCharacters] = useState<Array<{ id: string; name: string; reference_image_url: string | null }>>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
   // Claude story suggestions based on the chosen emotion (Historia step)
-  const [aiSuggestions, setAiSuggestions] = useState<Array<{ emoji: string; title: string; premise: string }>>([]);
+  const [aiSuggestions, setAiSuggestions] = useState<Array<{ emoji: string; title: string; gancho?: string; premise: string }>>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   const [userPlan, setUserPlan] = useState<string>("free");
@@ -460,7 +460,7 @@ function NewProjectForm() {
           language: form.language || "es",
         }),
       });
-      const data = await res.json() as { suggestions?: Array<{ emoji: string; title: string; premise: string }>; error?: string };
+      const data = await res.json() as { suggestions?: Array<{ emoji: string; title: string; gancho?: string; premise: string }>; error?: string };
       if (!res.ok || !data.suggestions?.length) throw new Error(data.error ?? "No se pudieron generar ideas");
       setAiSuggestions(data.suggestions);
     } catch (err) {
@@ -1721,7 +1721,11 @@ function NewProjectForm() {
                         <span className="text-lg shrink-0">{s.emoji}</span>
                         <div className="min-w-0">
                           <p className={`text-xs font-bold leading-tight ${active ? "text-white" : "text-violet-200"}`}>{s.title}</p>
-                          <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">{s.premise}</p>
+                          {/* El GANCHO en la tarjeta, no la premisa entera: la premisa rica
+                              son seis renglones de 11px y una tarjeta que hay que
+                              leer no se elige, se saltea. La premisa completa igual
+                              viaja al guion cuando se toca. */}
+                          <p className="text-[11px] text-zinc-400 leading-snug mt-0.5 line-clamp-2">{s.gancho ?? s.premise}</p>
                         </div>
                         {active && <CheckCircle className="w-4 h-4 text-violet-300 shrink-0 ml-auto" />}
                       </div>
