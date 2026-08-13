@@ -1284,22 +1284,47 @@ export async function enqueueJob(params: {
 // RETURNING is the whole lock: two workers racing for the same row, only one
 // UPDATE matches, so the loser gets zero rows and moves on. No advisory locks,
 // no window between read and write.
+// SE MIRAN VARIOS CANDIDATOS, NO SOLO EL PRIMERO.
+//
+// El reclamo siempre fue atómico —el UPDATE con "AND status='queued'" hace que
+// solo un worker gane— pero antes todos miraban EXACTAMENTE el mismo trabajo: el
+// más viejo. Con una sola réplica daba igual. Con cinco, las cinco eligen el
+// mismo, gana una, y las otras cuatro se duermen hasta el siguiente sondeo: la
+// flota entera reclama un trabajo cada JOB_POLL_MS, exactamente igual que una
+// máquina sola. Se pagarían cinco réplicas para rendir como una.
+//
+// Ahora cada worker toma una ventana de los más viejos y los prueba en orden
+// hasta ganar uno. Dos workers rara vez chocan, y cuando chocan el perdedor pasa
+// al siguiente candidato en el mismo ciclo en vez de irse a dormir.
+const CLAIM_WINDOW = 8;
+
 export async function claimNextJob(): Promise<DbJob | null> {
   const db = getDb();
   const next = await db.execute({
-    sql: "SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1",
-    args: [],
+    sql: "SELECT id FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT ?",
+    args: [CLAIM_WINDOW],
   });
-  const id = (next.rows[0] as Record<string, unknown> | undefined)?.["id"] as string | undefined;
-  if (!id) return null;
+  if (!next.rows.length) return null;
 
-  const claimed = await db.execute({
-    sql: `UPDATE jobs SET status = 'processing', attempts = attempts + 1,
-            started_at = COALESCE(started_at, datetime('now')), heartbeat_at = datetime('now')
-          WHERE id = ? AND status = 'queued' RETURNING *`,
-    args: [id],
-  });
-  return claimed.rows.length ? (claimed.rows[0] as unknown as DbJob) : null;
+  // El desorden es a propósito: si todas las réplicas recorrieran la ventana en
+  // el mismo orden, volverían a pelearse por el primero.
+  const ids = next.rows
+    .map((r) => (r as Record<string, unknown>)["id"] as string | undefined)
+    .filter((id): id is string => Boolean(id));
+  const inicio = Math.floor(Math.random() * ids.length);
+
+  for (let k = 0; k < ids.length; k++) {
+    const id = ids[(inicio + k) % ids.length]!;
+    const claimed = await db.execute({
+      sql: `UPDATE jobs SET status = 'processing', attempts = attempts + 1,
+              started_at = COALESCE(started_at, datetime('now')), heartbeat_at = datetime('now')
+            WHERE id = ? AND status = 'queued' RETURNING *`,
+      args: [id],
+    });
+    if (claimed.rows.length) return claimed.rows[0] as unknown as DbJob;
+    // Otro worker se lo llevó entre el SELECT y el UPDATE. Siguiente candidato.
+  }
+  return null;
 }
 
 // Proof of life. A job whose heartbeat stops is a job whose process died.

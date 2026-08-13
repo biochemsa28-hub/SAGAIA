@@ -281,9 +281,37 @@ export const PRO_PIPELINE = (process.env.PRO_PIPELINE ?? "off").toLowerCase() ==
 // scene and inherited by every later episode. Disable with CHARACTER_BIBLE=off.
 export const CHARACTER_BIBLE_ON = (process.env.CHARACTER_BIBLE ?? "on").toLowerCase() !== "off";
 
+// ── EL ROL DEL PROCESO ───────────────────────────────────────────────────────
+// Producir un video ocupa la CPU durante minutos: ffmpeg codifica, quema
+// subtítulos y mezcla audio. Mientras eso pasa en el MISMO proceso que sirve las
+// páginas, cada render se lo cobra a todos los usuarios que están navegando —y
+// cada despliegue interrumpe los renders en curso.
+//
+// La cola ya estaba preparada para separarlos: el reclamo es atómico en la base
+// y el worker habla con las rutas por HTTP, así que la única pieza que faltaba
+// era decirle a cada proceso qué es.
+//
+//   ROLE=web      sirve páginas y NO produce
+//   ROLE=worker   produce y no recibe tráfico público
+//   ROLE=all      las dos cosas (por defecto — es como funcionó hasta hoy)
+//
+// En Railway: el mismo repo desplegado dos veces, y en el servicio worker
+// APP_BASE_URL apunta a SU PROPIO localhost. Así el trabajo pesado —imágenes,
+// voz, animación y montaje— ocurre dentro del worker y la web nunca lo toca.
+// Se escalan por separado: más réplicas de worker no cuestan tráfico, y más web
+// no desperdicia CPU de render.
+const ROL = (process.env.ROLE ?? "all").trim().toLowerCase();
+export const ROLE: "web" | "worker" | "all" =
+  ROL === "web" ? "web" : ROL === "worker" ? "worker" : "all";
+export const WORKER_ENABLED = ROLE !== "web";
+
 // ── JOB QUEUE ────────────────────────────────────────────────────────────────
 // How many videos the worker produces at once. Each one holds open several fal /
 // ElevenLabs calls, so this is the real throttle on spend rate as well as on CPU.
+//
+// Sigue en 2 por defecto porque con ROLE=all comparte máquina con la web. En un
+// servicio worker dedicado se sube por variable: ahí el techo es la CPU de esa
+// máquina y la cuota de fal, no la latencia de las páginas.
 export const MAX_CONCURRENT_JOBS = Math.max(1, Number(process.env.MAX_CONCURRENT_JOBS ?? 2) || 2);
 
 // How often the worker looks for new work. Low enough to feel instant, high

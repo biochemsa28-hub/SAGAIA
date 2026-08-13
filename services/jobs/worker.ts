@@ -185,12 +185,18 @@ async function processJob(job: DbJob): Promise<void> {
   }
 }
 
+// SE LLENAN TODAS LAS RANURAS LIBRES, NO UNA POR SONDEO.
+//
+// Antes cada vuelta reclamaba como mucho un trabajo, así que arrancar cuatro en
+// paralelo tardaba cuatro sondeos —doce segundos— aunque hubiera cuatro esperando
+// desde hacía rato. Con la cola llena eso es capacidad ociosa por diseño.
 async function tick(): Promise<void> {
-  if (running >= MAX_CONCURRENT_JOBS) return;
-  const job = await claimNextJob();
-  if (!job) return;
-  running++;
-  void processJob(job).finally(() => { running--; });
+  while (running < MAX_CONCURRENT_JOBS) {
+    const job = await claimNextJob();
+    if (!job) return;              // no queda nada en cola
+    running++;
+    void processJob(job).finally(() => { running--; });
+  }
 }
 
 // Idempotent: Next re-imports modules on hot reload, and two loops would double

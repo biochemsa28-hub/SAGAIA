@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getProjectDetail, updateProjectStatus, enqueueJob, getJobForProject } from "@/lib/db/repository";
 import { initDb } from "@/lib/db";
 import { startWorker } from "@/services/jobs/worker";
+import { WORKER_ENABLED } from "@/lib/config";
 import { internalSecret } from "@/lib/internal-auth";
 import { z } from "zod";
 
@@ -43,7 +44,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    startWorker();
+    // Arrancarlo acá es un cinturón por si instrumentation no corrió. Con
+    // ROLE=web es justo lo contrario de lo que queremos: la petición de un
+    // usuario convertiría al servidor de páginas en un productor de videos.
+    if (WORKER_ENABLED) startWorker();
     const { job, created } = await enqueueJob({ projectId, userId: session.user.id });
     if (created) await updateProjectStatus(projectId, "producing");
 
