@@ -95,6 +95,21 @@ export const ACCION_CLAVE = new RegExp(
     /\b(tears?|rips?|yanks?|tugs?|pulls?)\b[^.,;]{0,24}\b(off|away|out of|from her|from his)\b|arranca|le quita de un/,
     /drops? (the|a|an|his|her|their|it)\b|deja caer|se le cae|slams? down|sets? .* down hard/,
     /sits? up|sits? upright|bolts? upright|se incorpora|se sienta de golpe/,
+    // ── El cuerpo que SE DETIENE, y la multitud que se da vuelta ─────────────
+    // Encontrado probando una premisa de comedia física: el hombre que corre al
+    // baño, no llega, y se queda petrificado mientras todos lo miran. El pico de
+    // esa escena NO es el accidente —eso ni se muestra— sino el cuerpo clavado a
+    // media zancada y las cabezas girando. La regla no reconocía ninguna de las
+    // dos cosas, así que el chiste entero se quedaba sin cuadro destino.
+    //
+    // Un cuerpo que se congela ES un cambio de estado tan grande como uno que
+    // cae: la foto anterior lo muestra corriendo, y de eso no sale un frenazo.
+    /freezes? in place|stops? dead|goes rigid|legs? lock|rooted to the spot|se queda helad|se detiene en seco|se queda cla[vs]ad/,
+    // "turns" a secas atrapaba el ambiente —"the room turns cold"— y mandaba una
+    // escena contemplativa al camino caro. Se exige que lo que gire sean CABEZAS
+    // hacia alguien, no una temperatura. Es el mismo error que ya cometimos con
+    // "corre"/"runs" y la lluvia en el vidrio.
+    /everyone turns to (look|face|stare)|heads turn|the (whole )?room turns to|all eyes (on|turn)|todos se dan vuelta|todos lo miran|se da vuelta a mirar/,
   ].map((r) => r.source).join("|"),
   "i",
 );
