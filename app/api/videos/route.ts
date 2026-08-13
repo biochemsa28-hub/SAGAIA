@@ -311,6 +311,8 @@ export async function POST(req: NextRequest) {
           // rather than seven clips butted together. The dialogue is quoted in the
           // prompt, which is what makes the characters say the script instead of
           // improvising — verified against a transcript of the generated audio.
+          // Cuántos bloques ya se enrutaron a reference-to-video en este video.
+          let rtvUsados = 0;
           blockJobs = paraAnimar.map((block, bi) => {
             const nextBlock = paraAnimar[bi + 1];
             // EL CUADRO FINAL ES DEL PROPIO BLOQUE, no del siguiente.
@@ -368,21 +370,42 @@ export async function POST(req: NextRequest) {
               console.log(`[blocks] escena ${block.leadScene}: cambia de escenario → corte limpio, sin encadenar`);
             }
 
-            // ── PICO DE CONTACTO FÍSICO → reference-to-video ──────────────────
+            // ── ACCIÓN QUE CAMBIA EL CUERPO → reference-to-video ──────────────
             //
-            // image-to-video interpola entre dos cuadros y NUNCA cierra un beso:
-            // medido tres veces, el modelo de imagen deja los labios a un
-            // centímetro y el clip se queda en el "casi". El endpoint de
-            // referencias sí lo cerró en la prueba — labios juntos ~4 segundos —
-            // porque no está esclavizado a un cuadro inicial sin beso: recibe a
-            // los personajes como referencias y ejecuta la acción.
+            // EL PRINCIPIO, no el caso: image-to-video interpola entre dos
+            // cuadros, y una acción que CAMBIA el estado del cuerpo no puede
+            // salir de una foto que no la contiene. Con el beso quedó medido
+            // —el modelo de imagen deja siempre el centímetro y el clip se queda
+            // en el "casi"— pero aplica igual a una caída (la foto muestra a
+            // alguien de pie → el clip hace un tambaleo), a un quiebre en llanto,
+            // a una bofetada o a un desmayo. El endpoint de referencias no está
+            // esclavizado al cuadro inicial: recibe a los personajes como
+            // referencias y EJECUTA la acción — el beso salió entero en la prueba.
             //
-            // Se activa solo cuando la acción física del bloque ES de contacto.
-            // Cuesta más por segundo; es el precio del único plano que no puede
-            // fallar.
-            // Con conjugaciones: "embraces", "kissing", "hugs" también cuentan.
-            const CONTACTO = /\b(kiss\w*|lips|embrac\w+|hugs?|hugging|bes[oa]\w*|abraz\w+|holds? (her|him|his|their)|pulls? (her|him) close)\b/i;
-            const esContacto = lines.some((l) => CONTACTO.test(l.physicalAction ?? ""));
+            // Se enruta por CATEGORÍA de acción, con conjugaciones ES/EN:
+            const ACCION_CLAVE = new RegExp(
+              [
+                /kiss\w*|lips|embrac\w+|hugs?|hugging|bes[oa]\w*|abraz\w+/, // contacto
+                /falls?|falling|collaps\w+|cae\w*|derrumb\w+|desplom\w+|knees? (give|buckle)|goes? down/, // caídas
+                /slaps?|hits?|strikes?|punch\w*|golpe\w*|bofetad\w*|cachetad\w*/, // golpes
+                /sob\w*|breaks? down|weep\w*|llor\w+|quiebr\w+|tears stream\w*/, // quiebre en llanto
+                /scream\w*|shout\w*|grit\w+|doubl\w+ over/, // gritos con cuerpo
+                /faints?|desmay\w+|pasa out|collapses unconscious/, // desmayos
+                /throws?|smash\w*|shatters?|lanz\w+|romp\w+|arroj\w+/, // romper/arrojar
+              ].map((r) => r.source).join("|"),
+              "i",
+            );
+            const esAccionClave = lines.some((l) => ACCION_CLAVE.test(l.physicalAction ?? ""));
+            // TECHO DE GASTO: referencias cuesta ~2.5x por segundo. Sin tope, un
+            // guion muy físico enrutaría todos los bloques y el margen desaparece
+            // en silencio. Los que exceden el tope siguen por image-to-video —
+            // peor plano, video vivo.
+            const RTV_MAX = Math.max(0, Number(process.env.RTV_MAX_BLOCKS ?? 2) || 2);
+            const esContacto = esAccionClave && rtvUsados < RTV_MAX;
+            if (esAccionClave && !esContacto) {
+              console.warn(`[video] bloque escena ${block.leadScene}: acción física clave, pero RTV_MAX_BLOCKS=${RTV_MAX} agotado — va por image-to-video`);
+            }
+            if (esContacto) rtvUsados++;
             const refsContacto = esContacto
               ? [imgByScene.get(block.leadScene) ?? block.referenceImageUrl, propiaUltima]
                   .filter((u): u is string => Boolean(u))
