@@ -390,8 +390,22 @@ export async function POST(req: NextRequest) {
                 /slaps?|hits?|strikes?|punch\w*|golpe\w*|bofetad\w*|cachetad\w*/, // golpes
                 /sob\w*|breaks? down|weep\w*|llor\w+|quiebr\w+|tears stream\w*/, // quiebre en llanto
                 /scream\w*|shout\w*|grit\w+|doubl\w+ over/, // gritos con cuerpo
-                /faints?|desmay\w+|pasa out|collapses unconscious/, // desmayos
-                /throws?|smash\w*|shatters?|lanz\w+|romp\w+|arroj\w+/, // romper/arrojar
+                /faints?|desmay\w+|collapses unconscious/, // desmayos
+                /throws?|smash\w*|shatters?|lanz\w+|romp\w+|arroj\w+|slams?|portazo/, // romper/arrojar/portazo
+                // TERROR: el cuerpo reacciona a algo que llega desde afuera.
+                /grabs?|grabbing|yanks?|drags?|seizes?|agarr\w+|jal\w+|arrastr\w+|sujet\w+|tir[óo]n/,
+                /reach\w+ out of|appears? behind|lunges?|surges? forward|aparec\w+ detr[áa]s|sale de la/,
+                // THRILLER / ACCIÓN: huir, empujar, forcejear.
+                // "corre"/"runs" a secas atrapaba el ambiente —"la lluvia corre
+                // por el vidrio"— y mandaba una escena contemplativa al endpoint
+                // caro. Se exige que haya alguien yendo a alguna parte.
+                /runs? (to|toward|for|out|away|at)|running (to|toward|away)|bolts?|flees?|shoves?|pushes? (her|him|through|past)|struggl\w+|sale corriendo|echa a correr|corre (hacia|hasta|por el pasillo)|huy\w+|empuj\w+|forcej\w+/,
+                // INSPIRACIONAL: el cuerpo que vence.
+                /rises? (to|from)|stands? up|gets? up|levant\w+|endereza|se pone de pie/,
+                // COMEDIA física.
+                /slips?|trips?|stumbl\w+|resbal\w+|tropiez\w+|se vuelca|spills?/,
+                // MISTERIO: descubrir con las manos.
+                /opens? the|unfolds?|flips? over|abre el|despliega|da vuelta|drops? the/,
               ].map((r) => r.source).join("|"),
               "i",
             );
