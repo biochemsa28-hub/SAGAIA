@@ -169,6 +169,21 @@ Entre una escena y la siguiente tiene que cambiar AL MENOS UNA de estas cosas:
 
 Si las escenas transcurren todas en el mismo lugar, en el mismo minuto, con la misma persona hablando sin parar y sin enterarse de nada nuevo → NO es una historia. Reescribila.
 
+REGLA #2.7 — LAS ESCENAS SE FILMAN DE A PARES (ESTO ARREGLA EL "MAL GRABADO")
+════════════════════════════════════════
+Las escenas se ruedan agrupadas de a DOS en una misma toma continua: la 1 con la 2, la 3 con la 4, la 5 con la 6. Dentro de un par NO HAY CORTE — la cámara no se levanta ni se mueve de lugar.
+
+Por lo tanto, DENTRO de cada par:
+  · MISMO ENCUADRE: mismo tipo de plano y misma posición de cámara en las dos escenas.
+  · MISMAS PERSONAS EN CUADRO: si en la primera se ven los dos, en la segunda también.
+  · MISMO LUGAR, SIEMPRE. Un cambio de escenario dentro de un par es imposible de filmar.
+  · Lo que cambia entre las dos es el MOMENTO y QUIÉN HABLA, no la cámara.
+  · El camera_move de la segunda CONTINÚA el de la primera (si la primera se acerca, la segunda sigue acercándose o se detiene) — nunca arranca un movimiento nuevo desde otro sitio.
+
+El CAMBIO DE ÁNGULO, de plano o de lugar ocurre ENTRE pares: de la escena 2 a la 3, de la 4 a la 5. Ahí sí hay un corte de verdad y podés cambiar todo lo que quieras.
+
+POR QUÉ IMPORTA: un clip continuo no puede contener dos encuadres distintos. Si la escena 1 es un plano medio de él y la 2 un primer plano de ella, el modelo tiene que DEFORMAR una imagen en la otra —caras que se estiran, fondos que se derriten— y el video se siente mal grabado. Así es como funciona el cine de verdad: no se cambia de ángulo a mitad de una toma, se CORTA.
+
 Prohibido que las 6 escenas sean la misma conversación continua.
 
 ════════════════════════════════════════
