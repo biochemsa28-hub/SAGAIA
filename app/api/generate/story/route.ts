@@ -346,11 +346,21 @@ export async function POST(req: NextRequest) {
       //
       // Un vocativo se lo dice el que habla AL QUE ESCUCHA, así que en una
       // escena de dos el reemplazo correcto es siempre el otro del elenco.
+      // La clave se compara SIN tildes, pero lo que se escribe es el nombre REAL
+      // del elenco. Usar la clave normalizada como reemplazo dejaba "Anahi" donde
+      // el personaje se llama "Anahí" — corrigiendo un problema e introduciendo
+      // otro.
       const primer = (s: string) => norm(s).split(/\s+/)[0] ?? "";
       const primerosDelElenco = new Set(nombres.map(primer));
+      const realPorClave = new Map(nombres.map((n) => [primer(n), n.trim().split(/\s+/)[0] ?? n]));
       let vocativos = 0;
       for (const sc of result.data.scenes) {
-        const texto = sc.narration_text ?? "";
+        // NFC: el modelo puede escribir "í" como un solo carácter o como "i" más
+        // una tilde combinante. En la segunda forma la expresión regular corta el
+        // nombre por la mitad y deja la tilde suelta — medido: "Anahí" salía
+        // convertido en "Anahií". Normalizar primero elimina esa clase entera de
+        // error.
+        const texto = (sc.narration_text ?? "").normalize("NFC");
         if (!texto) continue;
         const otro = nombres.find((n) => primer(n) !== primer(sc.speaker ?? "")) ?? nombres[0];
         if (!otro) continue;
@@ -358,20 +368,56 @@ export async function POST(req: NextRequest) {
         // están en el elenco. Sin el banco de nombres no se toca nada: adivinar
         // qué palabra es un nombre propio rompería diálogo legítimo.
         const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-        const corregido = texto.replace(/\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,})\b/g, (m) => {
-          const k = primer(m);
-          if (primerosDelElenco.has(k)) return m;         // ya es del elenco
-          // Un nombre del elenco MAL ESCRITO ("Arnaud" por "Arnau") se normaliza
-          // a la grafía real en vez de reemplazarse por el otro personaje: es la
-          // misma persona, escrita distinto.
-          const casiIgual = [...primerosDelElenco].find(
-            (n) => n.length >= 4 && (n.startsWith(k.slice(0, 4)) || k.startsWith(n.slice(0, 4))),
-          );
-          if (casiIgual) { vocativos++; return capitalizar(casiIgual); }
-          if (!esNombreDePila(k)) return m;               // no es un nombre
-          vocativos++;
-          return capitalizar(primer(otro));
-        });
+        // Palabras que van capitalizadas y NO son nombres de persona. Sin esta
+        // lista, "Dios mío, no puedo" convertiría a Dios en un personaje.
+        const NO_SON_NOMBRES = new Set([
+          "dios", "señor", "señora", "papa", "papá", "mama", "mamá", "abuela", "abuelo",
+          "lunes", "martes", "miercoles", "miércoles", "jueves", "viernes", "sabado", "sábado", "domingo",
+          "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+          "septiembre", "octubre", "noviembre", "diciembre", "navidad", "dime", "mira", "oye",
+        ]);
+        // UN VOCATIVO SE RECONOCE POR DÓNDE ESTÁ, NO POR ESTAR EN UNA LISTA.
+        //
+        // La primera versión solo reemplazaba nombres que el banco conociera, y el
+        // banco no puede tener todos: en una producción real el guion dijo "Laura"
+        // —que no estaba en las listas— y pasó intacto. Llamar a alguien por su
+        // nombre tiene una FORMA reconocible: va al principio de la frase seguido
+        // de coma, o después de una coma al final. Eso funciona con cualquier
+        // nombre, exista o no en el banco.
+        const corregido = texto
+          // "Laura, no quiero…"  ·  ". Laura, escuchame"
+          // \p{Lu}\p{Ll} con la bandera /u, NO [A-Z][a-z] ni \b. En JavaScript el
+          // límite \b es ASCII: en "Anahí" lo pone después de "Anah" porque la í
+          // no cuenta como letra. Medido: el reemplazo escribía "Anahí" y dejaba
+          // la í suelta, produciendo "Anahíí" — corregir un nombre bien escrito.
+          .replace(/(^|[.!?¡¿]\s+)(\p{Lu}\p{Ll}{2,})(\s*,)/gu, (m, ini, nom, coma) => {
+            const k = primer(nom);
+            if (primerosDelElenco.has(k) || NO_SON_NOMBRES.has(k)) return m;
+            vocativos++;
+            return `${ini}${(realPorClave.get(primer(otro)) ?? capitalizar(primer(otro)))}${coma}`;
+          })
+          // "…no te vayas, Laura."  ·  "…mírame, Laura"
+          .replace(/(,\s*)(\p{Lu}\p{Ll}{2,})(\s*[.!?]|$)/gu, (m, coma, nom, fin) => {
+            const k = primer(nom);
+            if (primerosDelElenco.has(k) || NO_SON_NOMBRES.has(k)) return m;
+            vocativos++;
+            return `${coma}${(realPorClave.get(primer(otro)) ?? capitalizar(primer(otro)))}${fin}`;
+          })
+          // Y lo de antes, que sigue sirviendo para menciones fuera de vocativo
+          // ("vi a María ayer") y para nombres del elenco mal escritos.
+          .replace(/(?<!\p{L})(\p{Lu}\p{Ll}{2,})(?!\p{L})/gu, (m) => {
+            const k = primer(m);
+            if (primerosDelElenco.has(k) || NO_SON_NOMBRES.has(k)) return m;
+            // Un nombre del elenco MAL ESCRITO ("Arnaud" por "Arnau") se normaliza
+            // a la grafía real: es la misma persona, escrita distinto.
+            const casiIgual = [...primerosDelElenco].find(
+              (n) => n.length >= 4 && (n.startsWith(k.slice(0, 4)) || k.startsWith(n.slice(0, 4))),
+            );
+            if (casiIgual) { vocativos++; return (realPorClave.get(casiIgual) ?? capitalizar(casiIgual)); }
+            if (!esNombreDePila(k)) return m;
+            vocativos++;
+            return (realPorClave.get(primer(otro)) ?? capitalizar(primer(otro)));
+          });
         if (corregido !== texto) sc.narration_text = corregido;
       }
       if (vocativos) {
