@@ -164,7 +164,27 @@ console.log("  lo sabemos por $0.06. Si se tocan: seguí con --clip.");
 console.log("  ─────────────────────────────────────────────────────────────");
 
 if (conClip) {
-  await generarClip(refs[0], beso);
+  // EL CUADRO "ANTES", porque arrancar de un retrato suelto sería un test
+  // tramposo: el modelo tendría que inventar al otro personaje entrando en
+  // cuadro, y eso no es lo que hace en producción. La cadena real va de los dos
+  // juntos a punto de besarse, hacia los dos besándose.
+  console.log("\nPASO 1b — el cuadro ANTES del beso (~$0.06)...");
+  const rA = await fal.subscribe(process.env.CHARACTER_REF_MODEL ?? "fal-ai/nano-banana/edit", {
+    input: {
+      prompt:
+        "The two characters stand face to face, very close, about to kiss but not yet — " +
+        "a small gap between their faces, eyes lowered, her hand rising toward his cheek. " +
+        IDENTIDAD,
+      image_urls: refs, num_images: 1, enable_safety_checker: false,
+    },
+    logs: false,
+  });
+  const antes = (rA.data ?? rA).images?.[0]?.url;
+  if (!antes) throw new Error("No se pudo dibujar el cuadro ANTES");
+  writeFileSync("experimentos/salida/antes.jpg", Buffer.from(await (await fetch(antes)).arrayBuffer()));
+  console.log("  imagen: experimentos/salida/antes.jpg");
+
+  await generarClip(antes, beso);
   const { medirQuietud } = await import("../services/quality/auditor.ts");
   const m = await medirQuietud("experimentos/salida/beso.mp4");
   if (m) {

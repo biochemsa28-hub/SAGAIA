@@ -37,6 +37,44 @@ const SubmitSchema = z.object({
 });
 
 // POST /api/videos — submit jobs OR collect results
+// EL PRINCIPIO, no el caso: image-to-video interpola entre dos
+// cuadros, y una acción que CAMBIA el estado del cuerpo no puede
+// salir de una foto que no la contiene. Con el beso quedó medido
+// —el modelo de imagen deja siempre el centímetro y el clip se queda
+// en el "casi"— pero aplica igual a una caída (la foto muestra a
+// alguien de pie → el clip hace un tambaleo), a un quiebre en llanto,
+// a una bofetada o a un desmayo. El endpoint de referencias no está
+// esclavizado al cuadro inicial: recibe a los personajes como
+// referencias y EJECUTA la acción — el beso salió entero en la prueba.
+//
+// Se enruta por CATEGORÍA de acción, con conjugaciones ES/EN:
+const ACCION_CLAVE = new RegExp(
+  [
+    /kiss\w*|lips|embrac\w+|hugs?|hugging|bes[oa]\w*|abraz\w+/, // contacto
+    /falls?|falling|collaps\w+|cae\w*|derrumb\w+|desplom\w+|knees? (give|buckle)|goes? down/, // caídas
+    /slaps?|hits?|strikes?|punch\w*|golpe\w*|bofetad\w*|cachetad\w*/, // golpes
+    /sob\w*|breaks? down|weep\w*|llor\w+|quiebr\w+|tears stream\w*/, // quiebre en llanto
+    /scream\w*|shout\w*|grit\w+|doubl\w+ over/, // gritos con cuerpo
+    /faints?|desmay\w+|collapses unconscious/, // desmayos
+    /throws?|smash\w*|shatters?|lanz\w+|romp\w+|arroj\w+|slams?|portazo/, // romper/arrojar/portazo
+    // TERROR: el cuerpo reacciona a algo que llega desde afuera.
+    /grabs?|grabbing|yanks?|drags?|seizes?|agarr\w+|jal\w+|arrastr\w+|sujet\w+|tir[óo]n/,
+    /reach\w+ out of|appears? behind|lunges?|surges? forward|aparec\w+ detr[áa]s|sale de la/,
+    // THRILLER / ACCIÓN: huir, empujar, forcejear.
+    // "corre"/"runs" a secas atrapaba el ambiente —"la lluvia corre
+    // por el vidrio"— y mandaba una escena contemplativa al endpoint
+    // caro. Se exige que haya alguien yendo a alguna parte.
+    /runs? (to|toward|for|out|away|at)|running (to|toward|away)|bolts?|flees?|shoves?|pushes? (her|him|through|past)|struggl\w+|sale corriendo|echa a correr|corre (hacia|hasta|por el pasillo)|huy\w+|empuj\w+|forcej\w+/,
+    // INSPIRACIONAL: el cuerpo que vence.
+    /rises? (to|from)|stands? up|gets? up|levant\w+|endereza|se pone de pie/,
+    // COMEDIA física.
+    /slips?|trips?|stumbl\w+|resbal\w+|tropiez\w+|se vuelca|spills?/,
+    // MISTERIO: descubrir con las manos.
+    /opens? the|unfolds?|flips? over|abre el|despliega|da vuelta|drops? the/,
+  ].map((r) => r.source).join("|"),
+  "i",
+);
+
 export async function POST(req: NextRequest) {
   try {
     // Either a browser session, or the job worker carrying the internal secret —
@@ -378,6 +416,62 @@ export async function POST(req: NextRequest) {
           // bloque por bloque y el log lo dice en cada uno.
           const PRESUPUESTO_ANIMACION = Math.max(0.5, Number(process.env.MAX_ANIMATION_SPEND_USD ?? 3.5) || 3.5);
           const { costoClipReferencias, costoClipSeedance } = await import("@/lib/costs");
+
+          // Los retratos de quienes actúan en un bloque. Se usa dos veces: para
+          // dibujar el cuadro destino y para las referencias del endpoint caro.
+          const retratosDe = (b: { scenes: number[] }) => [...new Set(
+            b.scenes
+              .map((n) => sceneByNumber.get(n)?.speaker)
+              .filter((sp): sp is string => Boolean(sp))
+              .map((sp) => retratoPorNombre.get(claveDeNombre(sp)))
+              .filter((u): u is string => Boolean(u)),
+          )];
+
+          // ── EL PICO SE DIBUJA, NO SE COMPRA ──────────────────────────────
+          //
+          // Una acción que cambia el cuerpo no puede salir de una foto que no la
+          // contiene: el clip interpola desde el cuadro inicial y se queda en el
+          // "casi". Durante meses la única salida fue el endpoint de referencias
+          // a ~6x por segundo.
+          //
+          // Ahora se dibuja el cuadro en el que la acción YA OCURRIÓ y se lo pasa
+          // como último fotograma: el modelo barato no tiene que inventar el
+          // beso, la cachetada o la caída — tiene que LLEGAR a un cuadro dado,
+          // que es precisamente lo que sabe hacer.
+          //
+          // Verificado de punta a punta con un beso: $0.38 contra $2.42, con el
+          // elenco intacto y 21% de cuadros quietos (por debajo del umbral).
+          // Se apaga con PEAK_FRAMES=off.
+          const PICOS_ON = (process.env.PEAK_FRAMES ?? "on").toLowerCase() !== "off";
+          const destinoPorBloque = new Map<number, string>();
+          if (PICOS_ON) {
+            const picos = paraAnimar
+              .map((b) => ({
+                b,
+                accion: b.scenes
+                  .map((n) => (sceneByNumber.get(n) as { physical_action?: string | null } | undefined)?.physical_action ?? "")
+                  .find((a) => ACCION_CLAVE.test(a)) ?? "",
+              }))
+              .filter((x) => x.accion);
+
+            if (picos.length) {
+              const { generarCuadroDestino } = await import("@/services/video/peak-frame");
+              const dibujados = await Promise.all(picos.map(async ({ b, accion }) => ({
+                lead: b.leadScene,
+                url: await generarCuadroDestino({
+                  accionFisica: accion,
+                  referencias: [...retratosDe(b), imgByScene.get(b.leadScene)].filter((u): u is string => Boolean(u)),
+                  escena: b.leadScene,
+                }).catch(() => null),
+              })));
+              for (const d of dibujados) if (d.url) destinoPorBloque.set(d.lead, d.url);
+              console.log(
+                `[pico] ${destinoPorBloque.size}/${picos.length} cuadro(s) destino dibujados ` +
+                `(~$${(destinoPorBloque.size * 0.06).toFixed(2)}) — el pico se anima con el modelo barato`,
+              );
+            }
+          }
+
           blockJobs = paraAnimar.map((block, bi) => {
             const nextBlock = paraAnimar[bi + 1];
             // EL CUADRO FINAL ES DEL PROPIO BLOQUE, no del siguiente.
@@ -437,43 +531,6 @@ export async function POST(req: NextRequest) {
 
             // ── ACCIÓN QUE CAMBIA EL CUERPO → reference-to-video ──────────────
             //
-            // EL PRINCIPIO, no el caso: image-to-video interpola entre dos
-            // cuadros, y una acción que CAMBIA el estado del cuerpo no puede
-            // salir de una foto que no la contiene. Con el beso quedó medido
-            // —el modelo de imagen deja siempre el centímetro y el clip se queda
-            // en el "casi"— pero aplica igual a una caída (la foto muestra a
-            // alguien de pie → el clip hace un tambaleo), a un quiebre en llanto,
-            // a una bofetada o a un desmayo. El endpoint de referencias no está
-            // esclavizado al cuadro inicial: recibe a los personajes como
-            // referencias y EJECUTA la acción — el beso salió entero en la prueba.
-            //
-            // Se enruta por CATEGORÍA de acción, con conjugaciones ES/EN:
-            const ACCION_CLAVE = new RegExp(
-              [
-                /kiss\w*|lips|embrac\w+|hugs?|hugging|bes[oa]\w*|abraz\w+/, // contacto
-                /falls?|falling|collaps\w+|cae\w*|derrumb\w+|desplom\w+|knees? (give|buckle)|goes? down/, // caídas
-                /slaps?|hits?|strikes?|punch\w*|golpe\w*|bofetad\w*|cachetad\w*/, // golpes
-                /sob\w*|breaks? down|weep\w*|llor\w+|quiebr\w+|tears stream\w*/, // quiebre en llanto
-                /scream\w*|shout\w*|grit\w+|doubl\w+ over/, // gritos con cuerpo
-                /faints?|desmay\w+|collapses unconscious/, // desmayos
-                /throws?|smash\w*|shatters?|lanz\w+|romp\w+|arroj\w+|slams?|portazo/, // romper/arrojar/portazo
-                // TERROR: el cuerpo reacciona a algo que llega desde afuera.
-                /grabs?|grabbing|yanks?|drags?|seizes?|agarr\w+|jal\w+|arrastr\w+|sujet\w+|tir[óo]n/,
-                /reach\w+ out of|appears? behind|lunges?|surges? forward|aparec\w+ detr[áa]s|sale de la/,
-                // THRILLER / ACCIÓN: huir, empujar, forcejear.
-                // "corre"/"runs" a secas atrapaba el ambiente —"la lluvia corre
-                // por el vidrio"— y mandaba una escena contemplativa al endpoint
-                // caro. Se exige que haya alguien yendo a alguna parte.
-                /runs? (to|toward|for|out|away|at)|running (to|toward|away)|bolts?|flees?|shoves?|pushes? (her|him|through|past)|struggl\w+|sale corriendo|echa a correr|corre (hacia|hasta|por el pasillo)|huy\w+|empuj\w+|forcej\w+/,
-                // INSPIRACIONAL: el cuerpo que vence.
-                /rises? (to|from)|stands? up|gets? up|levant\w+|endereza|se pone de pie/,
-                // COMEDIA física.
-                /slips?|trips?|stumbl\w+|resbal\w+|tropiez\w+|se vuelca|spills?/,
-                // MISTERIO: descubrir con las manos.
-                /opens? the|unfolds?|flips? over|abre el|despliega|da vuelta|drops? the/,
-              ].map((r) => r.source).join("|"),
-              "i",
-            );
             const esAccionClave = lines.some((l) => ACCION_CLAVE.test(l.physicalAction ?? ""));
             // TECHO DE GASTO: referencias cuesta ~6x por segundo (medido: $0.30/s
             // contra $0.052/s a 720p). Sin tope, un guion muy físico enrutaría
@@ -575,9 +632,16 @@ export async function POST(req: NextRequest) {
               // comprobación de escenario solo aplica al encadenado con el bloque
               // siguiente, que es el caso donde el modelo tendría que transformar un
               // lugar en otro.
-              end_image_url: propiaUltima && propiaUltima !== imgByScene.get(block.leadScene)
-                ? propiaUltima
-                : (encadenar && endImage && endImage !== imgByScene.get(block.leadScene) ? endImage : undefined),
+              // EL DESTINO DEL PICO MANDA sobre todo lo demás. El cuadro final
+              // se usaba para cerrar el bloque en su propia última escena, o para
+              // encadenar con el siguiente — las dos cosas son continuidad. Pero
+              // cuando el bloque TIENE un pico físico, ese cuadro es lo único que
+              // decide si la acción ocurre o se queda en amago, y eso pesa más
+              // que cualquier costura.
+              end_image_url: destinoPorBloque.get(block.leadScene)
+                ?? (propiaUltima && propiaUltima !== imgByScene.get(block.leadScene)
+                  ? propiaUltima
+                  : (encadenar && endImage && endImage !== imgByScene.get(block.leadScene) ? endImage : undefined)),
               // La dirección de cámara sale del GUION, no de una frase fija.
               //
               // Antes decía "cinematic scene with natural camera movement AND CUTS
@@ -594,8 +658,24 @@ export async function POST(req: NextRequest) {
                 // animation_prompt del líder describía una acción que el clip iba a
                 // mostrar mientras sonaban los diálogos de las escenas siguientes.
                 const movimiento = (lead?.camera_move ?? "").trim();
+                // CUANDO HAY CUADRO DESTINO, SE DICE QUE ES EL DESTINO.
+                //
+                // Pasarlo como último fotograma y no nombrarlo deja que el modelo
+                // llegue ahí de casualidad, cuando quiera y como quiera — que es
+                // exactamente cómo se producía el "casi": la acción a medias y el
+                // resto del clip quieto. Nombrarlo convierte el cuadro en un
+                // objetivo con tiempo: la acción OCURRE dentro del plano y se
+                // sostiene hasta el final.
+                const destino = destinoPorBloque.get(block.leadScene)
+                  ? "The clip ENDS on the given final frame, and that action actually HAPPENS on camera: " +
+                    "it begins around the middle of the shot, completes, and is still held on the last frame. " +
+                    "Do not stop short of it and do not rush past it. " +
+                    "Once it lands, the bodies stay in it while breath, hair and light keep moving. "
+                  : "";
+
                 return (
                   prefijoRefs +
+                  destino +
                   // EL PROMPT DESCRIBE MOVIMIENTO, NO LA IMAGEN.
                   //
                   // La imagen inicial YA EXISTE: trae el encuadre, la paleta, la luz
