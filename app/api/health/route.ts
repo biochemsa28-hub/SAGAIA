@@ -186,6 +186,37 @@ export async function GET(req: Request) {
     } else {
       live.elevenlabs = "no configurada";
     }
+
+    // ANTHROPIC, por la misma razón exacta que ElevenLabs.
+    //
+    // Medido: una clave de 108 caracteres, que empieza con sk-ant- y no tiene
+    // comillas ni espacios —o sea que pasa las dos validaciones de forma y de
+    // contenido— fue rechazada por Anthropic con "API key is invalid". Estaba
+    // revocada. Con solo mirar la forma, el chequeo diría "anthropic: ok"
+    // mientras ningún guion se genera, y el problema se buscaría en otro lado.
+    //
+    // /v1/models es una LECTURA: no genera nada y no gasta tokens.
+    const an = process.env.ANTHROPIC_API_KEY;
+    live.anthropic = an
+      ? await fetch("https://api.anthropic.com/v1/models?limit=1", {
+          headers: { "x-api-key": an, "anthropic-version": "2023-06-01" },
+        })
+          .then((r) => (r.ok ? "ok" : `RECHAZADA (${r.status})`))
+          .catch((e) => `sin respuesta: ${e instanceof Error ? e.message.slice(0, 60) : "error"}`)
+      : "no configurada";
+
+    // FAL: es quien cobra por imágenes y video, así que una clave muerta o una
+    // cuenta sin saldo detienen la producción entera. Ya pasó dos veces.
+    const fk = process.env.FAL_KEY ?? process.env.FAL_API_KEY;
+    live.fal = fk
+      ? await fetch("https://rest.alpha.fal.ai/tokens/", {
+          method: "POST",
+          headers: { Authorization: `Key ${fk}`, "content-type": "application/json" },
+          body: JSON.stringify({ allowed_apps: ["fal-ai/any"], token_expiration: 60 }),
+        })
+          .then((r) => (r.ok ? "ok" : `RECHAZADA (${r.status})`))
+          .catch((e) => `sin respuesta: ${e instanceof Error ? e.message.slice(0, 60) : "error"}`)
+      : "no configurada";
   }
 
   const secret_content: Record<string, string> = {};
