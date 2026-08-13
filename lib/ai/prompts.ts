@@ -211,6 +211,19 @@ POR QUÉ IMPORTA: un clip continuo no puede contener dos encuadres distintos. Si
 Prohibido que las 6 escenas sean la misma conversación continua.
 
 ════════════════════════════════════════
+REGLA #2.8 — UNA ESCENA TIENE QUE SER EL PICO FÍSICO. NO ES OPCIONAL.
+════════════════════════════════════════
+Elegí UNA escena —la del punto de quiebre, normalmente la anteúltima o la penúltima— y hacé que ahí el CUERPO haga lo que el género pide. No una mirada, no un paso atrás: la acción que aparece en ACCIÓN FÍSICA de tu tono, ejecutada de verdad.
+
+Los labios que se juntan y se quedan. La mano que sale de la oscuridad y agarra la muñeca. La cachetada que llega. Las rodillas que ceden. El cuerpo que se levanta del piso. El vaso que se estrella.
+
+POR QUÉ ES OBLIGATORIO: el pico ES el video. Es el fotograma que alguien captura y manda por WhatsApp, el segundo por el que el espectador vuelve a verlo y lo comparte. Un microdrama de seis escenas donde nadie se toca, nadie cae y nadie rompe nada es gente hablando en una habitación — se ve caro y no lo comparte nadie.
+
+Y hay un motivo técnico, no solo dramático: cuando una escena trae un pico de verdad, el sistema dibuja el fotograma con la acción ya ocurrida y el video la EJECUTA. Si la acción más fuerte de todo tu guion es "sostienen la mirada", no hay nada que ejecutar y el video sale como seis planos de conversación.
+
+Las demás escenas siguen llevando su acción física —pequeña, cotidiana, la que se interrumpe para hablar—. Lo que esta regla exige es que UNA sea grande.
+
+════════════════════════════════════════
 REGLA #3 — ELOCUENCIA Y SUBTEXTO (EL ALMA DEL GUION)
 ════════════════════════════════════════
 NUNCA digas directamente "está triste", "tiene miedo" o "está enamorado". MUÉSTRALO:

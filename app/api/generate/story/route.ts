@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/repository";
 import { resolveProjectTier, creditCostFor, videoSecondsFor, esBorrador, BORRADOR } from "@/lib/config";
 import { esNombreDePila } from "@/lib/ai/name-bank";
+import { ACCION_CLAVE, picoPorDefecto } from "@/lib/ai/accion-clave";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -428,6 +429,49 @@ export async function POST(req: NextRequest) {
         console.warn(`[elenco] ${corregidos} atribución(es) corregidas — el guion se desvió de los nombres elegidos`);
       } else {
         console.log("[elenco] todas las escenas usan los nombres del elenco");
+      }
+    }
+
+    // ── EL PICO FÍSICO NO PUEDE FALTAR ────────────────────────────────────────
+    //
+    // La REGLA #2.8 lo exige, pero una regla en el prompt es una petición: el
+    // modelo puede entregar seis escenas de conversación con acciones físicas
+    // chiquitas —una mirada, un paso atrás— y ninguna llegar al momento que la
+    // gente comparte. Y el defecto es invisible hasta ver el video terminado.
+    //
+    // El pico ES el video: es el fotograma que alguien captura y reenvía. Sin
+    // él no hay nada que ejecutar, y encima el sistema de cuadro destino se
+    // queda sin trabajo — el video sale como seis planos de gente hablando.
+    //
+    // Así que se COMPRUEBA con la misma regla que usa el enrutador de video
+    // (una sola definición de qué es un pico, en lib/ai/accion-clave), y si no
+    // hay ninguno se le pide al modelo que reescriba UNA escena. Cuesta una
+    // llamada de texto —centavos— y ocurre antes de gastar en imágenes.
+    if (result.data?.scenes?.length) {
+      const escenas = result.data.scenes as Array<{ physical_action?: string | null; scene_number?: number }>;
+      const hayPico = escenas.some((sc) => ACCION_CLAVE.test(sc.physical_action ?? ""));
+
+      if (!hayPico) {
+        // La anteúltima: es donde cae el punto de quiebre en una estructura de
+        // seis escenas, y deja la última para el cliffhanger.
+        const idx = Math.max(0, escenas.length - 2);
+        const objetivo = escenas[idx]!;
+        console.warn(
+          `[pico] el guion no trae ningún pico físico (${escenas.length} escenas, todas conversación) — ` +
+          `reescribiendo la acción de la escena ${objetivo.scene_number ?? idx + 1}`,
+        );
+        // Se usa la TABLA, no una llamada a la IA. Pedirle al modelo que repare
+        // cuesta, tarda y puede volver otra vez sin pico — el arreglo tendría el
+        // mismo modo de falla que el problema. La tabla es gratis, instantánea, y
+        // cada entrada está verificada contra esta misma regla.
+        const reemplazo = picoPorDefecto(parsed.data.tone);
+        objetivo.physical_action = reemplazo;
+        console.log(
+          `[pico] escena ${objetivo.scene_number ?? idx + 1} recibe el pico de "${parsed.data.tone}": "${reemplazo.slice(0, 80)}"`,
+        );
+      } else {
+        const cuantos = escenas.filter((sc) => ACCION_CLAVE.test(sc.physical_action ?? "")).length;
+        console.log(`[pico] ${cuantos} escena(s) con pico físico`);
       }
     }
 
