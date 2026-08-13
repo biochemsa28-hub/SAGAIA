@@ -297,6 +297,35 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        // ── UN CLIP YA PAGADO NO SE VUELVE A PAGAR ───────────────────────────
+        //
+        // Esto costó dinero real. El trabajo se reintenta hasta 3 veces —por un
+        // despliegue a mitad de producción, un contenedor que se detiene, un
+        // fallo de red— y el pipeline se rehacía ENTERO desde cero. La ruta de
+        // imágenes sí salta lo que ya existe; ésta no, así que cada reintento
+        // volvía a comprar la animación completa. Medido en una producción real:
+        // 3 bloques × 3 intentos = NUEVE clips pagados para un video de tres.
+        //
+        // Un clip ya generado está guardado como asset de video de su escena. Si
+        // está, el bloque no se vuelve a encolar: se reusa. Un reintento ahora
+        // cuesta lo que falta, no todo otra vez.
+        const escenasConClip = new Set(
+          (detail.assets ?? [])
+            .filter((a) => a.asset_type === "video" && a.public_url && a.scene_id)
+            .map((a) => detail.scenes.find((s) => s.id === a.scene_id)?.scene_number)
+            .filter((n): n is number => typeof n === "number"),
+        );
+        if (escenasConClip.size && !parsed.data.scene_number) {
+          const antes = paraAnimar.length;
+          paraAnimar = paraAnimar.filter((b) => !escenasConClip.has(b.leadScene));
+          if (paraAnimar.length < antes) {
+            console.log(
+              `[blocks] ${antes - paraAnimar.length} bloque(s) YA tienen clip y no se vuelven a pagar ` +
+              `(escenas ${[...escenasConClip].join(", ")}) — quedan ${paraAnimar.length} por animar`,
+            );
+          }
+        }
+
         const imgByScene = new Map(
           detail.scenes.map((sc) => [sc.scene_number, imageBySceneId.get(sc.id)?.public_url]),
         );
