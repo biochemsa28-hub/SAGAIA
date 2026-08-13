@@ -682,7 +682,8 @@ export async function generateCharacterOptions(params: {
     // estado en que está — el prompt tiene que RESPETARLA, no lavarla.
     const prompt = `Cinematic character portrait for a premium vertical drama series. ${params.description}. ${variation}. ` +
       `Follow the description EXACTLY — body type, distinctive feature, and the wardrobe with the wear and state described. ` +
-      `A face you remember, not a catalogue face: real skin with its texture, pores, lines and marks. ` +
+      `A face you remember: striking and magnetic, with real skin texture, pores and marks — beautiful the way a lead actor is, not the way a stock photo is. ` +
+      `HEAD AND SHOULDERS FULLY IN FRAME with room above the hair — never crop the top of the head. ` +
       `The clothes belong to this person's life and look lived-in, never styled for a shoot. ` +
       `placed in a richly dressed environment that fits the character (never an empty studio backdrop), ` +
       `${style.promptSuffix}`;

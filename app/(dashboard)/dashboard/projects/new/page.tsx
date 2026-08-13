@@ -1207,6 +1207,12 @@ function NewProjectForm() {
               {char.options.length > 0 ? (
                 <div>
                   <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Elige su aspecto</p>
+                  {/* Los retratos se generan en 9:16 y esta caja era CUADRADA con
+                      recorte al centro: al personaje se le cortaba la cabeza.
+                      Elegir un rostro sin poder verlo es imposible, y el elenco
+                      entero se veía genérico por culpa del encuadre, no del
+                      modelo. 3:4 con anclaje arriba conserva la cara y el torso
+                      sin volver la tarjeta interminable. */}
                   <div className="grid grid-cols-2 gap-2">
                     {char.options.map((url, oi) => (
                       <button
@@ -1214,14 +1220,14 @@ function NewProjectForm() {
                         onClick={() => setCastCharacters(prev =>
                           prev.map((c, idx) => idx === ci ? { ...c, selectedIdx: oi } : c)
                         )}
-                        className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all duration-200 ${
+                        className={`relative rounded-xl overflow-hidden aspect-[3/4] border-2 transition-all duration-200 ${
                           char.selectedIdx === oi
                             ? `${theme.selected} scale-[1.03] shadow-xl`
                             : "border-zinc-800 hover:border-zinc-600"
                         }`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={`${char.name} opción ${oi + 1}`} className="w-full h-full object-cover" />
+                        <img src={url} alt={`${char.name} opción ${oi + 1}`} className="w-full h-full object-cover object-top" />
                         {char.selectedIdx === oi && (
                           <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
                             <CheckCircle className="w-4 h-4 text-white" />
