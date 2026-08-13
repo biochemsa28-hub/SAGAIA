@@ -69,21 +69,73 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
   // user already paid for.
   if (CONTINUITY_GATE_ON) {
     await mark("continuity");
-    const detail = await getProjectDetail(job.project_id, job.user_id);
-    if (detail?.scenes?.length) {
+
+    // El portero mira los cuadros que SÍ pensábamos hacer. Con ANCHOR_IMAGES_ONLY
+    // el pipeline dibuja solo los que un clip consume; revisar todas las escenas
+    // reporta esos huecos deliberados como faltantes y bloquea una producción sana.
+    const revisar = async () => {
+      const detail = await getProjectDetail(job.project_id, job.user_id);
+      if (!detail?.scenes?.length) return null;
       const imageBySceneId = new Map(
         (detail.assets ?? [])
           .filter((a) => a.asset_type === "image" && a.scene_id && a.public_url)
           .map((a) => [a.scene_id, a.public_url]),
       );
-      // With ANCHOR_IMAGES_ONLY the pipeline renders a frame only for the scenes a
-      // clip actually consumes — the rest are carried by the generated motion. So
-      // checking every scene reports those deliberate gaps as missing and blocks a
-      // perfectly good production. The gate must judge the frames we MEANT to make.
-      const paraRevisar = detail.scenes
+      return detail.scenes
         .map((s) => ({ scene_number: s.scene_number, image_url: imageBySceneId.get(s.id) ?? null }))
         .filter((s) => (ANCHOR_IMAGES_ONLY ? s.image_url !== null : true));
-      const report = await checkContinuity(paraRevisar);
+    };
+
+    const primeras = await revisar();
+    if (primeras) {
+      let report = await checkContinuity(primeras);
+
+      // ── QUE SE CORRIJA SOLO ──────────────────────────────────────────────
+      //
+      // Hasta ahora el portero sabía describir el defecto con precisión —"la
+      // chica cambia: en las escenas 2 y 4 aparece otra persona"— y hacía una de
+      // dos cosas malas: dejarlo pasar, y animar un video donde el protagonista
+      // tiene dos caras; o bloquear, y devolverle el dinero a alguien que se
+      // queda sin video. Ninguna de las dos arregla nada.
+      //
+      // Pero el informe NOMBRA las escenas, y una imagen suelta se vuelve a
+      // dibujar por centavos. Redibujar cuesta ~$0.06 por escena y salva un video
+      // de $6 — es lo que hace un director cuando ve mal el vestuario en dos
+      // tomas: repite esas dos, no la película.
+      //
+      // UNA sola ronda y un tope de escenas: si redibujar no lo arregla, el
+      // problema no es el dibujo, y reintentar solo quema dinero en silencio.
+      const TOPE = Math.max(0, Number(process.env.CONTINUITY_REDRAW_MAX ?? 4) || 0);
+      const sospechosas = [...new Set(report.issues.flatMap((i) => i.scenes))].slice(0, TOPE);
+
+      if (sospechosas.length && TOPE > 0) {
+        for (const i of report.issues) console.warn(`[continuity] ${i.severity} ${i.code}: ${i.message}`);
+        console.log(`[continuity] redibujando escena(s) ${sospechosas.join(", ")} antes de animar — ~$${(sospechosas.length * 0.06).toFixed(2)}`);
+
+        const redibujadas = await Promise.all(sospechosas.map(async (n) => {
+          try {
+            const r = await post("/api/images", { project_id: job.project_id, scene_number: n });
+            const j = await r.json() as { success?: boolean; locked?: boolean; error?: string };
+            // Una escena aprobada por el usuario NO se toca: su decisión manda
+            // sobre la del portero.
+            if (j.locked) console.log(`[continuity] escena ${n} aprobada por el usuario — se respeta`);
+            return Boolean(j.success);
+          } catch { return false; }
+        }));
+
+        if (redibujadas.some(Boolean)) {
+          const segundas = await revisar();
+          if (segundas) {
+            const antes = report.issues.length;
+            report = await checkContinuity(segundas);
+            console.log(
+              `[continuity] tras redibujar: ${report.issues.length} problema(s) contra ${antes} — ` +
+              `${report.ok ? "se puede animar" : "sigue bloqueado"}`,
+            );
+          }
+        }
+      }
+
       for (const i of report.issues) console.warn(`[continuity] ${i.severity} ${i.code}: ${i.message}`);
       if (!report.ok) throw new ContinuityError(report);
       console.log(`[continuity] ${report.checked} escenas revisadas, sin bloqueos`);
