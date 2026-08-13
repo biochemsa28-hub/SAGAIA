@@ -768,7 +768,19 @@ export async function POST(req: NextRequest) {
           const isVeo3 = /veo3|veo-3|veo\/3/i.test(process.env.VIDEO_MODEL ?? "");
           const model: "seedance" | "veo3" = isVeo3 ? "veo3" : "seedance";
           const isLipsyncStage = stage === "lipsync";
-          const cost = estimateVideos(doneCount, model, isLipsyncStage);
+          // Con la RESOLUCIÓN real el costo se calcula con la fórmula de fal en
+          // vez de una tarifa plana que ya no describe nada: a 1080p un clip
+          // cuesta 2,25 veces lo que cuesta a 720p.
+          //
+          // La duración exacta de cada clip no viaja hasta este punto —collect
+          // solo recibe los identificadores—, así que se usa la duración típica
+          // de un bloque. Es una aproximación, y la única de la cuenta: el resto
+          // (píxeles, fps, tarifa) sale de la fórmula publicada.
+          const cost = estimateVideos(doneCount, model, isLipsyncStage, {
+            segundos: Number(process.env.CLIP_SECONDS_AVG ?? 6) || 6,
+            resolucion: process.env.VIDEO_RESOLUTION ?? "1080p",
+            conAudio: NATIVE_AUDIO_ON,
+          });
           await createApiLog({
             userId: userId, projectId: parsed.data.project_id,
             provider: "fal", endpoint: "/api/videos", model: isLipsyncStage ? "lipsync" : model,
