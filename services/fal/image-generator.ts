@@ -534,6 +534,15 @@ export async function generateProjectImages(params: {
   // scene_number → that speaker's multi-view bible sheet. Passed ALONGSIDE the
   // portrait so the edit model sees the face from several angles.
   sceneBibles?: Map<number, string>;
+  // scene_number → retratos de los OTROS personajes que están en cuadro.
+  //
+  // Hasta ahora cada escena recibía un solo retrato: el del que HABLA. En una
+  // escena con tres personas, al generador le llegaba una cara y las otras dos
+  // las inventaba. Medido en un video real: Jazmín salió con pelo azul en el
+  // plano donde no hablaba y con pelo oscuro en el que sí, y la tercera figura
+  // del fondo era un invento borroso. No es que el modelo "olvide" — nunca le
+  // dijimos cómo se ven los demás.
+  sceneExtraRefs?: Map<number, string[]>;
 }): Promise<SceneImageResult[]> {
   const consistency = (process.env.CHARACTER_CONSISTENCY ?? "on").toLowerCase() !== "off";
   const seed = stableSeed(params.projectId);
@@ -555,9 +564,17 @@ export async function generateProjectImages(params: {
         referenceImageUrl: ref || params.referenceImageUrl || undefined,
         // Portrait + multi-view bible together: nano-banana takes an image array,
         // so it gets the face from several angles instead of extrapolating from one.
+        // LOS OTROS PERSONAJES PRIMERO, LA HOJA DESPUÉS.
+        //
+        // callReference corta en 4 imágenes, así que el orden decide qué se
+        // pierde. Con varias personas en cuadro, saber cómo se ve la SEGUNDA
+        // vale más que ver al primero desde otro ángulo: una cara inventada se
+        // nota siempre; un ángulo de menos, casi nunca.
         referenceImageUrls: (() => {
-          const b = params.sceneBibles?.get(scene.scene_number);
-          return b ? [b] : params.referenceImageUrls;
+          const otros = params.sceneExtraRefs?.get(scene.scene_number) ?? [];
+          const bible = params.sceneBibles?.get(scene.scene_number);
+          const lista = [...otros, ...(bible ? [bible] : [])];
+          return lista.length ? lista : params.referenceImageUrls;
         })(),
         emotion: scene.emotion,
         narrationText: scene.narration_text,

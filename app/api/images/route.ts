@@ -164,9 +164,12 @@ export async function POST(req: NextRequest) {
     // portrait URL → its bible sheet. Keyed by portrait (not name) so the mapping
     // survives the appearance-order fallback below, where speaker names don't match.
     const bibleByPortrait = new Map<string, string>();
+    // Vive fuera del bloque porque hace falta MÁS ABAJO, para saber qué otros
+    // personajes están en cuadro en cada escena.
+    let withPortrait: Awaited<ReturnType<typeof getProjectCast>> = [];
     if (!detail.project.character_id) {
       const cast = await getProjectCast(parsed.data.project_id).catch(() => []);
-      const withPortrait = cast.filter((c) => c.reference_image_url);
+      withPortrait = cast.filter((c) => c.reference_image_url);
 
       // SIN RETRATO NO HAY REFERENCIA, Y SIN REFERENCIA LAS CARAS SE VAN.
       //
@@ -294,6 +297,44 @@ export async function POST(req: NextRequest) {
       if (m.size) sceneBibles = m;
     }
 
+    // ── QUIÉN MÁS ESTÁ EN CUADRO ─────────────────────────────────────────────
+    //
+    // El mapa de arriba da UN retrato por escena: el de quien habla. En una
+    // escena con tres personas eso significa que al generador le llega una cara
+    // y las otras dos las inventa. Medido en un video real: Jazmín salió con
+    // pelo azul en el plano donde no hablaba y con pelo oscuro en el que sí, y
+    // la tercera figura del fondo era un borrón. El modelo no se olvidó de
+    // nadie — nunca le dijimos cómo se veían los demás.
+    //
+    // Quiénes están presentes no hace falta preguntárselo al guionista: ya está
+    // escrito. Si el prompt de la escena o el diálogo NOMBRAN a alguien del
+    // elenco, esa persona está en la escena. Es gratis —la misma llamada con más
+    // entradas— y no necesita ningún campo nuevo.
+    let sceneExtraRefs: Map<number, string[]> | undefined;
+    if (withPortrait.length > 1) {
+      const sinAcentos = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const m = new Map<number, string[]>();
+      for (const s of targetScenes) {
+        const texto = sinAcentos(`${s.image_prompt ?? ""} ${s.narration_text ?? ""}`);
+        const propio = sceneReferences?.get(s.scene_number);
+        const otros = withPortrait
+          .filter((c) => {
+            if (c.reference_image_url === propio) return false;      // ya va como principal
+            const nombre = sinAcentos((c.name ?? "").split(/\s+/)[0] ?? "");
+            // Límite de palabra a mano: "Ana" no debe activarse dentro de "Anacleto".
+            return nombre.length >= 3 && new RegExp(`(^|[^\\p{L}])${nombre}([^\\p{L}]|$)`, "u").test(texto);
+          })
+          .map((c) => c.reference_image_url!)
+          .filter(Boolean);
+        if (otros.length) m.set(s.scene_number, otros);
+      }
+      if (m.size) {
+        sceneExtraRefs = m;
+        const total = [...m.values()].reduce((n, a) => n + a.length, 0);
+        console.log(`[elenco] ${m.size} escena(s) con más de un personaje en cuadro — ${total} retrato(s) extra como referencia ($0)`);
+      }
+    }
+
     const results = await generateProjectImages({
       projectId: parsed.data.project_id,
       niche: detail.project.niche,
@@ -308,6 +349,7 @@ export async function POST(req: NextRequest) {
       referenceImageUrls,
       sceneReferences,
       sceneBibles,
+      sceneExtraRefs,
     });
 
     // Save URLs to DB assets table — re-host each fal.media image (TEMPORARY URL)
