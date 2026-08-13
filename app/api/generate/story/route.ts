@@ -8,6 +8,7 @@ import {
   refundCreditForProject,
 } from "@/lib/db/repository";
 import { resolveProjectTier, creditCostFor, videoSecondsFor, esBorrador, BORRADOR } from "@/lib/config";
+import { esNombreDePila } from "@/lib/ai/name-bank";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -333,6 +334,50 @@ export async function POST(req: NextRequest) {
           corregidos++;
         }
       }
+      // ── LOS NOMBRES QUE SE DICEN EN VOZ ALTA ────────────────────────────
+      //
+      // Lo de arriba corrige QUIÉN habla. Pero el nombre que el espectador OYE
+      // está dentro del diálogo, y ahí nadie miraba. Medido en una producción
+      // real con el elenco "Arnau Segura / Alanis Nájera": el personaje decía
+      // "María, no quiero engañarte más". El chequeo daba todo correcto —el
+      // campo speaker estaba bien— y el espectador escuchaba el nombre de
+      // alguien que no existe en la historia. Eso es lo que se siente como
+      // "no sigue el mismo personaje".
+      //
+      // Un vocativo se lo dice el que habla AL QUE ESCUCHA, así que en una
+      // escena de dos el reemplazo correcto es siempre el otro del elenco.
+      const primer = (s: string) => norm(s).split(/\s+/)[0] ?? "";
+      const primerosDelElenco = new Set(nombres.map(primer));
+      let vocativos = 0;
+      for (const sc of result.data.scenes) {
+        const texto = sc.narration_text ?? "";
+        if (!texto) continue;
+        const otro = nombres.find((n) => primer(n) !== primer(sc.speaker ?? "")) ?? nombres[0];
+        if (!otro) continue;
+        // Solo palabras capitalizadas que son nombres de pila conocidos y no
+        // están en el elenco. Sin el banco de nombres no se toca nada: adivinar
+        // qué palabra es un nombre propio rompería diálogo legítimo.
+        const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+        const corregido = texto.replace(/\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,})\b/g, (m) => {
+          const k = primer(m);
+          if (primerosDelElenco.has(k)) return m;         // ya es del elenco
+          // Un nombre del elenco MAL ESCRITO ("Arnaud" por "Arnau") se normaliza
+          // a la grafía real en vez de reemplazarse por el otro personaje: es la
+          // misma persona, escrita distinto.
+          const casiIgual = [...primerosDelElenco].find(
+            (n) => n.length >= 4 && (n.startsWith(k.slice(0, 4)) || k.startsWith(n.slice(0, 4))),
+          );
+          if (casiIgual) { vocativos++; return capitalizar(casiIgual); }
+          if (!esNombreDePila(k)) return m;               // no es un nombre
+          vocativos++;
+          return capitalizar(primer(otro));
+        });
+        if (corregido !== texto) sc.narration_text = corregido;
+      }
+      if (vocativos) {
+        console.warn(`[elenco] ${vocativos} nombre(s) inventado(s) DENTRO del diálogo reemplazados por los del elenco`);
+      }
+
       if (corregidos) {
         console.warn(`[elenco] ${corregidos} atribución(es) corregidas — el guion se desvió de los nombres elegidos`);
       } else {

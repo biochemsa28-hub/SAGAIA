@@ -131,6 +131,23 @@ export function materialDeCasting(): string {
 export const NOMBRES_QUEMADOS =
   "Valeria, Camila, Sofía, Mateo, Alejandro, Diego, Lucía, Isabella, Santiago, Mariana, Daniel, Andrés, Elena, Carlos, Ana, Luis, María, José";
 
+// ¿Esta palabra es un nombre de pila? Sirve para detectar cuándo el guion mete
+// en el DIÁLOGO un nombre que no pertenece al elenco — "María, no quiero
+// engañarte más" cuando la protagonista se llama Alanis.
+//
+// Reconoce TODO el banco crudo MÁS los prohibidos: "María" es un nombre real
+// aunque nosotros no lo ofrezcamos, y si no lo reconociera se quedaría en el
+// guion, que es justamente el defecto que esto ataca.
+const TODOS_LOS_NOMBRES = new Set(
+  [...F_JOVEN, ...F_ADULTA, ...F_MAYOR, ...M_JOVEN, ...M_ADULTO, ...M_MAYOR]
+    .map(sinTilde)
+    .concat([...PROHIBIDOS]),
+);
+
+export function esNombreDePila(palabra: string): boolean {
+  return TODOS_LOS_NOMBRES.has(sinTilde(palabra));
+}
+
 // Solo para diagnóstico: cuánto material real quedó tras limpiar.
 export function tamañoDelBanco() {
   const f = FJ.length + FA.length + FM.length;
