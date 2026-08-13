@@ -169,6 +169,20 @@ Entre una escena y la siguiente tiene que cambiar AL MENOS UNA de estas cosas:
 
 Si las escenas transcurren todas en el mismo lugar, en el mismo minuto, con la misma persona hablando sin parar y sin enterarse de nada nuevo → NO es una historia. Reescribila.
 
+REGLA #2.65 — EL TAMAÑO DEL PLANO ES LA EMOCIÓN
+════════════════════════════════════════
+Lo que hace que un video se SIENTA no es lo que se dice: es a qué distancia está la cámara cuando se dice. Un beso en plano general son dos figuritas junto a un sofá y no emociona a nadie. El mismo beso llenando el cuadro —los labios, la mano en la mejilla, las pestañas— es el fotograma que la gente comparte.
+
+REGLA: cuanto más alta la emoción, MÁS CERCA la cámara.
+  · Presentar un lugar, alguien que llega o se va → plano general o medio.
+  · Conversación normal, tensión que sube → plano medio corto.
+  · EL PICO EMOCIONAL de la historia (el beso, la confesión, la traición que se revela, el llanto, el grito, la mano que se suelta) → PRIMER PLANO o PRIMERÍSIMO PRIMER PLANO. Sin excepción.
+
+CUANDO HAY CONTACTO FÍSICO, EL CUADRO ES EL PUNTO DE CONTACTO
+No "una pareja besándose en una sala": el encuadre va sobre los labios, la mano que sujeta la nuca, los dedos entrelazados, la frente contra la frente. Las caras LLENAN el cuadro. Fondo desenfocado y sin importancia — en ese momento el mundo no existe, solo ellos.
+
+En image_prompt de esas escenas: "extreme close-up", las caras ocupando todo el encuadre, la piel y las pestañas visibles, luz cálida rasante, poca profundidad de campo. Nada de decorado: el decorado le roba el momento.
+
 REGLA #2.7 — LAS ESCENAS SE FILMAN DE A PARES (ESTO ARREGLA EL "MAL GRABADO")
 ════════════════════════════════════════
 Las escenas se ruedan agrupadas de a DOS en una misma toma continua: la 1 con la 2, la 3 con la 4, la 5 con la 6. Dentro de un par NO HAY CORTE — la cámara no se levanta ni se mueve de lugar.
@@ -602,7 +616,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
       "physical_action": "EN INGLÉS, formato \\"antes | después\\", 6-14 palabras cada mitad. LO QUE LOS CUERPOS HACEN, no lo que dicen. ANTES: la acción física que ya está ocurriendo cuando arranca el plano y que se interrumpe para hablar. DESPUÉS: lo que hacen los cuerpos al terminar la línea. Entre PERSONAJES, no con el decorado: besarse, separarse un centímetro, tomarse la muñeca, apartar el pelo de la cara, sostener la mirada sin parpadear, girar la cara para no llorar, dar un paso atrás. Ej: \\"they are kissing, she pulls back an inch to speak | their eyes lock and neither looks away\\". Si el personaje está solo, la acción es con su propio cuerpo o con un objeto que le importa. PROHIBIDO dejarlo vacío en una escena con dos personas en cuadro: dos personas que solo hablan es una videollamada, no un drama. ⚠️ ESCRIBILA COMO SE EJECUTA, NO COMO SE NOMBRA: no 'se besan' sino 'her hand goes to the back of his neck, their lips meet and hold'; no 'se cae' sino 'his knee buckles, he goes down hard on his side'; no 'grita' sino 'her mouth opens wide, the neck tenses, the shout doubles her over'. Un verbo suelto lo insinúa; un cuerpo descrito lo obliga.",
       "emotion": "emoción primaria de esta escena (una palabra)",
       "sfx_prompt": "EN INGLÉS, 3-8 palabras: EL sonido concreto que ocurre en esta escena — el que el espectador escucharía si estuviera ahí. Ej: 'heavy wooden door creaking open slowly', 'glass shattering on tile floor', 'footsteps approaching on gravel', 'phone buzzing on a table', 'car engine starting outside'. UNO solo, el más importante. NADA de música ni de ambiente vago ('tense atmosphere' está PROHIBIDO — para eso ya está la banda sonora). Si en esta escena no pasa ningún sonido concreto, dejalo en \"\".",
-      "camera_move": "movimiento específico de cámara, SIEMPRE en movimiento — nunca un plano fijo. Ej: slow push in, dolly left, tilt up, slow orbit, handheld drift, pull back to reveal, tracking behind the character. PROHIBIDO 'static': el plano quieto es lo que hace que un video generado parezca una foto con voz. Elegí el movimiento según la emoción: acercarse en la revelación, retroceder en el abandono, lateral en la tensión."
+      "camera_move": "movimiento específico de cámara, SIEMPRE en movimiento — nunca un plano fijo. Ej: slow push in, dolly left, tilt up, slow orbit, handheld drift, pull back to reveal, tracking behind the character. PROHIBIDO 'static': el plano quieto es lo que hace que un video generado parezca una foto con voz. Elegí el movimiento según la emoción: acercarse en la revelación, retroceder en el abandono, lateral en la tensión. ⚠️ En el PICO EMOCIONAL (beso, confesión, llanto, traición revelada) el movimiento es SIEMPRE hacia adelante y muy lento —'very slow push in on their faces'— nunca lateral ni orbital: acercarse es lo que hace que el espectador sienta que está ahí."
     }
   ],
   "seo": {
