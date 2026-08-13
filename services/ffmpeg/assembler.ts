@@ -13,6 +13,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 import { uploadBuffer } from "@/services/storage";
+import { auditarVideo } from "@/services/quality/auditor";
 
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH ?? "ffmpeg";
@@ -1050,6 +1051,12 @@ export async function assembleWithFfmpeg(params: {
       // Igual que el diseño sonoro: nunca perder el video por un retoque de audio.
       console.error("[cola] omitido:", e instanceof Error ? e.message.slice(0, 150) : e);
     }
+
+    // 3.5) Auditar ANTES de subir. El archivo está acá, en disco, y medirlo
+    // cuesta ~4 segundos y cero dólares. Todo defecto que descubrimos mirando
+    // videos terminados —planos eternos, congelados, volumen flojo— sale de
+    // estos números, así que a partir de ahora se anuncian solos en el log.
+    await auditarVideo(finalOut);
 
     // 4) Upload to durable R2.
     const buffer = readFileSync(finalOut);
