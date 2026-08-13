@@ -435,7 +435,9 @@ export async function POST(req: NextRequest) {
                   "another, never at the same time, and let the emotion change between them " +
                   "as the lines say. What the character DOES must match the line being " +
                   "spoken at that exact moment." +
-                  buildDialogueDirection(lines)
+                  // La duración real del clip: sin ella los tramos de tiempo
+                  // serían inventados y el reparto no cerraría con el audio.
+                  buildDialogueDirection(lines, Math.min(HOOK_BLOCK_SECONDS, Math.max(4, Math.ceil(block.seconds + 1))))
                 );
               })(),
               duration_seconds: Math.min(HOOK_BLOCK_SECONDS, Math.max(4, Math.ceil(block.seconds + 1))),
@@ -526,7 +528,7 @@ export async function POST(req: NextRequest) {
               `Camera: ${movimiento || "slow push in on the face"}. ` +
               "The camera is moving for the ENTIRE clip — never a locked-off static frame. " +
               "Consistent character appearance and wardrobe throughout." +
-              (NATIVE_AUDIO_ON ? buildDialogueDirection(linea) : ""),
+              (NATIVE_AUDIO_ON ? buildDialogueDirection(linea, effectiveDur) : ""),
             image_url: matched ?? fallback,
             duration_seconds: effectiveDur,
             generate_audio: NATIVE_AUDIO_ON,

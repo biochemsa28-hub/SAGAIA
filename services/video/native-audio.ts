@@ -37,7 +37,7 @@ export interface SpokenLine {
 //
 // Order matters: the dialogue goes LAST and is quoted verbatim. Buried in the
 // middle of camera instructions it gets treated as description and paraphrased.
-export function buildDialogueDirection(lines: SpokenLine[]): string {
+export function buildDialogueDirection(lines: SpokenLine[], segundos?: number): string {
   const spoken = lines.map((l) => l.text?.trim()).filter((t): t is string => Boolean(t));
   if (!spoken.length) return "";
 
@@ -60,6 +60,22 @@ export function buildDialogueDirection(lines: SpokenLine[]): string {
   // Cada línea lleva ahora SU emoción y SU acción. Es como se dirige de verdad: no
   // se le dice a un actor "hacé la escena triste", se le dice qué hace y qué siente
   // en cada frase.
+  // ── EL TIEMPO SE REPARTE, NO SE SUGIERE ────────────────────────────────────
+  //
+  // "Primero se besan, después habla" deja que el modelo decida cuánto dura cada
+  // cosa, y siempre decide lo mismo: la acción física dura un parpadeo y el
+  // resto es gente hablando. Medido en una prueba real de este mismo modelo, un
+  // prompt con tramos explícitos —"Shot 1 (0-4s) … CUT … Shot 2 (4-8s)"— produjo
+  // un corte limpio exactamente en el segundo 5. Lo que se pide con un reloj se
+  // cumple; lo que se pide con un adverbio, no.
+  //
+  // Reparto por línea: la acción de entrada se lleva el primer tercio, la línea
+  // el grueso, y la reacción el cierre. Sin duración conocida no se inventan
+  // números — se vuelve al orden sin tiempos, que es peor pero no miente.
+  const total = segundos && segundos > 1 ? segundos : 0;
+  const porLinea = total ? total / util.length : 0;
+  const reloj = (desde: number, hasta: number) => `(${desde.toFixed(1)}-${hasta.toFixed(1)}s)`;
+
   const quoted = util
     .map((l, i) => {
       const verbo = i === 0 ? "says" : "answers";
@@ -78,14 +94,28 @@ export function buildDialogueDirection(lines: SpokenLine[]): string {
       // habla. La lluvia corriendo por el vidrio detrás convierte el mismo plano en
       // una toma.
       const ambiente = (l.environment ?? "").trim();
+
+      // Tramos de esta línea. La acción de entrada necesita tiempo REAL para
+      // leerse: un beso de tres cuadros no es un beso.
+      const t0 = porLinea * i;
+      const tAntes = antes ? t0 + porLinea * 0.32 : t0;
+      const tHabla = despues ? t0 + porLinea * 0.82 : t0 + porLinea;
+
       return (
         // Primero el cuerpo, después la voz: así es como se lee una escena.
-        (antes ? `FIRST, before any words: ${antes}. THEN, ` : "") +
+        // El reloj SOLO si hay duración real. Sin ella salía "(0.0-0.0s)", que
+        // no informa nada y encima le dice al modelo que esa acción dura cero.
+        (antes
+          ? `${total ? reloj(t0, tAntes) + " " : ""}FIRST, before any words — hold this long enough to read: ${antes}. THEN, `
+          : "") +
+        (total ? `${reloj(tAntes, tHabla)} ` : "") +
         `${comoSeVe(l)} ${verbo}, in Spanish: "${l.text.trim()}"` +
         (accion ? ` — while doing this: ${accion}` : "") +
         (tells ? ` — performed with: ${tells}` : "") +
         (ambiente ? ` — and in the environment, independently of the character: ${ambiente}` : "") +
-        (despues ? `. IMMEDIATELY AFTER the line, without speaking: ${despues}` : "")
+        (despues
+          ? `. ${total ? reloj(tHabla, t0 + porLinea) + " " : ""}IMMEDIATELY AFTER the line, without speaking: ${despues}`
+          : "")
       );
     })
     .join(" THEN, and only after the previous line is finished: ");
@@ -101,11 +131,25 @@ export function buildDialogueDirection(lines: SpokenLine[]): string {
       "The camera favours whoever is speaking, then the reaction of the other."
     : "";
 
+  // LA ACCIÓN SE EJECUTA COMPLETA O NO EXISTE.
+  //
+  // Un modelo de video, ante una acción física, tiende a insinuarla: el beso es
+  // un acercamiento, la caída es un tambaleo, el grito es una boca abierta. Sale
+  // barato en cómputo y arruina la escena, porque el espectador ve la intención
+  // y no el hecho. Hay que decirle que el gesto llega hasta el final.
+  const accionCompleta =
+    " PHYSICAL ACTIONS ARE PERFORMED IN FULL, never implied or half-started. " +
+    "If they kiss, their lips meet and stay together. If someone falls, the body actually hits the ground. " +
+    "If someone screams, the mouth opens wide, the neck tenses and the whole body commits to it. " +
+    "If someone slaps, the hand lands. A gesture that stops halfway reads as a mistake, not as restraint. " +
+    "Give each action the seconds it needs — the timings below are the schedule, follow them.";
+
   return (
     " The characters SPEAK this dialogue out loud, in Spanish, in this exact order, " +
     "with the emotion the scene calls for. Do not invent other lines, do not narrate, " +
     "no voice-over — only these characters speaking to each other on camera." +
     turnos +
+    accionCompleta +
     " " + quoted
   );
 }
