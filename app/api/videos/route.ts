@@ -498,8 +498,24 @@ export async function POST(req: NextRequest) {
                   //
                   // Un movimiento real ARRANCA, RECORRE y LLEGA. El reposo del
                   // final es lo que le da peso al plano y deja mirar la cara.
+                  // …PERO LO QUE SE DETIENE ES LA CÁMARA, NO EL PLANO.
+                  //
+                  // "holding still on the face" pedía literalmente un tercio de
+                  // clip quieto, y el modelo obedeció: medido sobre un video
+                  // real, el 34% de los cuadros tenía MENOS movimiento que una
+                  // foto fija con Ken Burns — casi exactamente ese tercio final.
+                  // Le estábamos pagando a Seedance para que congelara.
+                  //
+                  // El clip que sí funcionó —el beso— mide 1% de cuadros
+                  // quietos con la cámara igual de calmada: lo que no se detiene
+                  // ahí es el SUJETO. Una cámara quieta sobre un cuadro muerto
+                  // es una foto; sobre un cuerpo que respira es un primer plano.
                   "The camera move ARRIVES and SETTLES: it starts, travels, and comes to rest during the " +
-                  "final third of the clip, holding still on the face while the moment lands. " +
+                  "final third of the clip, then holds — but ONLY the camera stops. " +
+                  "The shot never freezes: while the camera rests, breath keeps lifting the shoulders, " +
+                  "eyes blink and search, hair and fabric keep settling, a hand tightens or lets go, " +
+                  "and the light, flame, rain or dust behind them keeps living. " +
+                  "A still camera on a frozen frame is a photograph, not a shot. " +
                   "Never a locked-off frame from the first instant, and never a camera still drifting on the last frame. " +
                   "The movement answers the beats: it eases while the character speaks and " +
                   "pushes in on the moment of revelation, then stops. " +
@@ -609,9 +625,13 @@ export async function POST(req: NextRequest) {
               "Do not restyle or redraw the frame: keep the given image's look, palette and framing exactly. " +
               "The camera has weight — it settles rather than drifts, starts and stops with intention. " +
               `Camera: ${movimiento || "slow push in on the face"}. ` +
-              // Igual que en la ruta de bloques: el movimiento LLEGA y se asienta.
+              // Igual que en la ruta de bloques: el movimiento LLEGA y se asienta,
+              // y lo que se detiene es la CÁMARA, nunca el plano.
               "The camera move ARRIVES and SETTLES: it starts, travels, and comes to rest during the " +
-              "final third of the clip, holding still on the face while the moment lands. " +
+              "final third of the clip, then holds — but ONLY the camera stops. " +
+              "The shot never freezes: while the camera rests, breath keeps lifting the shoulders, " +
+              "eyes blink and search, hair and fabric keep settling, and the light behind them keeps living. " +
+              "A still camera on a frozen frame is a photograph, not a shot. " +
               "Consistent character appearance and wardrobe throughout." +
               (NATIVE_AUDIO_ON ? buildDialogueDirection(linea, effectiveDur) : ""),
             image_url: matched ?? fallback,
