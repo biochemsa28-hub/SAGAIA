@@ -403,18 +403,29 @@ export async function POST(req: NextRequest) {
           // Y CUÁNTO SE LLEVA GASTADO. En dólares, que es la unidad en la que se
           // pierde plata — no en cantidad de bloques.
           let gastoProyectado = 0;
-          // $3,50, y el número sale de la cuenta, no de la intuición. Con bloques
-          // de 6s: un plano premium cuesta $1,81 y cuatro normales $1,24, o sea
-          // $3,05 — cabe. Un SEGUNDO premium lo llevaría a $4,86 y no cabe, que es
-          // exactamente lo que se quiere: un pico caro por video, no dos.
+          // EL TECHO ESCALA CON LA DURACIÓN, porque el costo escala con la
+          // duración y el precio de venta también.
           //
-          // Probado con $3,00 primero: no entraba NINGUNO —el pico quedaba en
-          // $3,05 por cinco centavos— y el guardia terminaba matando la función
-          // que existe para proteger. Un tope mal elegido no protege, apaga.
+          // Estuvo plano en $3,50, y un número plano protege a un solo tamaño de
+          // video. La cuenta que lo justificaba —un pico premium de 6s ($1,81)
+          // más cuatro bloques normales ($1,24) = $3,05, y el segundo pico ya no
+          // cabe— vale para 30 segundos. Para 90 no vale nada: la animación
+          // barata sola son $4,68 y ya se pasó del techo sin haber usado el
+          // endpoint caro para nada. El guardia no lo ve porque solo mira las
+          // decisiones caras, así que un video largo pasaba entero por debajo.
           //
-          // RTV_MODE=all necesita subir esto también; si no, el tope lo recorta
-          // bloque por bloque y el log lo dice en cada uno.
-          const PRESUPUESTO_ANIMACION = Math.max(0.5, Number(process.env.MAX_ANIMATION_SPEND_USD ?? 3.5) || 3.5);
+          // $0,1167 por segundo mantiene exactamente aquel cálculo a los 30s
+          // ($3,50) y lo extiende con honestidad: 60s → $7,00, 90s → $10,50.
+          // MAX_ANIMATION_SPEND_USD sigue existiendo como tope ABSOLUTO para
+          // quien quiera uno fijo por encima de todo.
+          const segundosPedidos = videoSecondsFor(detail.project.duration_target);
+          const porSegundo = Math.max(0.02, Number(process.env.MAX_ANIMATION_SPEND_PER_SECOND ?? 0.1167) || 0.1167);
+          const topeAbsoluto = Number(process.env.MAX_ANIMATION_SPEND_USD ?? 0) || Infinity;
+          const PRESUPUESTO_ANIMACION = Math.max(0.5, Math.min(porSegundo * segundosPedidos, topeAbsoluto));
+          console.log(
+            `[gasto] presupuesto de animación: $${PRESUPUESTO_ANIMACION.toFixed(2)} para ${segundosPedidos}s` +
+            (topeAbsoluto === Infinity ? "" : ` (tope absoluto $${topeAbsoluto.toFixed(2)})`),
+          );
           const { costoClipReferencias, costoClipSeedance } = await import("@/lib/costs");
 
           // Los retratos de quienes actúan en un bloque. Se usa dos veces: para
