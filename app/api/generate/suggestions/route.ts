@@ -131,6 +131,14 @@ Y que el primer cuadro de cada una sea, respectivamente: ${ganchos[0]}; ${gancho
 
 CADA IDEA TIENE QUE TENER UN MOMENTO FÍSICO. Algo que un cuerpo HACE y se puede fotografiar: un beso que se sostiene, una cachetada que llega, una mano que agarra una muñeca, alguien que se desploma, un objeto que se estrella. Si el momento más fuerte de tu idea es "él la mira con desprecio", no hay nada que filmar y no hay nada que compartir.
 
+Y CADA IDEA NECESITA UNA RAZÓN PARA COMENTAR. Un video se distribuye por los comentarios, no por los likes: la plataforma lo empuja cuando la gente discute abajo. Así que la premisa tiene que dejar plantado ALGO de esto:
+- que el espectador SEPA algo que el personaje no sabe, y quiera gritárselo ("¡date vuelta!", "¡no le firmes!"),
+- o que haya dos lecturas posibles de lo mismo y la gente se pelee por cuál es,
+- o un detalle chiquito en el cuadro que solo se entiende al volver a verlo.
+Una historia que se entiende entera a la primera y no deja nada que decir se ve y se olvida.
+
+Y TERMINA JUSTO ANTES. El corte va en el segundo en que la respuesta está por llegar, no después. Lo que el espectador completa en su cabeza pesa más que lo que le muestres, y es lo que lo hace volver por la Parte 2.
+
 REGLAS:
 - Concreta y cotidiana. Nombrá objetos y lugares reales, no conceptos.
 - Nada de nombres propios: el elenco se elige después.
