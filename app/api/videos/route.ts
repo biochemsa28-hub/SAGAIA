@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveRequestUserId } from "@/lib/internal-auth";
-import { getProjectDetail, updateProjectStatus, upsertAsset, getUserById, bumpDailyVideoCount, createApiLog } from "@/lib/db/repository";
+import { getProjectDetail, updateProjectStatus, upsertAsset, getUserById, bumpDailyVideoCount, createApiLog, getProjectCast } from "@/lib/db/repository";
 import { submitVideoJobs, checkVideoJob } from "@/services/fal/video-generator";
 import { submitLipsyncJobs, checkLipsyncJob } from "@/services/fal/lipsync-generator";
 import { submitVideoLipsyncJobs, checkVideoLipsyncJob } from "@/services/fal/video-lipsync-generator";
@@ -311,6 +311,26 @@ export async function POST(req: NextRequest) {
           // rather than seven clips butted together. The dialogue is quoted in the
           // prompt, which is what makes the characters say the script instead of
           // improvising — verified against a transcript of the generated audio.
+          // ── LOS RETRATOS DEL ELENCO, QUE ES LO QUE EL ENDPOINT CARO NECESITA ──
+          //
+          // Medido en un video real: "contacto físico → reference-to-video
+          // (1 refs)". UNA sola imagen. El endpoint de referencias existe para
+          // recibir a los personajes por separado —@Image1, @Image2— y CONSTRUIR
+          // la acción entre ellos; con una sola imagen no tiene con quién armar
+          // nada y se comporta igual que image-to-video, cobrando seis veces más.
+          //
+          // El motivo: se le pasaban el primer y el último cuadro DEL BLOQUE, que
+          // en un bloque de una escena son la misma imagen y quedaban en una. Y
+          // aunque fueran dos, son dos fotos de la misma escena — no los
+          // personajes. La prueba del beso que sí funcionó usaba los RETRATOS.
+          const elenco = await getProjectCast(parsed.data.project_id).catch(() => []);
+          const claveDeNombre = (n: string) =>
+            n.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+          const retratoPorNombre = new Map<string, string>();
+          for (const c of elenco) {
+            if (c.name && c.reference_image_url) retratoPorNombre.set(claveDeNombre(c.name), c.reference_image_url);
+          }
+
           // Cuántos bloques ya se enrutaron a reference-to-video en este video.
           let rtvUsados = 0;
           blockJobs = paraAnimar.map((block, bi) => {
@@ -423,22 +443,45 @@ export async function POST(req: NextRequest) {
             // detrás de una variable y NO es el default: un cambio de una línea no
             // puede dejar a todos los usuarios produciendo a pérdida en silencio.
             const RTV_TODO = (process.env.RTV_MODE ?? "peaks").toLowerCase() === "all";
-            const esContacto = RTV_TODO || (esAccionClave && rtvUsados < RTV_MAX);
-            if (esAccionClave && !esContacto) {
+
+            // El material PRIMERO, la decisión después. Los retratos de quienes
+            // actúan en este bloque, y al final el cuadro de la escena — que
+            // aporta el set, la luz y el vestuario del momento exacto.
+            const retratosDelBloque = [...new Set(
+              lines.map((l) => (l.speaker ? retratoPorNombre.get(claveDeNombre(l.speaker)) : undefined))
+                   .filter((u): u is string => Boolean(u)),
+            )];
+            const anclaDelBloque = imgByScene.get(block.leadScene) ?? block.referenceImageUrl;
+            const refsPosibles = [...retratosDelBloque, anclaDelBloque]
+              .filter((u): u is string => Boolean(u))
+              .filter((u, i, a) => a.indexOf(u) === i);
+
+            // CON MENOS DE DOS REFERENCIAS NO SE PAGA EL ENDPOINT CARO. No es una
+            // preferencia: con una sola imagen hace exactamente lo mismo que el
+            // barato y cuesta seis veces más. Es dinero tirado, en silencio.
+            const hayMaterial = refsPosibles.length >= 2;
+            const esContacto = (RTV_TODO || (esAccionClave && rtvUsados < RTV_MAX)) && hayMaterial;
+            if (esAccionClave && !hayMaterial) {
+              console.warn(
+                `[video] bloque escena ${block.leadScene}: acción física clave, pero solo ${refsPosibles.length} referencia(s) ` +
+                `(hablantes: ${lines.map((l) => l.speaker ?? "?").join(", ")}) — va por image-to-video en vez de pagar 6x por nada`,
+              );
+            } else if (esAccionClave && !esContacto) {
               console.warn(`[video] bloque escena ${block.leadScene}: acción física clave, pero RTV_MAX_BLOCKS=${RTV_MAX} agotado — va por image-to-video`);
             }
             if (esContacto) rtvUsados++;
-            const refsContacto = esContacto
-              ? [imgByScene.get(block.leadScene) ?? block.referenceImageUrl, propiaUltima]
-                  .filter((u): u is string => Boolean(u))
-                  .filter((u, i, a) => a.indexOf(u) === i)
-              : undefined;
+            const refsContacto = esContacto ? refsPosibles : undefined;
 
             // El prompt de referencias nombra a las imágenes: sin el mapa @ImageN
-            // el modelo no sabe qué es cada archivo.
+            // el modelo no sabe qué es cada archivo. Y ahora SÍ son cosas
+            // distintas —personajes y escenario—, así que se nombran distinto.
             const prefijoRefs = refsContacto?.length
-              ? refsContacto.map((_, i) => `@Image${i + 1}`).join(" and ") +
-                " show the exact characters, wardrobe and set of this scene — keep them IDENTICAL. "
+              ? retratosDelBloque
+                  .map((_, i) => `@Image${i + 1} is ${lines[i]?.speaker ?? "a character"}`)
+                  .concat(`@Image${refsContacto.length} is the set, lighting and wardrobe of this exact moment`)
+                  .join(". ") +
+                ". Keep every face, outfit and location IDENTICAL to these references. " +
+                "Put these characters together in one shot and perform the action between them. "
               : "";
 
             return {
