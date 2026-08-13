@@ -417,9 +417,22 @@ export async function POST(req: NextRequest) {
                   // tiene que RESPONDER a los beats: una cámara que se acerca en la
                   // revelación cuenta; una que flota, no.
                   `Camera: ${movimiento || "slow push in on the face"}. ` +
-                  "The camera is moving for the ENTIRE clip — never a locked-off static frame. " +
-                  "The movement answers the beats: it drifts while the character speaks and " +
-                  "pushes in on the moment of revelation, then settles. " +
+                  // UN MOVIMIENTO DE CÁMARA TERMINA.
+                  //
+                  // Esta línea decía "la cámara se mueve durante TODO el clip" y
+                  // contradecía a la de arriba, que pide que se asiente. Medido en
+                  // un video real: movimiento alto y constante durante los 27
+                  // segundos, sin un solo instante de reposo. Eso se lee como un
+                  // dron, no como una cámara operada — y en un clip de 9s es
+                  // muchísimo recorrido.
+                  //
+                  // Un movimiento real ARRANCA, RECORRE y LLEGA. El reposo del
+                  // final es lo que le da peso al plano y deja mirar la cara.
+                  "The camera move ARRIVES and SETTLES: it starts, travels, and comes to rest during the " +
+                  "final third of the clip, holding still on the face while the moment lands. " +
+                  "Never a locked-off frame from the first instant, and never a camera still drifting on the last frame. " +
+                  "The movement answers the beats: it eases while the character speaks and " +
+                  "pushes in on the moment of revelation, then stops. " +
                   "Consistent character appearance and wardrobe throughout. " +
                   // Continuidad entre clips: cuando este bloque enlaza con el
                   // siguiente en el mismo lugar, el modelo tiene que entender que no
@@ -526,7 +539,9 @@ export async function POST(req: NextRequest) {
               "Do not restyle or redraw the frame: keep the given image's look, palette and framing exactly. " +
               "The camera has weight — it settles rather than drifts, starts and stops with intention. " +
               `Camera: ${movimiento || "slow push in on the face"}. ` +
-              "The camera is moving for the ENTIRE clip — never a locked-off static frame. " +
+              // Igual que en la ruta de bloques: el movimiento LLEGA y se asienta.
+              "The camera move ARRIVES and SETTLES: it starts, travels, and comes to rest during the " +
+              "final third of the clip, holding still on the face while the moment lands. " +
               "Consistent character appearance and wardrobe throughout." +
               (NATIVE_AUDIO_ON ? buildDialogueDirection(linea, effectiveDur) : ""),
             image_url: matched ?? fallback,
