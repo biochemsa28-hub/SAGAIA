@@ -52,13 +52,84 @@ const NICHO_THEME: Record<string, {
 };
 const DEFAULT_THEME = NICHO_THEME.fantasia!;
 
+// Ideas de arranque por nicho. Se muestran TRES por vez, rotando.
+//
+// Estaban escritas como sinopsis —"Una mujer descubre que su marido tiene una
+// segunda familia"— que es exactamente la fórmula que el sugeridor con IA tiene
+// PROHIBIDA. Una sinopsis dice de qué trata la historia; no dice qué se ve en el
+// primer segundo, que es lo único que decide si alguien se queda.
+//
+// Reescritas con la misma regla que el resto del sistema:
+//   1. ARRANCAN POR LA IMAGEN, no por el resumen.
+//   2. TRAEN UN MOMENTO FÍSICO fotografiable. Si el clímax es "él la mira con
+//      desprecio" no hay cuadro destino que dibujar y el video sale como gente
+//      hablando.
+//   3. Son cotidianas y concretas: objetos y lugares reales, no conceptos.
+//
+// Y ahora hay OCHO por nicho en vez de cinco, porque la interfaz mostraba
+// siempre las tres primeras: la lista podía tener cinco y el usuario veía tres,
+// las mismas, para siempre. Con ocho y una ventana que rota, hay material.
 const QUICK_IDEAS: Record<string, string[]> = {
-  terror: ["Una mujer escucha la voz de su hija llamándola... pero su hija lleva 3 años muerta", "Un hombre recibe fotos de su propia casa tomadas mientras dormía, pero vive solo", "Una niña dibuja el mismo monstruo cada noche. Sus padres descubren que existe", "El vecino que murió hace 3 años sigue encendiendo las luces a medianoche", "Una app de meditación le habla al usuario por su nombre aunque nunca se lo dijo"],
-  romance: ["Dos rivales quedan atrapados en un ascensor durante un apagón de 8 horas", "Una mujer descubre que su marido tiene una segunda familia — y se enamora del detective", "El ex que la destrozó aparece en su boda como el mejor amigo del novio", "Dos personas intercambian accidentalmente los celulares y empiezan a leer sus vidas", "Una viuda encuentra cartas de su marido dirigidas a otra mujer... escritas antes de conocerla"],
-  misterio: ["Una aldea entera desaparece en 24 horas y nadie en el mundo lo nota excepto una persona", "Un periodista recibe el diario de alguien que murió... con entradas del futuro", "Un detective descubre que todos los crímenes de la ciudad los cometió la misma persona: él mismo", "Una cámara de seguridad graba la misma escena todos los días exactamente a las 3:17am", "Cada vez que llueve en el pueblo, alguien pierde su memoria de los últimos 10 años"],
-  inspiracional: ["Un mendigo rechaza millones de dólares por una razón que nadie entiende hasta el final", "Una madre de 58 años aprende a leer para leerle cuentos a su nieto antes de morir", "Un atleta paralímpico entrena en secreto durante 10 años para un único momento", "Un chef sin manos gana el campeonato mundial con una técnica que inventó él solo", "Una mujer con cáncer terminal decide vivir como nunca lo hizo en 40 años"],
-  fantasia: ["Un hombre puede ver cómo va a morir cada persona que mira — excepto él mismo", "En un mundo donde los sueños son colectivos, alguien empieza a contaminarlos", "Una chica puede detener el tiempo, pero cada segundo le cuesta un recuerdo", "Un artista descubre que todo lo que pinta se vuelve real 48 horas después", "Los fantasmas solo son visibles para niños menores de 7 años. Una niña tiene que salvar el mundo"],
-  historia: ["El guardia que salvó a Miles Davis en 1969 y nunca recibió crédito", "La ciudad que desapareció del mapa oficial durante 40 años sin que nadie lo supiera", "La mujer que engañó a toda la industria farmacéutica durante 15 años", "El experimento psicológico más perturbador de la historia que aún no tiene respuestas", "El soldado que siguió combatiendo 29 años después del fin de la guerra porque nadie le avisó"],
+  terror: [
+    "El monitor del bebé se enciende solo y se oye una voz de mujer cantando; ella está sola en la casa y corre hasta la cuna",
+    "Una cámara de seguridad la graba durmiendo desde adentro de su cuarto, y en el video hay una mano que aparta su pelo",
+    "Su hija dibuja el mismo hombre alto cada noche; cuando ella abre el placard, el abrigo del dibujo está colgado ahí",
+    "El vecino que murió hace tres años enciende la luz del living a medianoche, y hoy golpea la puerta",
+    "Encuentra fotos de su propia casa tomadas mientras dormía; en la última, alguien le sostiene la muñeca",
+    "La app de meditación la llama por su nombre y le pide que no se dé vuelta",
+    "Su reflejo en el espejo del baño tarda medio segundo de más en moverse, y esta vez sonríe primero",
+    "Todas las noches a las 3:17 alguien arrastra algo por el pasillo del piso de arriba; ella vive en el último piso",
+  ],
+  romance: [
+    "Las puertas del ascensor se cierran y él ve que ella todavía tiene puesto el anillo que le devolvió",
+    "Su paraguas gotea colgado exactamente donde ella deja el suyo cada mañana desde hace dos años",
+    "Llega a probarse el vestido de novia y su hermana lo tiene puesto frente al espejo",
+    "El teléfono que agarró por error en el café tiene mil fotos de ella, tomadas de lejos",
+    "Un ticket de cine para dos con la fecha de mañana, en el bolsillo del saco de un hombre que vive solo",
+    "Ella le está poniendo sal a su plato sin pensar, como quien conoce a alguien de memoria; él se va mañana",
+    "Su exnovio entra a la boda del brazo del novio, presentado como el mejor amigo",
+    "La bufanda azul deshilachada que ella tejió aparece colgada en un pasillo que no conoce",
+  ],
+  misterio: [
+    "Un sobre sin remitente con una foto de ella dormida anoche; al darla vuelta hay una hora escrita para hoy",
+    "El diario que compró en la feria tiene entradas escritas con fecha de la semana que viene, y una la nombra",
+    "La cámara del pasillo graba la misma escena todos los días exactamente a las 3:17, y hoy sale ella",
+    "Un pueblo entero se borró del mapa hace cuarenta años y solo una persona guarda una foto de la plaza",
+    "Abre la caja de zapatos de su padre muerto y adentro hay veinte llaves con etiquetas de ciudades",
+    "Cada vez que llueve, alguien del pueblo pierde diez años de memoria; hoy el que despierta sin recordar es el comisario",
+    "El detective reconoce su propia letra en la nota que dejó el asesino",
+    "En la foto familiar de 1994 hay una mujer que nadie puede nombrar, y aparece también en la de 2019",
+  ],
+  inspiracional: [
+    "Un hombre sin manos corta cebolla más rápido que todo el jurado y ninguno se anima a mirarlo a la cara",
+    "Una mujer de 58 años deletrea en voz alta su primera palabra, y su nieto la corrige con dulzura",
+    "El mendigo devuelve el maletín con el dinero y saca de su bolsillo la foto que explica por qué",
+    "Entrena a las 4 de la mañana en una pista rota, solo, y hoy es el día en que alguien lo filma",
+    "Se levanta del piso del gimnasio por sexta vez con la nariz sangrando y vuelve a ponerse los guantes",
+    "Le quedan cuatro meses y hace la lista de todo lo que nunca se animó; el primer punto es llamar a su madre",
+    "Trabaja de noche limpiando la universidad donde estudia de día, y hoy da su tesis con el uniforme puesto",
+    "El equipo entero se sienta en el piso a esperarla cruzar la meta dos horas tarde",
+  ],
+  fantasia: [
+    "Ve el número de días que le queda a cada persona flotando sobre su cabeza; al mirarse al espejo, el suyo dice cero",
+    "Todo lo que pinta se vuelve real a las 48 horas, y anoche pintó a su hermana muerta",
+    "Puede detener el tiempo, pero cada segundo le borra un recuerdo; hoy ya no sabe el nombre de su hija",
+    "Los fantasmas solo los ven los menores de siete años; su hija de seis le señala la silla del comedor",
+    "Cada persona nace con un hilo rojo visible; el suyo termina cortado a la mitad del pasillo",
+    "Al ponerse el abrigo de un muerto empieza a soñar la vida que a él le faltó vivir",
+    "En esta ciudad la gente intercambia años de vida como moneda, y ella acaba de gastar los últimos",
+    "El río devuelve todo lo que le tiraron; hoy devolvió el anillo que ella tiró hace veinte años",
+  ],
+  historia: [
+    "Un soldado sigue combatiendo en la selva 29 años después del final de la guerra porque nadie fue a avisarle",
+    "La enfermera falsificó cientos de partidas de nacimiento para sacar bebés del gueto en una caja de herramientas",
+    "El guardia que le salvó la vida a un músico legendario en 1969 y murió sin que nadie supiera su nombre",
+    "Una ciudad entera fue borrada de los mapas oficiales durante cuarenta años mientras la gente seguía viviendo ahí",
+    "El experimento que encerró a doce estudiantes seis días y todavía no tiene una explicación aceptada",
+    "La mujer que engañó a la industria farmacéutica quince años con un frasco de agua con colorante",
+    "Un pueblo bailó sin parar durante un mes en 1518 y decenas murieron de agotamiento",
+    "El operador que decidió, solo, en once minutos, no reportar el misil que habría empezado la guerra",
+  ],
 };
 
 const TRENDING = [
@@ -436,6 +507,17 @@ function NewProjectForm() {
   };
   const selectedNicho = NICHOS.find(n => n.id === form.niche);
   const nichoIdeas = QUICK_IDEAS[form.niche] ?? [];
+  // VENTANA DE TRES QUE ROTA, no las tres primeras para siempre.
+  //
+  // La lista siempre tuvo más ideas de las que se mostraban, pero la interfaz
+  // cortaba con slice(0, 3): daba igual cuántas hubiera, el usuario veía las
+  // mismas tres en cada visita. De ahí que se sintieran estáticas.
+  //
+  // Arranca en 0 a propósito —servidor y cliente pintan lo mismo, sin desajuste
+  // de hidratación— y avanza solo cuando alguien lo pide.
+  const trioIdeas = nichoIdeas.length
+    ? [0, 1, 2].map((k) => nichoIdeas[(ideaIdx + k) % nichoIdeas.length]!)
+    : [];
 
   function nextIdea() {
     if (!nichoIdeas.length) return;
@@ -1740,12 +1822,22 @@ function NewProjectForm() {
           {/* Quick ideas */}
           {nichoIdeas.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2.5">Ideas para {form.niche}</p>
-              <div className="space-y-2">
-                {nichoIdeas.slice(0, 3).map((idea, i) => (
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Ideas para {form.niche}</p>
+                {nichoIdeas.length > 3 && (
                   <button
-                    key={i}
-                    onClick={() => { set("topic")(idea); setIdeaIdx(i); }}
+                    onClick={() => setIdeaIdx(v => (v + 3) % nichoIdeas.length)}
+                    className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide ${theme.accent} hover:opacity-80 transition-opacity`}
+                  >
+                    <RefreshCw className="w-3 h-3" /> Otras
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {trioIdeas.map((idea, i) => (
+                  <button
+                    key={`${ideaIdx}-${i}`}
+                    onClick={() => set("topic")(idea)}
                     className={`w-full text-left px-4 py-3 rounded-xl border transition-all group ${
                       form.topic === idea
                         ? `bg-gradient-to-r ${theme.card} ${theme.border}`
