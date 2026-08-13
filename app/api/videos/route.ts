@@ -479,7 +479,15 @@ export async function POST(req: NextRequest) {
             // contra $0.052/s a 720p). Sin tope, un guion muy físico enrutaría
             // todos los bloques y el margen desaparece en silencio. Los que
             // exceden el tope siguen por image-to-video — peor plano, video vivo.
-            const RTV_MAX = Math.max(0, Number(process.env.RTV_MAX_BLOCKS ?? 2) || 2);
+            // APAGADO POR DEFECTO. Estuvo en 2 y costó dinero de verdad: dos
+            // bloques premium por corrida, y con los reintentos re-comprando la
+            // animación, una sola producción llegó a ~$19,70 para entregar un
+            // video de ~$6,60. Hasta que el camino barato al beso esté probado
+            // —el experimento vive en experimentos/beso-barato.mjs— el endpoint
+            // de referencias no se enciende solo: hay que pedirlo con
+            // RTV_MAX_BLOCKS=1. Un gasto de 6x por segundo no puede ser el
+            // comportamiento por omisión de nadie.
+            const RTV_MAX = Math.max(0, Number(process.env.RTV_MAX_BLOCKS ?? 0) || 0);
             // RTV_MODE=all: TODO el video por referencias, sin tope.
             //
             // Es la calidad del clip que el usuario aprobó, y la pidió sabiendo el
