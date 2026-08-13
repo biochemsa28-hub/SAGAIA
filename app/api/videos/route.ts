@@ -25,6 +25,9 @@ const SubmitSchema = z.object({
   jobs: z.array(z.object({
     scene_number: z.number(),
     request_id: z.string(),
+    // El modelo que encoló el clip: reference-to-video y image-to-video tienen
+    // colas separadas, y preguntar en la equivocada es un 404.
+    model: z.string().optional(),
   })).optional(),
   // For lipsync_submit: the completed Seedance motion clips to lip-sync.
   motion: z.array(z.object({
@@ -365,7 +368,36 @@ export async function POST(req: NextRequest) {
               console.log(`[blocks] escena ${block.leadScene}: cambia de escenario → corte limpio, sin encadenar`);
             }
 
+            // ── PICO DE CONTACTO FÍSICO → reference-to-video ──────────────────
+            //
+            // image-to-video interpola entre dos cuadros y NUNCA cierra un beso:
+            // medido tres veces, el modelo de imagen deja los labios a un
+            // centímetro y el clip se queda en el "casi". El endpoint de
+            // referencias sí lo cerró en la prueba — labios juntos ~4 segundos —
+            // porque no está esclavizado a un cuadro inicial sin beso: recibe a
+            // los personajes como referencias y ejecuta la acción.
+            //
+            // Se activa solo cuando la acción física del bloque ES de contacto.
+            // Cuesta más por segundo; es el precio del único plano que no puede
+            // fallar.
+            // Con conjugaciones: "embraces", "kissing", "hugs" también cuentan.
+            const CONTACTO = /\b(kiss\w*|lips|embrac\w+|hugs?|hugging|bes[oa]\w*|abraz\w+|holds? (her|him|his|their)|pulls? (her|him) close)\b/i;
+            const esContacto = lines.some((l) => CONTACTO.test(l.physicalAction ?? ""));
+            const refsContacto = esContacto
+              ? [imgByScene.get(block.leadScene) ?? block.referenceImageUrl, propiaUltima]
+                  .filter((u): u is string => Boolean(u))
+                  .filter((u, i, a) => a.indexOf(u) === i)
+              : undefined;
+
+            // El prompt de referencias nombra a las imágenes: sin el mapa @ImageN
+            // el modelo no sabe qué es cada archivo.
+            const prefijoRefs = refsContacto?.length
+              ? refsContacto.map((_, i) => `@Image${i + 1}`).join(" and ") +
+                " show the exact characters, wardrobe and set of this scene — keep them IDENTICAL. "
+              : "";
+
             return {
+              ...(refsContacto?.length ? { reference_image_urls: refsContacto } : {}),
               scene_number: block.leadScene,
               image_url: imgByScene.get(block.leadScene) ?? block.referenceImageUrl,
               // El cuadro propio del bloque no depende de `encadenar`: es su propia
@@ -393,6 +425,7 @@ export async function POST(req: NextRequest) {
                 // mostrar mientras sonaban los diálogos de las escenas siguientes.
                 const movimiento = (lead?.camera_move ?? "").trim();
                 return (
+                  prefijoRefs +
                   // EL PROMPT DESCRIBE MOVIMIENTO, NO LA IMAGEN.
                   //
                   // La imagen inicial YA EXISTE: trae el encuadre, la paleta, la luz
@@ -490,7 +523,7 @@ export async function POST(req: NextRequest) {
           action: "submitted",
           mode: "blocks",
           total: jobs.length,
-          jobs: jobs.map((j) => ({ scene_number: j.sceneNumber, request_id: j.requestId, status: j.status, error: j.error })),
+          jobs: jobs.map((j) => ({ scene_number: j.sceneNumber, request_id: j.requestId, status: j.status, error: j.error, model: j.model })),
         });
       }
 
@@ -669,7 +702,9 @@ export async function POST(req: NextRequest) {
         : collectTier === "talking" ? checkLipsyncJob : checkVideoJob;
       const results = await Promise.all(
         parsed.data.jobs.map(async (job) => {
-          const status = await checkJob(job.request_id);
+          // El segundo argumento solo lo usa checkVideoJob; los demás checkers lo
+          // ignoran sin romperse.
+          const status = await (checkJob as (id: string, model?: string) => ReturnType<typeof checkVideoJob>)(job.request_id, job.model);
           return { scene_number: job.scene_number, request_id: job.request_id, ...status };
         })
       );

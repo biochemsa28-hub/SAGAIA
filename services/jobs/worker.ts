@@ -92,12 +92,12 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
 
   await mark("animation");
   const sub = await (await post("/api/videos", { project_id: job.project_id, action: "submit" })).json() as
-    { action?: string; pipeline?: string; jobs?: Array<{ scene_number: number; request_id: string }> };
+    { action?: string; pipeline?: string; jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
   if (sub.action !== "skipped") {
     const motionUrls = await pollStage(post, job, sub.jobs ?? [], sub.pipeline === "pro" ? "motion" : undefined);
     if (sub.pipeline === "pro") {
       const ls = await (await post("/api/videos", { project_id: job.project_id, action: "lipsync_submit", motion: motionUrls })).json() as
-        { jobs?: Array<{ scene_number: number; request_id: string }> };
+        { jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
       await pollStage(post, job, ls.jobs ?? [], "lipsync");
     }
   }
@@ -131,7 +131,7 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
 async function pollStage(
   post: (p: string, b: object) => Promise<Response>,
   job: DbJob,
-  initial: Array<{ scene_number: number; request_id: string }>,
+  initial: Array<{ scene_number: number; request_id: string; model?: string }>,
   stage?: "motion" | "lipsync",
 ) {
   let pending = initial.filter((j) => j.request_id);
@@ -143,7 +143,9 @@ async function pollStage(
     await heartbeatJob(job.id);
     const col = await (await post("/api/videos", {
       project_id: job.project_id, action: "collect", stage,
-      jobs: pending.map((j) => ({ scene_number: j.scene_number, request_id: j.request_id })),
+      // El modelo viaja con el job: un clip de reference-to-video consultado en
+      // la cola de image-to-video es un 404 y el video moriría por timeout.
+      jobs: pending.map((j) => ({ scene_number: j.scene_number, request_id: j.request_id, model: j.model })),
     })).json() as { all_done: boolean; scenes: Array<{ scene_number: number; status: string; url?: string }> };
     for (const s of col.scenes) if (s.status === "completed" && s.url) urls.push({ scene_number: s.scene_number, video_url: s.url });
     // RETURN, not break — see the note in the client flow. Breaking here would

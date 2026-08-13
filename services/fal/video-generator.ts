@@ -8,6 +8,8 @@ export interface VideoJob {
   status: "queued" | "done" | "failed";
   url?: string;
   error?: string;
+  /** Con qué modelo se encoló — collect necesita preguntarle al MISMO. */
+  model?: string;
 }
 
 export interface VideoGenerationResult {
@@ -57,6 +59,10 @@ const VIDEO_MODEL = process.env.VIDEO_MODEL ?? "fal-ai/bytedance/seedance/v1.5/p
 // cual al modelo, que lo rechazaba o lo ignoraba, y el video salía en 720p sin
 // que nada lo dijera. Un error de configuración que solo se nota mirando el
 // resultado terminado es el peor tipo de error.
+// El endpoint de referencias: hasta 30 imágenes vía @Image1..N, cortes propios y
+// 1080p. Se usa SOLO en los picos de contacto físico — cuesta más por segundo.
+const REFERENCE_VIDEO_MODEL = process.env.REFERENCE_VIDEO_MODEL ?? "bytedance/seedance-2.0/reference-to-video";
+
 const RESOLUCIONES = new Set(["480p", "720p", "1080p"]);
 const VIDEO_RESOLUTION = (() => {
   const pedida = (process.env.VIDEO_RESOLUTION ?? "1080p").trim().toLowerCase();
@@ -87,6 +93,11 @@ export async function submitVideoJobs(params: {
     end_image_url?: string;
     /** Native character speech instead of a silent clip we dub over. */
     generate_audio?: boolean;
+    /** PICO DE CONTACTO (beso, abrazo). Con referencias, el clip se genera con
+     *  reference-to-video: image-to-video interpola entre dos cuadros y NUNCA
+     *  cierra un beso — medido tres veces, siempre deja el centímetro. El
+     *  endpoint de referencias sí lo cerró en la prueba: labios juntos ~4s. */
+    reference_image_urls?: string[];
   }>;
 }): Promise<VideoJob[]> {
   fal.config({ credentials: getApiKey() });
@@ -105,6 +116,25 @@ export async function submitVideoJobs(params: {
       // Seedance accepts a numeric duration (4–15s). Clamp to the scene length so
       // the clip covers the narration; Shotstack trims any excess.
       const duration = Math.min(15, Math.max(4, Math.round(scene.duration_seconds ?? 5)));
+
+      // ── PICO DE CONTACTO → reference-to-video ────────────────────────────
+      if (scene.reference_image_urls?.length) {
+        const refs = scene.reference_image_urls.slice(0, 4);
+        const rtvInput = {
+          prompt: scene.animation_prompt,
+          image_urls: refs,
+          resolution: VIDEO_RESOLUTION === "480p" ? "480p" : VIDEO_RESOLUTION, // 2.0 acepta 1080p
+          duration: String(Math.min(12, Math.max(4, duration))),
+          aspect_ratio: "9:16",
+          ...(scene.generate_audio !== undefined ? { generate_audio: scene.generate_audio } : {}),
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rtv = await (fal.queue.submit as any)(REFERENCE_VIDEO_MODEL, { input: rtvInput }) as { request_id: string };
+        console.log(`[video] escena ${scene.scene_number}: contacto físico → reference-to-video (${refs.length} refs)`);
+        jobs.push({ sceneNumber: scene.scene_number, requestId: rtv.request_id, status: "queued", model: REFERENCE_VIDEO_MODEL });
+        continue;
+      }
+
       const input: Record<string, unknown> = isVeo3
         ? {
             // Veo 3: cinematic motion + native ambient audio in one shot.
@@ -155,24 +185,27 @@ export async function submitVideoJobs(params: {
 
 // ─── Check status of a submitted job ─────────────────────────────────────────
 
-export async function checkVideoJob(requestId: string): Promise<{
+export async function checkVideoJob(requestId: string, model?: string): Promise<{
   status: "queued" | "in_progress" | "completed" | "failed";
   url?: string;
   error?: string;
 }> {
   fal.config({ credentials: getApiKey() });
+  // El estado se consulta al MISMO modelo que encoló: un job de
+  // reference-to-video preguntado en el endpoint de image-to-video es un 404.
+  const via = model || VIDEO_MODEL;
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const status = await (fal.queue.status as any)(
-      VIDEO_MODEL,
+      via,
       { requestId, logs: false }
     ) as { status: string };
 
     if (status.status === "COMPLETED") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (fal.queue.result as any)(
-        VIDEO_MODEL,
+        via,
         { requestId }
       ) as Record<string, unknown>;
 
