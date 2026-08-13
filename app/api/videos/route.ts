@@ -436,6 +436,10 @@ export async function POST(req: NextRequest) {
                   accionFisica: accion,
                   referencias: [...retratosDe(b), imgByScene.get(b.leadScene)].filter((u): u is string => Boolean(u)),
                   escena: b.leadScene,
+                  // El registro visual del proyecto decide si el filtro acepta
+                  // un pico íntimo — y que el cuadro salga en el mismo estilo
+                  // que el resto del video.
+                  estiloVisual: detail.project.visual_style,
                 }).catch(() => null),
               })));
               for (const d of dibujados) if (d.url) destinoPorBloque.set(d.lead, d.url);

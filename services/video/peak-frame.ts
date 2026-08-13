@@ -50,13 +50,103 @@ function escalera(accion: string, identidad: string): Array<{ etiqueta: string; 
     { etiqueta: "narrativo", prompt: `The exact moment this happens, at the peak of the scene: ${limpia}. Quiet, restrained, cinematic. ${identidad}` },
     { etiqueta: "still", prompt: `A film still capturing this moment: ${limpia}. ${identidad}` },
     { etiqueta: "sobrio", prompt: `A dramatic scene between the two characters. ${limpia.split(/[.,;]/)[0]}. ${identidad}` },
+    // ÚLTIMO PELDAÑO: se le quita el MUEBLE y la POSTURA.
+    //
+    // Medido con el caso "estaban en la cama besándose": las cuatro
+    // formulaciones de arriba caían, y la misma acción sin "lying on the bed"
+    // pasaba. La cama más un beso lee como sexual aunque la escena sea inocente;
+    // el mismo beso de pie no le molesta a nadie.
+    //
+    // Y quitarlo no cuesta nada: el lugar NO hace falta nombrarlo, porque la
+    // imagen de referencia de la escena ya trae la cama, la luz y el cuarto. El
+    // prompt solo tiene que aportar lo que la foto no tiene: la acción.
+    { etiqueta: "sin postura", prompt: `${sinPostura(limpia)}. ${identidad}` },
+    // ÚLTIMO PELDAÑO: EL VERBO LLANO, SIN UN SOLO DETALLE DEL CUERPO.
+    //
+    // Es la misma lección del primer hallazgo, que los peldaños de arriba
+    // seguían desobedeciendo: lo que dispara el filtro es el DETALLE anatómico,
+    // no el hecho. "The moment they finally kiss" pasa; "their lips meet and
+    // hold, eyes closed" no — con las mismas referencias y el mismo modelo.
+    //
+    // Medido con "estaban en la cama besándose": los cinco peldaños anteriores
+    // rechazados, porque todos arrastran el texto de la acción tal como lo
+    // escribió el guionista. Este lo tira entero y deja solo el verbo.
+    //
+    // Se pierde precisión —el modelo elige los detalles— pero un beso genérico
+    // que EXISTE vale infinitamente más que uno preciso que el filtro nunca deja
+    // dibujar.
+    { etiqueta: "verbo llano", prompt: `${verboLlano(limpia)}. ${identidad}` },
   ];
 }
 
-const IDENTIDAD =
-  "Same characters as the reference images: identical faces, hair, clothing and setting. " +
-  "Close cinematic framing, same lighting as the references. " +
-  "Vertical 9:16 illustration, shallow depth of field.";
+// La acción reducida a lo que pasa, sin cómo se ve. El orden importa: se prueba
+// de la categoría más específica a la más genérica.
+// ⚠️ CON LÍMITE DE PALABRA, Y NO ES UN DETALLE. La primera versión buscaba
+// "lips" suelto y el pico de COMEDIA —"he SLIPS again trying to get up"— caía en
+// la categoría del beso: un tropiezo se convertía en un beso, en silencio. Es el
+// mismo error de subcadena que ya nos costó "Anahí" → "Anahíí".
+//
+// Y el orden importa: lo más específico primero, porque gana el primero que
+// coincide.
+const LLANOS: Array<[RegExp, string]> = [
+  [/\btrips?\b|stumbl|\bslips?\b|resbal|tropiez/i,        "The moment they lose their footing"],
+  [/\bkiss|\blips\b|\bbes[oa]/i,                          "The moment they finally kiss"],
+  [/slap|\bhits?\b|punch|bofetad|cachetad|golpe/i,        "The moment right after the slap lands"],
+  [/knees|collaps|\bfalls?\b|sinks? to the|derrumb|desplom/i, "The moment they end up on the floor"],
+  [/\bsob|weep|\bcry|crying|tears|llor/i,                 "The moment they break down in tears"],
+  [/grabs?|wrist|yank|drag|agarr|\bjal/i,                 "The moment a hand catches her wrist"],
+  [/rises?|stands? up|gets? up|levant/i,                  "The moment they get back on their feet"],
+  [/throws?|smash|shatter|\bromp|lanz/i,                  "The moment the glass hits the floor"],
+  [/embrac|hugs?|abraz/i,                                 "The moment they hold each other"],
+  // Thriller, misterio y documental: el pico no es un choque entre cuerpos, así
+  // que sin estas entradas caían al genérico y perdían lo que los define.
+  [/shove|struggl|pushes?|forcej|empuj|runs? for|bolts?|flees?/i, "The moment they struggle against the door"],
+  [/opens? the|unfolds?|flips? over|lifts? the|drawer|letter|abre el|despliega/i, "The moment they finally see what was hidden"],
+];
+function verboLlano(accion: string): string {
+  for (const [re, frase] of LLANOS) if (re.test(accion)) return frase;
+  return "The emotional peak of this scene between the two characters";
+}
+
+// Saca las cláusulas de mueble y postura, que son las que disparan el filtro sin
+// aportar nada: el escenario ya viaja en la imagen de referencia.
+const POSTURA = /\b(lying|laying|lie|lies|on the bed|in bed|on the couch|on the sofa|on top of|beneath|underneath|straddl\w+|in his lap|in her lap|on the floor together)\b/gi;
+function sinPostura(accion: string): string {
+  return accion
+    .split(/(?<=[.;])\s+/)
+    .map((frase) => (POSTURA.test(frase) ? frase.replace(POSTURA, "").replace(/\s{2,}/g, " ").replace(/^[\s,.]+/, "") : frase))
+    .filter((f) => f.trim().length > 8)
+    .join(" ")
+    .replace(/\s{2,}/g, " ")
+    .trim() || accion;
+}
+
+// EL BLOQUE DE ESTILO NO ES DECORACIÓN: DECIDE SI EL FILTRO ACEPTA.
+//
+// Al pasar el experimento a servicio adelgacé esto a "Vertical 9:16
+// illustration" y el resultado fue que un beso EN LA CAMA hacía caer las cuatro
+// formulaciones de la escalera — incluidas las dos que el día anterior habían
+// funcionado con los MISMOS retratos y el MISMO modelo. No era el texto de la
+// acción: era esta parte.
+//
+// Sondeado formulación por formulación (cada rechazo es gratis): con el bloque
+// completo —el estilo declarado, el encuadre cerrado y la luz cálida— pasa y
+// dibuja el beso con los labios juntos. Sin él, no pasa nada.
+//
+// La lectura: nombrar el registro visual le dice al filtro qué clase de imagen
+// es. Un "kiss" suelto sobre dos retratos es ambiguo; el mismo beso declarado
+// como ilustración con luz de velas, no.
+function identidad(estiloVisual?: string | null): string {
+  const e = (estiloVisual ?? "").trim().toLowerCase();
+  const registro = e === "anime" || e === "cartoon"
+    ? "cinematic anime illustration"
+    : "cinematic film still";
+  return (
+    "Same characters as the reference images: identical faces, hair and clothing. " +
+    "Close framing on their faces, warm light, soft shadows. " +
+    `Vertical 9:16, ${registro}, shallow depth of field.`
+  );
+}
 
 /**
  * Dibuja el cuadro en el que la acción YA OCURRIÓ, para usarlo como último
@@ -67,6 +157,10 @@ export async function generarCuadroDestino(opts: {
   accionFisica: string;
   referencias: string[];
   escena: number;
+  /** El registro visual del proyecto. Sin esto el filtro rechaza los picos
+   *  íntimos, y con el valor equivocado el cuadro sale en otro estilo que el
+   *  resto del video. */
+  estiloVisual?: string | null;
 }): Promise<string | null> {
   const refs = opts.referencias.filter(Boolean).filter((u, i, a) => a.indexOf(u) === i).slice(0, 4);
   if (!refs.length || !opts.accionFisica.trim()) return null;
@@ -75,7 +169,7 @@ export async function generarCuadroDestino(opts: {
   fal.config({ credentials: apiKey() });
   const rechazos: string[] = [];
 
-  for (const { etiqueta, prompt } of escalera(opts.accionFisica, IDENTIDAD)) {
+  for (const { etiqueta, prompt } of escalera(opts.accionFisica, identidad(opts.estiloVisual))) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = await (fal.subscribe as any)(MODELO, {
