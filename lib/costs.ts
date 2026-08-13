@@ -65,6 +65,19 @@ export function costoClipSeedance(opts: {
   return (tokens / 1_000_000) * porMillon;
 }
 
+// ─── reference-to-video: otra cola, otro precio ─────────────────────────────
+// La fórmula de arriba es la de Seedance image-to-video. El endpoint de
+// referencias no cobra por píxeles: MEDIDO sobre el clip real que aprobamos,
+// $2.42 por 8 segundos → $0.30 por segundo. Es ~6x lo que cuesta el otro a 720p
+// ($0.052/s), y si se factura con la fórmula equivocada el gasto real de un
+// video con RTV_MODE=all queda seis veces subestimado en los registros — que es
+// exactamente cómo se pierde dinero sin enterarse.
+const RTV_USD_POR_SEGUNDO = () => N("COST_RTV_SEGUNDO", 0.3025);
+
+export function costoClipReferencias(segundos: number): number {
+  return Math.max(1, segundos) * RTV_USD_POR_SEGUNDO();
+}
+
 export function estimateVideos(
   count: number,
   model: "seedance" | "veo3",

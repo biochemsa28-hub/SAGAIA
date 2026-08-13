@@ -410,12 +410,20 @@ export async function POST(req: NextRequest) {
               "i",
             );
             const esAccionClave = lines.some((l) => ACCION_CLAVE.test(l.physicalAction ?? ""));
-            // TECHO DE GASTO: referencias cuesta ~2.5x por segundo. Sin tope, un
-            // guion muy físico enrutaría todos los bloques y el margen desaparece
-            // en silencio. Los que exceden el tope siguen por image-to-video —
-            // peor plano, video vivo.
+            // TECHO DE GASTO: referencias cuesta ~6x por segundo (medido: $0.30/s
+            // contra $0.052/s a 720p). Sin tope, un guion muy físico enrutaría
+            // todos los bloques y el margen desaparece en silencio. Los que
+            // exceden el tope siguen por image-to-video — peor plano, video vivo.
             const RTV_MAX = Math.max(0, Number(process.env.RTV_MAX_BLOCKS ?? 2) || 2);
-            const esContacto = esAccionClave && rtvUsados < RTV_MAX;
+            // RTV_MODE=all: TODO el video por referencias, sin tope.
+            //
+            // Es la calidad del clip que el usuario aprobó, y la pidió sabiendo el
+            // precio: un video de 30s pasa de ~$1,55 a ~$9,10 de animación, contra
+            // $6,12 de venta. Se pierde dinero por video a propósito, así que vive
+            // detrás de una variable y NO es el default: un cambio de una línea no
+            // puede dejar a todos los usuarios produciendo a pérdida en silencio.
+            const RTV_TODO = (process.env.RTV_MODE ?? "peaks").toLowerCase() === "all";
+            const esContacto = RTV_TODO || (esAccionClave && rtvUsados < RTV_MAX);
             if (esAccionClave && !esContacto) {
               console.warn(`[video] bloque escena ${block.leadScene}: acción física clave, pero RTV_MAX_BLOCKS=${RTV_MAX} agotado — va por image-to-video`);
             }
@@ -883,11 +891,25 @@ export async function POST(req: NextRequest) {
           // solo recibe los identificadores—, así que se usa la duración típica
           // de un bloque. Es una aproximación, y la única de la cuenta: el resto
           // (píxeles, fps, tarifa) sale de la fórmula publicada.
-          const cost = estimateVideos(doneCount, model, isLipsyncStage, {
-            segundos: Number(process.env.CLIP_SECONDS_AVG ?? 6) || 6,
-            resolucion: process.env.VIDEO_RESOLUTION ?? "720p",
-            conAudio: NATIVE_AUDIO_ON,
-          });
+          //
+          // Y CADA COLA TIENE SU PRECIO. Los jobs traen el modelo que los encoló;
+          // los de referencias cuestan ~6x por segundo y facturarlos con la
+          // fórmula de image-to-video subestimaba el gasto real seis veces. Con
+          // RTV_MODE=all eso sería TODO el video mal contado — el registro diría
+          // que un video costó $1,55 cuando costó $9,10.
+          const { costoClipReferencias } = await import("@/lib/costs");
+          const segundosClip = Number(process.env.CLIP_SECONDS_AVG ?? 6) || 6;
+          const idsRtv = new Set(
+            (parsed.data.jobs ?? []).filter((j) => /reference-to-video/i.test(j.model ?? "")).map((j) => j.scene_number),
+          );
+          const rtvHechos = results.filter((r) => r.status === "completed" && idsRtv.has(r.scene_number)).length;
+          const cost =
+            estimateVideos(doneCount - rtvHechos, model, isLipsyncStage, {
+              segundos: segundosClip,
+              resolucion: process.env.VIDEO_RESOLUTION ?? "720p",
+              conAudio: NATIVE_AUDIO_ON,
+            }) + rtvHechos * costoClipReferencias(segundosClip);
+          if (rtvHechos) console.log(`[video] ${rtvHechos} clip(s) de referencias facturados a ~$${costoClipReferencias(segundosClip).toFixed(2)} c/u`);
           await createApiLog({
             userId: userId, projectId: parsed.data.project_id,
             provider: "fal", endpoint: "/api/videos", model: isLipsyncStage ? "lipsync" : model,
