@@ -328,8 +328,24 @@ function buildAssContent(
   type Chunk = { words: typeof clean; start: number; end: number };
   const chunks: Chunk[] = [];
   let cur: typeof clean = [];
-  const flush = () => {
+  const esColgante = (w: { word: string }) =>
+    COLGANTES.has(w.word.trim().toLowerCase().replace(/[^\p{L}]/gu, ""));
+  // Cuando hay que cortar sí o sí —el cartel ya duró demasiado— estirarlo un
+  // poco más lo desincroniza del audio. Así que en vez de alargar, se RETROCEDE:
+  // las preposiciones y artículos del final se devuelven al cartel siguiente,
+  // que es adonde pertenecen. "Es la hermana de mi / marido." pasa a ser
+  // "Es la hermana / de mi marido." — mismo corte, del lado correcto.
+  const flush = (hayMas = false) => {
     if (!cur.length) return;
+    if (hayMas) {
+      const devueltas: typeof clean = [];
+      while (cur.length >= 3 && esColgante(cur[cur.length - 1]!)) devueltas.unshift(cur.pop()!);
+      if (devueltas.length) {
+        chunks.push({ words: cur, start: cur[0]!.start, end: cur[cur.length - 1]!.end });
+        cur = devueltas;
+        return;
+      }
+    }
     chunks.push({ words: cur, start: cur[0]!.start, end: cur[cur.length - 1]!.end });
     cur = [];
   };
@@ -366,7 +382,16 @@ function buildAssContent(
     const quedaColgando =
       Boolean(next) && (muyCorto ||
         (COLGANTES.has(raw.toLowerCase().replace(/[^\p{L}]/gu, "")) && text.length < MAX_CHARS_PER_LINE + 12));
-    if (corteDuro || (limite && !quedaColgando)) flush();
+    // El guardia de palabra colgante valía SOLO para el corte por tamaño, y los
+    // cortes duros son justamente donde más se nota. Medido: "SEIS MESES LO" /
+    // "SIENTO, NATALIA" — una pausa al hablar partió "lo siento" en dos carteles.
+    // Una respiración no convierte a "lo" en un final de cartel, y llegar al
+    // segundo y medio tampoco. La puntuación sí manda siempre: ahí la frase
+    // terminó de verdad, aunque termine en una palabra corta.
+    const cortePorPausaOTiempo = !endsSentence && (corteDuro || limite);
+    const puedeEstirarse = quedaColgando && w.end - cur[0]!.start < MAX_CHUNK_SECONDS + 0.8;
+    if (endsSentence) flush();
+    else if (cortePorPausaOTiempo && !puedeEstirarse) flush(Boolean(next));
   }
   flush();
 

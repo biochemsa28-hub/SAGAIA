@@ -357,9 +357,19 @@ export const NARRATIVE_BLOCKS_ON = (process.env.NARRATIVE_BLOCKS ?? "off").toLow
 const USABLE_CLIP_SECONDS = NATIVE_AUDIO_ON
   ? HOOK_BLOCK_SECONDS
   : Math.max(4, HOOK_BLOCK_SECONDS - HOOK_BLOCK_TRIM_SECONDS);
+// 6 segundos, no 10. La apuesta de los bloques largos era que UNA generación de
+// 8-10s vuelve con tres encuadres propios. Medido sobre un video real de 33s:
+// volvió con SEIS planos en total —tres de ellos de más de 7 segundos— y cero
+// cortes internos. El último, el clímax, son 7,1 segundos de un primerísimo
+// plano que no se mueve: el 32% de los cuadros del video tienen menos movimiento
+// que una foto fija con Ken Burns.
+//
+// El drama vertical corta cada 1,5-3s. Bloques de 6s dan planos de ~5s y el
+// doble de cortes por el MISMO dinero: el costo se paga por segundo animado y el
+// total de segundos lo fija el guion, no el tamaño del bloque.
 export const BLOCK_TARGET_SECONDS = Math.min(
   USABLE_CLIP_SECONDS,
-  Math.min(12, Math.max(6, Number(process.env.BLOCK_TARGET_SECONDS ?? 10) || 10)),
+  Math.min(12, Math.max(5, Number(process.env.BLOCK_TARGET_SECONDS ?? 6) || 6)),
 );
 
 // Chain each block's storyboard sheet off the PREVIOUS block's closing frame, so

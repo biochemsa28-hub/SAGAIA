@@ -50,10 +50,11 @@ function getApiKey(): string {
 const SAFETY_CHECKER_ON = (process.env.FAL_SAFETY_CHECKER ?? "off").toLowerCase() === "on";
 
 const VIDEO_MODEL = process.env.VIDEO_MODEL ?? "fal-ai/bytedance/seedance/v1.5/pro/image-to-video";
-// 1080p por defecto: el video que publicamos ES 1080×1920, así que generar a
-// 720p garantizaba un escalado en el montaje sobre lo único que el espectador
-// mira de cerca, la cara. Se puede bajar con VIDEO_RESOLUTION=720p cuando el
-// presupuesto mande.
+// 720p por defecto. Seedance cobra por (alto × ancho × fps × segundos), así que
+// 1080p cuesta 2.25× por el mismo clip: a 1080p un video de 30s se comía el 77%
+// del precio de venta. En un feed vertical de teléfono, esa diferencia se ve
+// mucho menos que la diferencia entre publicar y no poder pagarlo. Se sube con
+// VIDEO_RESOLUTION=1080p cuando el margen lo permita.
 //
 // Y se VALIDA: antes, un valor mal escrito ("1080", "HD", "1080P ") pasaba tal
 // cual al modelo, que lo rechazaba o lo ignoraba, y el video salía en 720p sin
@@ -65,10 +66,10 @@ const REFERENCE_VIDEO_MODEL = process.env.REFERENCE_VIDEO_MODEL ?? "bytedance/se
 
 const RESOLUCIONES = new Set(["480p", "720p", "1080p"]);
 const VIDEO_RESOLUTION = (() => {
-  const pedida = (process.env.VIDEO_RESOLUTION ?? "1080p").trim().toLowerCase();
+  const pedida = (process.env.VIDEO_RESOLUTION ?? "720p").trim().toLowerCase();
   if (RESOLUCIONES.has(pedida)) return pedida;
-  console.warn(`[video] VIDEO_RESOLUTION="${process.env.VIDEO_RESOLUTION}" no es válida (480p|720p|1080p) — se usa 1080p`);
-  return "1080p";
+  console.warn(`[video] VIDEO_RESOLUTION="${process.env.VIDEO_RESOLUTION}" no es válida (480p|720p|1080p) — se usa 720p`);
+  return "720p";
 })();
 
 // Cinematography prefix prepended to every animation_prompt so Seedance

@@ -865,7 +865,7 @@ export async function POST(req: NextRequest) {
           // (píxeles, fps, tarifa) sale de la fórmula publicada.
           const cost = estimateVideos(doneCount, model, isLipsyncStage, {
             segundos: Number(process.env.CLIP_SECONDS_AVG ?? 6) || 6,
-            resolucion: process.env.VIDEO_RESOLUTION ?? "1080p",
+            resolucion: process.env.VIDEO_RESOLUTION ?? "720p",
             conAudio: NATIVE_AUDIO_ON,
           });
           await createApiLog({
