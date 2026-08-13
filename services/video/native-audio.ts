@@ -139,7 +139,9 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number): 
   // y no el hecho. Hay que decirle que el gesto llega hasta el final.
   const accionCompleta =
     " PHYSICAL ACTIONS ARE PERFORMED IN FULL, never implied or half-started. " +
-    "If they kiss, their lips meet and stay together. If someone falls, the body actually hits the ground. " +
+    "If they kiss: eyes close BEFORE contact, heads tilt to opposite sides, lips actually touch and STAY " +
+    "touching for at least a full second, hands hold. Do not stop at almost-touching — that reads as a mistake. " +
+    "If someone falls, the body actually hits the ground. " +
     "If someone screams, the mouth opens wide, the neck tenses and the whole body commits to it. " +
     "If someone slaps, the hand lands. A gesture that stops halfway reads as a mistake, not as restraint. " +
     "Give each action the seconds it needs — the timings below are the schedule, follow them.";
