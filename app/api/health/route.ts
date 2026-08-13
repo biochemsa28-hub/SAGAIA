@@ -215,8 +215,43 @@ export async function GET(req: Request) {
     .filter(([k, v]) => typeof v === "boolean" && !v)
     .map(([k]) => k);
 
+  // ── QUÉ VERSIÓN ESTÁ CORRIENDO ───────────────────────────────────────────
+  //
+  // Faltaba, y se notó: la única forma de saber si producción tenía un arreglo
+  // era pegar un log y deducirlo del FORMATO de una línea — "dice
+  // '· proveedores:', entonces tiene el router". Eso es adivinar con evidencia
+  // indirecta, y envejece mal: en cuanto pasan unas horas, la deducción ya no
+  // vale y nadie sabe si desplegó.
+  //
+  // Railway inyecta el commit en el contenedor. Exponerlo convierte la pregunta
+  // "¿está desplegado?" en una consulta de un segundo, sin abrir el panel.
+  const version = {
+    commit: (process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "desconocido").slice(0, 7),
+    mensaje: (process.env.RAILWAY_GIT_COMMIT_MESSAGE ?? "").slice(0, 90) || null,
+    rama: process.env.RAILWAY_GIT_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? null,
+    desplegado: process.env.RAILWAY_DEPLOYMENT_ID?.slice(0, 8) ?? null,
+    arrancado_hace_seg: Math.round(process.uptime()),
+  };
+
+  // Y CON QUÉ CONFIGURACIÓN. Cada decisión de calidad y de gasto es una
+  // variable, y hasta ahora había que producir un video para descubrir cuáles
+  // estaban puestas. Estas son las que deciden cuánto cuesta cada video.
+  const gasto = {
+    resolucion: process.env.VIDEO_RESOLUTION ?? "default(720p)",
+    bloque_segundos: process.env.BLOCK_TARGET_SECONDS ?? "default(6)",
+    picos_caros_max: process.env.RTV_MAX_BLOCKS ?? "default(0 · apagado)",
+    modo_referencias: process.env.RTV_MODE ?? "default(peaks)",
+    cuadro_destino: process.env.PEAK_FRAMES ?? "default(on)",
+    presupuesto_por_segundo: process.env.MAX_ANIMATION_SPEND_PER_SECOND ?? "default(0.1167)",
+    tope_absoluto: process.env.MAX_ANIMATION_SPEND_USD ?? "sin tope",
+    redibujos_max: process.env.CONTINUITY_REDRAW_MAX ?? "default(4)",
+    rol: process.env.ROLE ?? "default(all)",
+  };
+
   return NextResponse.json({
     ok: missing.length === 0,
+    version,
+    gasto,
     missing,
     memoria: memoriaContenedor(),
     checks,
