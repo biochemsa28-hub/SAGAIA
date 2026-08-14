@@ -412,6 +412,8 @@ function NewProjectForm() {
   // Casting selection state (step 4 — "Elenco" screen before hook)
   const [castingStep, setCastingStep] = useState(false);
   const [castingLoading, setCastingLoading] = useState(false);
+  // Bandera sincrona contra el doble clic — ver loadCasting.
+  const castingEnCurso = useRef(false);
   const [castCharacters, setCastCharacters] = useState<CastCharacterOption[]>([]);
   const [castError, setCastError] = useState<string | null>(null);
   // Hook selection state (step 5 — hook picker)
@@ -591,6 +593,18 @@ function NewProjectForm() {
   }, []);
 
   async function loadCasting() {
+    // ⚠️ BANDERA SÍNCRONA, NO EL ESTADO.
+    //
+    // El botón ya se deshabilita con castingLoading, pero setState es asíncrono:
+    // dos clics rápidos pasan LOS DOS antes de que React vuelva a pintar. Y cada
+    // llamada genera los retratos del elenco — o sea que el doble clic se cobra
+    // dos veces. Medido en un log de producción: "[casting] 3/3 personajes con
+    // retratos" impreso dos veces en la misma generación.
+    //
+    // Un ref cambia en el mismo instante, así que la segunda llamada se corta
+    // antes de salir a la red. Es la misma guarda que ya tenía suggestStories.
+    if (castingEnCurso.current) return;
+    castingEnCurso.current = true;
     setCastingLoading(true);
     setCastError(null);
     try {
@@ -619,6 +633,10 @@ function NewProjectForm() {
       setCastError(err instanceof Error ? err.message : "Error generando el elenco");
     } finally {
       setCastingLoading(false);
+      // En el finally, no en el camino feliz: si la llamada falla, el usuario
+      // tiene que poder reintentar. Una bandera que se toma y no se suelta deja
+      // el botón muerto para siempre — peor que el doble cobro que evita.
+      castingEnCurso.current = false;
     }
   }
 
@@ -676,6 +694,13 @@ function NewProjectForm() {
             role: c.role,
             voice_profile: c.voice_profile,
             reference_image_url: c.options[c.selectedIdx] || undefined,
+            // LA EDAD VIAJA. Decide si a este personaje se le dibujan picos de
+            // contacto o de violencia, y el dato ya estaba acá desde el casting
+            // — simplemente no se enviaba. El guardia de menores existía, estaba
+            // verificado, y nunca se activó porque nadie le pasaba la edad.
+            // Construir la defensa y no conectarla es peor que no tenerla:
+            // aparece en la lista de cosas resueltas y no protege nada.
+            age: c.age || undefined,
           }))
         : undefined;
       const res = await fetch("/api/generate/story", {
