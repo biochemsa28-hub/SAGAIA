@@ -250,11 +250,24 @@ export async function generarCuadroDestino(opts: {
         return url;
       }
     } catch (e) {
-      // Solo se sigue bajando la escalera cuando el rechazo es del filtro de
-      // contenido. Sin saldo o sin red, insistir cuatro veces no arregla nada.
-      const cuerpo = JSON.stringify((e as { body?: unknown })?.body ?? "");
-      if (!cuerpo.includes("content_policy_violation")) {
-        console.warn(`[pico] escena ${opts.escena}: no se pudo dibujar el destino — ${(e as Error).message?.slice(0, 120)}`);
+      // SE BAJA LA ESCALERA ANTE CUALQUIER RECHAZO DEL PEDIDO, no solo del
+      // filtro de contenido.
+      //
+      // La primera versión solo seguía con content_policy_violation y se
+      // detenía ante todo lo demás — razonable para una clave muerta o la red
+      // caída, donde insistir cuatro veces no arregla nada. Pero un 422 de
+      // validación DEPENDE DEL PROMPT, y el peldaño siguiente tiene otro texto.
+      // Medido en la matriz de 22 combinaciones: el único fallo fue un
+      // "Unprocessable Entity" en misterio/anime que abandonó con seis
+      // formulaciones sin probar.
+      //
+      // Ahora solo se abandona ante lo que ningún texto distinto puede
+      // arreglar: autenticación, saldo, cuota y caídas del proveedor.
+      const err = e as { status?: number; body?: unknown; message?: string };
+      const estado = Number(err?.status ?? 0);
+      const definitivo = [401, 402, 403, 429].includes(estado) || estado >= 500;
+      if (definitivo) {
+        console.warn(`[pico] escena ${opts.escena}: no se pudo dibujar el destino (${estado}) — ${err?.message?.slice(0, 100)}`);
         return null;
       }
       rechazos.push(etiqueta);
