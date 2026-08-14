@@ -58,9 +58,21 @@ export function picoPorDefecto(tono?: string | null): string {
 export const ACCION_CLAVE = new RegExp(
   [
     /kiss\w*|lips|embrac\w+|hugs?|hugging|bes[oa]\w*|abraz\w+/, // contacto
-    /falls?|falling|collaps\w+|cae\w*|derrumb\w+|desplom\w+|knees? (give|buckle)|goes? down/, // caídas
+    // CAÍDAS — pero de cuerpos, no de la luz ni de la lluvia. "falls" a secas
+    // atrapaba "light through the stained glass falls on the floor", que es
+    // decorado. Es el tercer falso positivo del mismo tipo (después de "corre" y
+    // la lluvia, y "the room turns cold"): una palabra del cuerpo que también
+    // existe en el mundo de las cosas. Se excluye cuando el sujeto es ambiente.
+    /(?<!\b(light|rain|snow|shadow|dust|water|sunlight|moonlight|ash|petals?|la lluvia|la nieve|la luz)\b[^.,;]{0,30})(falls?|falling|cae\w*)|collaps\w+|derrumb\w+|desplom\w+|knees? (give|buckle)|goes? down/, // caídas
     /slaps?|hits?|strikes?|punch\w*|golpe\w*|bofetad\w*|cachetad\w*/, // golpes
-    /sob\w*|breaks? down|weep\w*|llor\w+|quiebr\w+|tears stream\w*/, // quiebre en llanto
+    // ⚠️ "sob" CON LÍMITE DE PALABRA. Escrito como sob\w* atrapaba "SOBre" —la
+    // preposición más común del español— y también "un SOBRE sin remitente".
+    // O sea que media premisa en español entraba como quiebre en llanto y se iba
+    // al camino caro. Lo destapó una frase de ambiente: "la luz de la vela cae
+    // SOBRE la mesa". Tercer caso de la misma familia, después de "slips"/"lips"
+    // y "Anahí"/"Anah": una palabra corta en inglés que vive adentro de una
+    // palabra común en español.
+    /\bsobs?\b|\bsobbing\b|breaks? down|weep\w*|llor\w+|quiebr\w+|tears stream\w*/, // quiebre en llanto
     /scream\w*|shout\w*|grit\w+|doubl\w+ over/, // gritos con cuerpo
     /faints?|desmay\w+|collapses unconscious/, // desmayos
     /throws?|smash\w*|shatters?|lanz\w+|romp\w+|arroj\w+|slams?|portazo/, // romper/arrojar/portazo
@@ -105,6 +117,28 @@ export const ACCION_CLAVE = new RegExp(
     // Un cuerpo que se congela ES un cambio de estado tan grande como uno que
     // cae: la foto anterior lo muestra corriendo, y de eso no sale un frenazo.
     /freezes? in place|stops? dead|goes rigid|legs? lock|rooted to the spot|se queda helad|se detiene en seco|se queda cla[vs]ad/,
+    // ── EL RASTRO VISIBLE: un ESTADO, no una acción ─────────────────────────
+    //
+    // Encontrado con una premisa de comedia: "a large brown stain spreading
+    // across the seat of his trousers" no traía ni un verbo del cuerpo, así que
+    // la regla —que busca acciones— no lo veía. Y sin embargo es exactamente lo
+    // que el cuadro destino existe para resolver: la foto anterior muestra el
+    // pantalón limpio, y de una foto limpia no sale una mancha.
+    //
+    // La categoría es general, no el chiste: sangre en la camisa, el vino
+    // encima, la ropa empapada o rota, el maquillaje corrido. Todos son el
+    // RESULTADO visible de algo que pasó, y ninguno puede interpolarse desde un
+    // cuadro donde todavía no había pasado.
+    // "stained" a secas atrapaba "stained glass window" —un vitral, o sea
+    // decorado— y mandaba una escena de iglesia al camino caro. Tercera vez que
+    // el mismo tipo de falso positivo aparece (después de "corre"/la lluvia y
+    // "the room turns cold"): una palabra del cuerpo que también existe en el
+    // mundo de los objetos.
+    /stain(ed|s|ing)?\b(?! ?glass)|soiled|drenched in|soaked (in|through)|covered in|smeared|torn open|manchad|empapad|cubiert[oa] de|desgarrad/,
+    // TAPARSE: el gesto de esconder lo que ya se vio. Es el pico de la
+    // vergüenza y del horror —la mano que va a la boca, la que cubre la cara—
+    // y no puede salir de un cuadro donde las manos estaban abajo.
+    /covers? (his|her|their|the) (face|mouth|eyes|ears|head)|hands? (fly|goes|go) to (his|her|their) (mouth|face)|covers? .{0,40}with both hands|se tapa la (cara|boca)|se cubre la/,
     // "turns" a secas atrapaba el ambiente —"the room turns cold"— y mandaba una
     // escena contemplativa al camino caro. Se exige que lo que gire sean CABEZAS
     // hacia alguien, no una temperatura. Es el mismo error que ya cometimos con
