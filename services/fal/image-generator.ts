@@ -195,6 +195,20 @@ const SUAVIZADO: Array<[RegExp, string]> = [
   // porque el sudor es la forma natural de mostrar miedo.
   [/\b(soaked through|drenched|clinging wet|wet and clinging|see[- ]through)\b/gi, "damp"],
   [/\b(sweat[- ]soaked|dripping with sweat)\b/gi, "damp with sweat"],
+  // ── LA ESCENA DE CAMA ─────────────────────────────────────────────────────
+  // Medido en una producción real de infidelidad descubierta: el filtro rechazó
+  // "dark hair falling over her BARE SHOULDERS, a white linen SHEET PULLED…" y
+  // "white linen shirt HANGING OPEN and DISHEVELED, sitting on the edge of the
+  // bed". La lista cubría "bare chest" y "sheet barely covering", pero no estas.
+  //
+  // Y es el vocabulario natural del género: el drama de traición ocurre en una
+  // habitación, y el guion lo escribe así porque así se escribe.
+  [/\b(bare (?:shoulders?|arms?|back|feet|midriff))\b/gi, "shoulders"],
+  [/\b(sheet(?:s)? (?:pulled|clutched|held) (?:up )?(?:over|to|against)[^,.]*)/gi, "a blanket held close"],
+  [/\b(hanging open|unbuttoned|half[- ]open|falling off (?:one )?shoulder)\b/gi, "loose"],
+  [/\b(dishevell?ed|tousled|rumpled from|tangled (?:in|across))\b/gi, "untidy"],
+  [/\b(?:in|on) (?:the )?(?:rumpled|unmade|messy) bed\b/gi, "in the room"],
+  [/\b(straddling|astride|on top of (?:him|her))\b/gi, "close to"],
 ];
 
 export function suavizarParaModeracion(prompt: string): string {
@@ -210,6 +224,26 @@ export function suavizarParaModeracion(prompt: string): string {
 // son justamente los que el RETRATO ya aporta mejor que cualquier frase.
 const DESCRIPCION_DE_CUERPO =
   /\b(?:[\w-]+\s+){0,3}(shirt|t-shirt|blouse|dress|robe|pyjamas|pajamas|trousers|pants|skirt|sweater|coat|jacket|nightgown|slip|underwear|bathrobe|torso|chest|shoulders|thighs|legs|skin|body|hair)\b(?:\s+[\w-]+){0,4}/gi;
+
+// Lo ÚNICO que se conserva en el último recurso: qué siente. Sin esto el retrato
+// sale neutro y la escena pierde la emoción además del lugar; con esto al menos
+// la cara actúa lo que la escena pedía.
+const EMOCIONES: Array<[RegExp, string]> = [
+  [/\b(cry|crying|tears|weeping|sobbing)\b/i, "Their face is wet with tears."],
+  [/\b(terror|terrified|horror|afraid|fear|scared)\b/i, "Their eyes are wide with fear."],
+  [/\b(rage|furious|anger|angry|shouting|screaming)\b/i, "Their jaw is tight with anger."],
+  [/\b(betray|shock|shocked|disbelief|stunned|frozen)\b/i, "They are frozen, unable to believe it."],
+  [/\b(shame|ashamed|guilt|guilty|humiliat)/i, "They cannot meet anyone's eyes."],
+  [/\b(tender|love|longing|desire|intimate)\b/i, "Their expression is open and unguarded."],
+  // \w* y no \b: "plead" con límite de palabra NO reconoce "pleadING", que es la
+  // forma en que un guion lo escribe siempre. Es el mismo error de sufijo que ya
+  // apareció con "slips"/"lips" y con "tears … off".
+  [/\b(plead\w*|begg\w*|desperat\w*|despair\w*)\b/i, "They are pleading, on the edge of breaking."],
+];
+function emocionDe(prompt: string): string {
+  for (const [re, frase] of EMOCIONES) if (re.test(prompt)) return frase;
+  return "A tense, dramatic expression.";
+}
 
 export function sinDescripcionDePersonaje(prompt: string): string {
   const partes = prompt.split(",");
@@ -273,6 +307,32 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   if (soloEscena !== prompt) {
     intentos.push({ imgs: [referenceUrl], prompt: soloEscena, nota: "sin describir al personaje" });
   }
+
+  // ── EL MÍNIMO: la cara y nada más ────────────────────────────────────────
+  //
+  // El peldaño de arriba se quedaba a mitad de camino. Quitaba la ROPA pero
+  // dejaba el MOBILIARIO y la POSTURA, y en una escena de infidelidad el
+  // disparador no es la camisa: es "la cama de sábanas revueltas" y "sentado en
+  // el borde". Medido — cinco intentos rechazados en fila y dos personajes
+  // perdiendo la cara.
+  //
+  // Este intento tira todo salvo lo único que no se puede reemplazar: QUIÉN es y
+  // QUÉ SIENTE. Sin lugar, sin muebles, sin postura, sin ropa. Sale un retrato
+  // en vez de una escena — peor plano, sin duda.
+  //
+  // Pero la alternativa real no es "una escena mejor": es caer a flux, que no
+  // tiene el retrato y dibuja A OTRA PERSONA. Y eso ya no se arregla en ningún
+  // paso posterior, porque el video entero queda con dos protagonistas.
+  //
+  // Un plano pobre con la cara correcta se salva en el montaje. Una cara
+  // equivocada no se salva nunca.
+  intentos.push({
+    imgs: [referenceUrl],
+    prompt:
+      "Portrait of the exact person in the reference image: identical face, hair and clothing. " +
+      `${emocionDe(prompt)} Vertical 9:16, cinematic, shallow depth of field, plain dark background.`,
+    nota: "solo la cara (último recurso)",
+  });
 
   let ultimo = "";
   for (const [k, intento] of intentos.entries()) {
