@@ -127,7 +127,20 @@ export const SceneSchema = z.object({
    *
    *  El guionista ya sabe cuál es —la REGLA #2.8 le exige tener una—; solo le
    *  faltaba poder decirlo. */
-  is_peak: z.boolean().optional(),
+  //
+  //  ⚠️ TOLERANTE A PROPÓSITO. Declarado como z.boolean() puro, el modelo
+  //  devolvió "true" entre comillas y el validador tiró EL GUION ENTERO —
+  //  minutos de generación y los NAVOS del usuario, por una marca auxiliar.
+  //  Y era predecible: todos los demás campos del esquema son cadenas con una
+  //  descripción larga adentro, así que el modelo copió el patrón.
+  //
+  //  Un campo accesorio nunca puede invalidar la historia completa. Se acepta
+  //  booleano, "true"/"false" y 1/0, y cualquier otra cosa se lee como false.
+  is_peak: z.preprocess((v) => {
+    if (typeof v === "string") return v.trim().toLowerCase() === "true";
+    if (typeof v === "number") return v === 1;
+    return v;
+  }, z.boolean().optional()),
   emotion: z.string(),
   camera_move: z.string(),
 });

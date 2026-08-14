@@ -147,7 +147,7 @@ const LLANOS: Array<[RegExp, string]> = [
 ];
 function verboLlano(accion: string): string {
   for (const [re, frase] of LLANOS) if (re.test(accion)) return frase;
-  return "The emotional peak of this scene between the two characters";
+  return "The peak moment of this scene, in the same place and framing";
 }
 
 // El instante siguiente, descrito por el RASTRO en vez de por el acto. Verificado
@@ -170,7 +170,9 @@ const DESPUES: Array<[RegExp, string]> = [
 ];
 function elDespues(accion: string): string {
   for (const [re, frase] of DESPUES) if (re.test(accion)) return frase;
-  return "The exact instant after it happened, read on their faces and their hands";
+  // Antes decia "leido en sus caras y sus manos" y el modelo dibujaba exactamente
+  // eso: caras y manos, sin escena. Ahora nombra el momento sin nombrar el cuerpo.
+  return "The exact instant after it happened, in the same place, nothing moved yet";
 }
 
 // Saca las cláusulas de mueble y postura, que son las que disparan el filtro sin
@@ -201,14 +203,49 @@ function sinPostura(accion: string): string {
 // La lectura: nombrar el registro visual le dice al filtro qué clase de imagen
 // es. Un "kiss" suelto sobre dos retratos es ambiguo; el mismo beso declarado
 // como ilustración con luz de velas, no.
-function identidad(estiloVisual?: string | null): string {
+// ── LA LUZ ES DEL GÉNERO, NO UNA CONSTANTE ──────────────────────────────────
+//
+// Esto decía "warm light, soft shadows" para los ONCE géneros. Salió del
+// experimento del beso —donde la luz de velas ayudaba a pasar el filtro— y lo
+// generalicé sin pensar, así que el terror se venía iluminando como una escena
+// de amor.
+//
+// Medido: un pico de terror —un espíritu debajo de la cama— salió con luz dorada
+// de ventana y sombras suaves. La composición era correcta y el resultado daba
+// ternura. Un plano de terror con luz de romance no da miedo por más monstruo
+// que le pongas.
+//
+// La atmósfera no es decoración: es la mitad de lo que hace que un género se
+// sienta ese género.
+const ATMOSFERA: Record<string, string> = {
+  horror:        "One hard light source from behind, deep black shadows, cold desaturated colour, everything else swallowed by darkness",
+  thriller:      "Harsh directional light, high contrast, cold tones, hard edges",
+  mystery:       "Low key, a single lamp, dust in the beam, most of the frame in shadow",
+  romance:       "Warm low light, soft shadows, golden skin tones",
+  confesion:     "Flat honest light with no flattery, muted colours, nowhere to hide",
+  drama:         "Hard side light that splits the face, desaturated, cold background",
+  comedy:        "Bright flat daylight, saturated colour, everything clearly visible",
+  inspirational: "Backlight breaking through, warm rim on the shoulders, lifting contrast",
+  fantasy:       "Impossible light with a colour that does not exist in the room, glow on the skin",
+  chisme:        "Close warm interior light, everything else out of focus, conspiratorial",
+  documentary:   "Neutral even light, no drama in the lighting, the object clearly readable",
+};
+
+function identidad(estiloVisual?: string | null, tono?: string | null): string {
   const e = (estiloVisual ?? "").trim().toLowerCase();
   const registro = e === "anime" || e === "cartoon"
     ? "cinematic anime illustration"
     : "cinematic film still";
+  const t = (tono ?? "").trim().toLowerCase();
+  const luz = ATMOSFERA[t] ?? ATMOSFERA["drama"]!;
   return (
     "Same characters as the reference images: identical faces, hair and clothing. " +
-    "Close framing on their faces, warm light, soft shadows. " +
+    // Y EL MISMO LUGAR. Sin esto, los peldaños de abajo —que tiran el texto de
+    // la accion para esquivar el filtro— se llevaban puesta la escena entera:
+    // un pico de terror bajo una cama volvio como dos personas contra un fondo
+    // negro. La foto de la escena ya trae el sitio; hay que decirle que lo use.
+    "Same location, same set and same camera position as the reference images. " +
+    `${luz}. ` +
     `Vertical 9:16, ${registro}, shallow depth of field.`
   );
 }
@@ -226,6 +263,9 @@ export async function generarCuadroDestino(opts: {
    *  íntimos, y con el valor equivocado el cuadro sale en otro estilo que el
    *  resto del video. */
   estiloVisual?: string | null;
+  /** El tono del proyecto. Decide la ATMOSFERA del cuadro: un pico de terror
+   *  iluminado como un romance no da miedo por mas monstruo que tenga. */
+  tono?: string | null;
 }): Promise<string | null> {
   const refs = opts.referencias.filter(Boolean).filter((u, i, a) => a.indexOf(u) === i).slice(0, 4);
   if (!refs.length || !opts.accionFisica.trim()) return null;
@@ -234,7 +274,7 @@ export async function generarCuadroDestino(opts: {
   fal.config({ credentials: apiKey() });
   const rechazos: string[] = [];
 
-  for (const { etiqueta, prompt } of escalera(opts.accionFisica, identidad(opts.estiloVisual))) {
+  for (const { etiqueta, prompt } of escalera(opts.accionFisica, identidad(opts.estiloVisual, opts.tono))) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = await (fal.subscribe as any)(MODELO, {

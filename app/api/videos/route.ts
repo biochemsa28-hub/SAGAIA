@@ -491,6 +491,8 @@ export async function POST(req: NextRequest) {
                   // un pico íntimo — y que el cuadro salga en el mismo estilo
                   // que el resto del video.
                   estiloVisual: detail.project.visual_style,
+                  // El tono decide la luz: terror no se ilumina como romance.
+                  tono: detail.project.tone,
                 }).catch(() => null),
               })));
               for (const d of dibujados) if (d.url) destinoPorBloque.set(d.lead, d.url);
