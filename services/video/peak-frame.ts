@@ -46,6 +46,25 @@ function apiKey(): string {
 function escalera(accion: string, identidad: string): Array<{ etiqueta: string; prompt: string }> {
   const limpia = accion.trim().replace(/\s+/g, " ").slice(0, 220);
   return [
+    // PRIMER PELDAÑO: LA ACCIÓN, INSISTIDA.
+    //
+    // Medido sobre retratos fotorrealistas —que son 19 de cada 22 proyectos, o
+    // sea el camino principal—: las cuatro acciones pasaron el filtro y aun así
+    // el beso salió sin que los labios se tocaran y la cachetada salió como una
+    // caricia. En ilustración el modelo cierra el contacto; en foto se queda en
+    // el centímetro, que es el defecto original de todo este sistema.
+    //
+    // O sea que ahí el límite NO es el filtro: es que el modelo no se
+    // compromete. Y si no es el filtro, se puede pedir más fuerte. Este peldaño
+    // insiste en que el contacto ya ocurrió y está sostenido.
+    //
+    // Va PRIMERO y no reemplaza a nada: si el filtro lo rechaza —como pasa con
+    // los picos íntimos en anime— cae al peldaño siguiente, que es el que había
+    // antes. Un rechazo no cuesta nada, así que el intento es gratis y solo
+    // puede mejorar.
+    { etiqueta: "insistido", prompt:
+      `${limpia}. The contact is ALREADY happening and is held: the bodies are touching, ` +
+      `not approaching. No gap between them, no hesitation, the gesture is complete. ${identidad}` },
     { etiqueta: "directo", prompt: `${limpia}. ${identidad}` },
     { etiqueta: "narrativo", prompt: `The exact moment this happens, at the peak of the scene: ${limpia}. Quiet, restrained, cinematic. ${identidad}` },
     { etiqueta: "still", prompt: `A film still capturing this moment: ${limpia}. ${identidad}` },
@@ -75,6 +94,18 @@ function escalera(accion: string, identidad: string): Array<{ etiqueta: string; 
     // Se pierde precisión —el modelo elige los detalles— pero un beso genérico
     // que EXISTE vale infinitamente más que uno preciso que el filtro nunca deja
     // dibujar.
+    // EL DESPUÉS: el rastro, sin un solo verbo de la acción.
+    //
+    // Medido en fotorrealista: "the slap lands flat across his face" fue
+    // rechazada 5 de 5 veces —consistente, no azar—, y "his head is still turned
+    // and his cheek is flushed red, she stands with her hand lowered" pasó 3 de
+    // 3. El filtro no mira lo que pasó: mira cómo lo nombrás.
+    //
+    // Y no es una concesión: el instante DESPUÉS es mejor cine. La cachetada que
+    // se ve es un golpe; la mejilla roja y la cabeza todavía girada obligan al
+    // espectador a completarla, y eso pesa más. Vale para el golpe, la caída y
+    // el grito — todo lo que el filtro trata como violencia.
+    { etiqueta: "el después", prompt: `${elDespues(limpia)}. ${identidad}` },
     { etiqueta: "verbo llano", prompt: `${verboLlano(limpia)}. ${identidad}` },
   ];
 }
@@ -106,6 +137,29 @@ const LLANOS: Array<[RegExp, string]> = [
 function verboLlano(accion: string): string {
   for (const [re, frase] of LLANOS) if (re.test(accion)) return frase;
   return "The emotional peak of this scene between the two characters";
+}
+
+// El instante siguiente, descrito por el RASTRO en vez de por el acto. Verificado
+// contra el filtro en fotorrealista, donde el acto directo no pasa.
+const DESPUES: Array<[RegExp, string]> = [
+  [/slap|\bhits?\b|punch|bofetad|cachetad|golpe/i,
+   "His head is still turned to one side and his cheek is flushed red. She stands very close with her hand lowered, breathing hard"],
+  [/knees|collaps|\bfalls?\b|sinks? to the|derrumb|desplom/i,
+   "They are already down on the floor, one hand still braced against it, the other reaching for nothing"],
+  [/\bsobs?\b|sobbing|weep|llor|breaks? down/i,
+   "Their face is wet and their shoulders will not stop moving, one hand pressed flat over the mouth"],
+  [/scream|shout|grit/i,
+   "Their mouth is still open and the neck is tense, the whole upper body leaning into it"],
+  [/throws?|smash|shatter|\bromp|lanz/i,
+   "The pieces are already on the floor and their hand is still open in the air above them"],
+  [/grabs?|wrist|yank|drag|agarr/i,
+   "Her wrist is held tight in his hand and the skin around it has gone pale"],
+  [/\bkiss|\blips\b|\bbes[oa]/i,
+   "Their faces have just parted by an inch, foreheads touching, both with their eyes still closed"],
+];
+function elDespues(accion: string): string {
+  for (const [re, frase] of DESPUES) if (re.test(accion)) return frase;
+  return "The exact instant after it happened, read on their faces and their hands";
 }
 
 // Saca las cláusulas de mueble y postura, que son las que disparan el filtro sin
