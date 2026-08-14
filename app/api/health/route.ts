@@ -267,9 +267,25 @@ export async function GET(req: Request) {
   // Y CON QUÉ CONFIGURACIÓN. Cada decisión de calidad y de gasto es una
   // variable, y hasta ahora había que producir un video para descubrir cuáles
   // estaban puestas. Estas son las que deciden cuánto cuesta cada video.
+  // ⚠️ EL VALOR EFECTIVO, NO LA VARIABLE.
+  //
+  // Este bloque mostraba process.env.BLOCK_TARGET_SECONDS a secas, y eso miente:
+  // el valor final se recorta contra HOOK_BLOCK_SECONDS, así que la variable
+  // podía decir 10 mientras el código usaba 6. Medido — el chequeo reportaba 10
+  // y max_blocks_per_video (que se calcula con el valor real) solo cerraba con 6.
+  //
+  // Un diagnóstico que repite lo que le configuraron en vez de lo que el
+  // programa hace es peor que no tenerlo: manda a buscar el problema al lugar
+  // equivocado. Se muestran los dos, y cuando difieren se dice.
+  const { BLOCK_TARGET_SECONDS, HOOK_BLOCK_SECONDS } = await import("@/lib/config");
+  const bloquePedido = process.env.BLOCK_TARGET_SECONDS;
   const gasto = {
     resolucion: process.env.VIDEO_RESOLUTION ?? "default(720p)",
-    bloque_segundos: process.env.BLOCK_TARGET_SECONDS ?? "default(6)",
+    bloque_segundos: BLOCK_TARGET_SECONDS,
+    ...(bloquePedido && Number(bloquePedido) !== BLOCK_TARGET_SECONDS
+      ? { bloque_segundos_nota: `la variable pide ${bloquePedido} pero HOOK_BLOCK_SECONDS=${HOOK_BLOCK_SECONDS} lo recorta a ${BLOCK_TARGET_SECONDS}` }
+      : {}),
+    clip_maximo_segundos: HOOK_BLOCK_SECONDS,
     picos_caros_max: process.env.RTV_MAX_BLOCKS ?? "default(0 · apagado)",
     modo_referencias: process.env.RTV_MODE ?? "default(peaks)",
     cuadro_destino: process.env.PEAK_FRAMES ?? "default(on)",
