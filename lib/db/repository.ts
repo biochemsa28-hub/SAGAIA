@@ -362,7 +362,33 @@ export async function setProjectCast(
 ): Promise<void> {
   const db = getDb();
   await db.execute({ sql: "DELETE FROM project_cast WHERE project_id = ?", args: [projectId] });
-  for (const m of members) {
+
+  // ── EL RETRATO SE RE-HOSPEDA, PORQUE LAS URL DE fal EXPIRAN ────────────────
+  //
+  // Medido: los retratos de un proyecto de hace unos días devuelven 404
+  // ("Specified object does not exist") mientras los de ayer siguen vivos. Las
+  // imágenes de escena y los clips ya se re-hospedaban a R2; el elenco no, y es
+  // justamente el dato que más dura — de él dependen las regeneraciones y la
+  // Parte 2 de una serie.
+  //
+  // Con el retrato muerto, el generador no falla: INVENTA una cara nueva. O sea
+  // que el defecto no aparece como un error sino como "el personaje cambió de
+  // cara", que es el problema más caro de diagnosticar que tiene esta app.
+  //
+  // Si R2 no está configurado o la descarga falla, rehostToR2 devuelve la URL
+  // original y todo sigue como antes.
+  const { rehostToR2 } = await import("@/services/storage");
+  const durables = await Promise.all(members.map(async (m) => ({
+    ...m,
+    reference_image_url: m.reference_image_url
+      ? await rehostToR2(m.reference_image_url, "cast", "png", "image/png").catch(() => m.reference_image_url!)
+      : m.reference_image_url,
+    bible_url: m.bible_url
+      ? await rehostToR2(m.bible_url, "cast", "png", "image/png").catch(() => m.bible_url!)
+      : m.bible_url,
+  })));
+
+  for (const m of durables) {
     if (!m.name) continue;
     await db.execute({
       // bible_url carries over from a previous episode so a series never pays to
