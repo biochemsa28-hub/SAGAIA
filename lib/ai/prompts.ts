@@ -1,4 +1,5 @@
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
+import { BLOCK_TARGET_SECONDS } from "@/lib/config";
 import type { StoryInput } from "@/lib/validators/story.schema";
 
 // Scene counts are tuned for SHORT-FORM RETENTION: viral Reels/TikToks cut every
@@ -193,22 +194,19 @@ No "una pareja besándose en una sala": el encuadre va sobre los labios, la mano
 
 En image_prompt de esas escenas: "extreme close-up", las caras ocupando todo el encuadre, la piel y las pestañas visibles, luz cálida rasante, poca profundidad de campo. Nada de decorado: el decorado le roba el momento.
 
-REGLA #2.7 — LAS ESCENAS SE FILMAN DE A PARES (ESTO ARREGLA EL "MAL GRABADO")
+REGLA #2.7 — UNA ESCENA = UN CLIP. CADA ESCENA CON SU PROPIO ENCUADRE.
 ════════════════════════════════════════
-Las escenas se ruedan agrupadas de a DOS en una misma toma continua: la 1 con la 2, la 3 con la 4, la 5 con la 6. Dentro de un par NO HAY CORTE — la cámara no se levanta ni se mueve de lugar.
+Cada escena se anima como SU PROPIO clip de ~${BLOCK_TARGET_SECONDS} segundos. Entre escena y escena hay un CORTE de verdad. No existen los pares ni las tomas continuas que abarcan dos escenas.
 
-Por lo tanto, DENTRO de cada par:
-  · MISMO ENCUADRE: mismo tipo de plano y misma posición de cámara en las dos escenas.
-  · MISMAS PERSONAS EN CUADRO: si en la primera se ven los dos, en la segunda también.
-  · MISMO LUGAR, SIEMPRE. Un cambio de escenario dentro de un par es imposible de filmar.
-  · Lo que cambia entre las dos es el MOMENTO y QUIÉN HABLA, no la cámara.
-  · El camera_move de la segunda CONTINÚA el de la primera (si la primera se acerca, la segunda sigue acercándose o se detiene) — nunca arranca un movimiento nuevo desde otro sitio.
+Por lo tanto:
+  · Cada escena tiene UN encuadre y UNO solo: un tipo de plano, una posición de cámara. Los cortes internos no existen — si necesitás cambiar de ángulo, esa es OTRA escena.
+  · Dos escenas CONSECUTIVAS tienen que VERSE distintas. Cambiá al menos UNA de estas tres cosas: el tamaño del plano (general → medio → primer plano), el ángulo o lado de la cámara, o quién ocupa el cuadro.
+  · PROHIBIDO repetir el image_prompt (ni casi-repetirlo) entre dos escenas. Dos image_prompt casi iguales producen dos imágenes casi iguales, el sistema las detecta como duplicadas y BLOQUEA la producción entera. Si la historia vuelve al mismo lugar (un loop, un déjà vu, la misma roca), mostralo DISTINTO: otro ángulo, otra distancia, otra luz, un detalle nuevo en cuadro.
+  · El LUGAR puede repetirse a lo largo de la historia; la IMAGEN no.
 
-El CAMBIO DE ÁNGULO, de plano o de lugar ocurre ENTRE pares: de la escena 2 a la 3, de la 4 a la 5. Ahí sí hay un corte de verdad y podés cambiar todo lo que quieras.
+POR QUÉ IMPORTA: el drama vertical retiene cortando cada 2-3 segundos. Dos escenas con la misma imagen se pegan sin corte visible y el espectador ve UN plano de 12 segundos que no avanza — el mayor asesino de retención que existe. Y un clip solo puede ejecutar UN encuadre: pedirle dos dentro de la misma escena lo obliga a DEFORMAR una imagen en la otra —caras que se estiran, fondos que se derriten— y el video se siente mal grabado.
 
-POR QUÉ IMPORTA: un clip continuo no puede contener dos encuadres distintos. Si la escena 1 es un plano medio de él y la 2 un primer plano de ella, el modelo tiene que DEFORMAR una imagen en la otra —caras que se estiran, fondos que se derriten— y el video se siente mal grabado. Así es como funciona el cine de verdad: no se cambia de ángulo a mitad de una toma, se CORTA.
-
-Prohibido que las 6 escenas sean la misma conversación continua.
+Prohibido que las 6 escenas sean la misma conversación continua en el mismo cuadro.
 
 ════════════════════════════════════════
 REGLA #2.8 — UNA ESCENA TIENE QUE SER EL PICO FÍSICO. NO ES OPCIONAL.
@@ -432,6 +430,7 @@ segundos y no llega al mínimo que las plataformas piden para monetizar.
 En español se habla a ~14 caracteres por segundo. Para ${duration.seconds} segundos:
 · TOTAL de todos los narration_text sumados: ~${Math.round(duration.seconds * CHARS_PER_SECOND)} caracteres
 · Con ${duration.max} escenas son ~${Math.round((duration.seconds * CHARS_PER_SECOND) / duration.max)} caracteres por escena — unas ${Math.round((duration.seconds * CHARS_PER_SECOND) / duration.max / 5.5)} palabras, NO cuatro sueltas
+· TECHO DURO por escena: ningún narration_text puede pasar de ${Math.round(BLOCK_TARGET_SECONDS * CHARS_PER_SECOND)} caracteres (${BLOCK_TARGET_SECONDS} segundos hablados). Cada escena se anima como UN clip de ~${BLOCK_TARGET_SECONDS}s: un parlamento más largo obliga a un plano largo y quieto que mata la retención. Si un personaje necesita decir más, partí el discurso en DOS escenas con encuadres distintos.
 
 Antes de cerrar el JSON, SUMÁ los caracteres de todos los narration_text. Ese
 total tiene que quedar entre ~${Math.round(duration.seconds * (CHARS_PER_SECOND - 1))} y ~${Math.round(duration.seconds * (CHARS_PER_SECOND + 2))} caracteres.

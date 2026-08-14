@@ -7,7 +7,7 @@ import {
   deductCredits, createApiLog, setProjectCharacter, getUserById, setProjectCast,
   refundCreditForProject,
 } from "@/lib/db/repository";
-import { resolveProjectTier, creditCostFor, videoSecondsFor, esBorrador, BORRADOR } from "@/lib/config";
+import { resolveProjectTier, creditCostFor, videoSecondsFor, esBorrador, BORRADOR, BLOCK_TARGET_SECONDS } from "@/lib/config";
 import { esNombreDePila } from "@/lib/ai/name-bank";
 import { ACCION_CLAVE, picoPorDefecto } from "@/lib/ai/accion-clave";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
@@ -324,18 +324,72 @@ export async function POST(req: NextRequest) {
         console.log(`[duracion] ~${segundos}s hablados de ${pedidos}s pedidos (${pct}%)`);
       }
 
-      // Un parlamento más largo que un clip NO se puede animar entero: el video se
-      // congela mientras el personaje sigue hablando. Se detecta acá, antes de
-      // gastar, y se nombra la escena — que es lo único accionable.
+      // ── DOS DEFECTOS DE GUION QUE ANTES SE DESCUBRÍAN DESPUÉS DE PAGAR ──────
+      // 1) Un parlamento más largo que un clip: el planificador lo cubre pidiendo
+      //    un clip más largo, y el resultado es un plano de 8-9s casi quieto en un
+      //    formato que corta cada 2-3s. (El umbral viejo de 200 caracteres solo
+      //    atrapaba congelamientos; una escena de 78 car. = 7.1s pasaba limpia.)
+      // 2) Dos escenas consecutivas con image_prompt casi idéntico: producen dos
+      //    imágenes casi iguales, el portero de continuidad las BLOQUEA y la
+      //    producción entera se frena — después de pagar las imágenes.
+      // Ambos son problemas de GUION y se arreglan en el guion: se detectan acá,
+      // se regenera UNA vez nombrando las escenas, y solo se acepta si mejora.
       // Se relee de result.data porque el reintento de duración pudo reemplazarlo.
-      const largas = (result.data?.scenes ?? [])
-        .filter((s) => (s.narration_text ?? "").trim().length > 200)
-        .map((s) => `${s.scene_number} (${(s.narration_text ?? "").trim().length} car.)`);
-      if (largas.length) {
+      const TECHO_ESCENA = Math.round(BLOCK_TARGET_SECONDS * CHARS_PER_SECOND * 1.15);
+      type EscenaMin = { scene_number?: number; narration_text?: string | null; image_prompt?: string | null };
+      const palabras = (t: string) => new Set(t.toLowerCase().match(/[a-záéíóúñü]{4,}/gi) ?? []);
+      // Jaccard sobre palabras de 4+ letras: dos prompts que comparten el 65% del
+      // vocabulario van a producir la misma imagen aunque el texto no sea igual.
+      const parecidos = (a: string, b: string) => {
+        const A = palabras(a), B = palabras(b);
+        if (!A.size || !B.size) return 0;
+        let comunes = 0;
+        for (const w of A) if (B.has(w)) comunes++;
+        return comunes / (A.size + B.size - comunes);
+      };
+      const defectosDe = (scenes: EscenaMin[]) => {
+        const largas = scenes
+          .filter((s) => (s.narration_text ?? "").trim().length > TECHO_ESCENA)
+          .map((s) => `${s.scene_number} (${(s.narration_text ?? "").trim().length} car.)`);
+        const duplicadas: string[] = [];
+        for (let i = 1; i < scenes.length; i++) {
+          const a = (scenes[i - 1]!.image_prompt ?? "").trim();
+          const b = (scenes[i]!.image_prompt ?? "").trim();
+          if (a && b && parecidos(a, b) >= 0.65) duplicadas.push(`${scenes[i - 1]!.scene_number}-${scenes[i]!.scene_number}`);
+        }
+        return { largas, duplicadas, total: largas.length + duplicadas.length };
+      };
+      const defectos = defectosDe((result.data?.scenes ?? []) as EscenaMin[]);
+      if (defectos.total) {
         console.warn(
-          `[duracion] ${largas.length} escena(s) con el parlamento más largo que un clip: ${largas.join(", ")}` +
-          " — se van a congelar o repetir en el montaje. Regenerá el guion.",
+          `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
+          `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}] — regenerando una vez`,
         );
+        const correcciones =
+          "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
+          (defectos.largas.length
+            ? ` Las escenas ${defectos.largas.join(", ")} tienen narration_text demasiado largo — ` +
+              `ninguna escena puede pasar de ${Math.round(BLOCK_TARGET_SECONDS * CHARS_PER_SECOND)} caracteres (${BLOCK_TARGET_SECONDS} segundos hablados); ` +
+              "partí el parlamento en DOS escenas con encuadres distintos."
+            : "") +
+          (defectos.duplicadas.length
+            ? ` Las escenas ${defectos.duplicadas.join(" y ")} tienen image_prompt casi idéntico — cada escena necesita su PROPIA imagen: ` +
+              "cambiá el tamaño del plano, el ángulo de cámara o quién ocupa el cuadro."
+            : "");
+        const reintentoEscenas = await storyGeneratorService.generate({
+          ...parsed.data,
+          additional_instructions: (instrucciones + correcciones).slice(0, 3000),
+          animation_tier: animationTier,
+        });
+        if (reintentoEscenas.success && reintentoEscenas.data?.scenes?.length) {
+          const despues = defectosDe(reintentoEscenas.data.scenes as EscenaMin[]);
+          if (despues.total < defectos.total) {
+            console.log(`[escenas] reintento aceptado: ${defectos.total} defecto(s) → ${despues.total}`);
+            result.data = reintentoEscenas.data;
+          } else {
+            console.warn(`[escenas] el reintento no mejoró (${despues.total} defecto(s)) — se conserva el original`);
+          }
+        }
       }
     }
 
