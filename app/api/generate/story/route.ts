@@ -358,6 +358,7 @@ export async function POST(req: NextRequest) {
       const primerosDelElenco = new Set(nombres.map(primer));
       const realPorClave = new Map(nombres.map((n) => [primer(n), n.trim().split(/\s+/)[0] ?? n]));
       let vocativos = 0;
+      let sinReemplazoAvisado = false;
       for (const sc of result.data.scenes) {
         // NFC: el modelo puede escribir "í" como un solo carácter o como "i" más
         // una tilde combinante. En la segunda forma la expresión regular corta el
@@ -366,8 +367,35 @@ export async function POST(req: NextRequest) {
         // error.
         const texto = (sc.narration_text ?? "").normalize("NFC");
         if (!texto) continue;
-        const otro = nombres.find((n) => primer(n) !== primer(sc.speaker ?? "")) ?? nombres[0];
-        if (!otro) continue;
+        // ⚠️ EL REEMPLAZO TIENE QUE SER UN NOMBRE USABLE.
+        //
+        // Se elegía "cualquier otro del elenco", y en un elenco de dos donde el
+        // segundo es "La Presencia", ese otro daba primer nombre "La". La
+        // reparación convertía "Carla, no duermas" en "LA, no duermas":
+        // arreglaba un problema creando uno peor, y encima en el audio hablado.
+        //
+        // Si no hay a quién poner, NO se toca la línea. Un nombre inventado que
+        // queda es un defecto; una frase sin sentido es un video roto. Y el
+        // aviso de abajo lo deja registrado para que no pase inadvertido.
+        const ARTICULOS_NOM = new Set(["el", "la", "los", "las", "un", "una", "lo"]);
+        const usable = (n: string) => {
+          const p = primer(n);
+          return p.length >= 3 && !ARTICULOS_NOM.has(p);
+        };
+        const otro = nombres.find((n) => primer(n) !== primer(sc.speaker ?? "") && usable(n))
+          ?? nombres.find(usable);
+        if (!otro) {
+          // Elenco sin ningún nombre propio utilizable (p. ej. protagonista +
+          // criatura). Se deja el diálogo como está y se avisa una sola vez.
+          if (!sinReemplazoAvisado) {
+            console.warn(
+              `[elenco] no hay un nombre del elenco que sirva para reemplazar vocativos inventados ` +
+              `(elenco: ${nombres.join(", ")}) — el diálogo se deja tal cual`,
+            );
+            sinReemplazoAvisado = true;
+          }
+          continue;
+        }
         // Solo palabras capitalizadas que son nombres de pila conocidos y no
         // están en el elenco. Sin el banco de nombres no se toca nada: adivinar
         // qué palabra es un nombre propio rompería diálogo legítimo.

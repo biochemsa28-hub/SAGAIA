@@ -482,7 +482,17 @@ ${castLine}
 REGLA INQUEBRANTABLE: usa EXACTAMENTE estos nombres en el campo "speaker" de cada escena y en cada "image_prompt".
 NO inventes nombres nuevos. NO cambies "Valentina" por "Valeria" ni "Mateo" por "Rodrigo".
 Cada personaje YA TIENE UN ROSTRO GENERADO asociado a su nombre: si cambias el nombre, el sistema pierde la cara y todas las escenas salen con la persona equivocada.
-Respeta también el voice_profile que ya tiene cada uno.` : ""}
+Respeta también el voice_profile que ya tiene cada uno.
+
+⚠️ Y EL ELENCO ESTÁ COMPLETO: en esta historia NO EXISTE NADIE MÁS.
+La regla de arriba hablaba del campo "speaker" y del "image_prompt", y por ese hueco se coló el defecto: un guion le hizo decir al protagonista "Carla, no duermas" toda la historia, con un elenco donde Carla no existía. Nunca se la pudo mostrar, porque no tiene rostro — y el espectador pasó el video entero oyendo hablarle a alguien que no aparece.
+
+Por lo tanto, DENTRO DE LOS DIÁLOGOS:
+- Nadie puede ser llamado por un nombre que no esté en la lista de arriba.
+- Si la escena necesita que el personaje le hable a alguien más, usa algo sin nombre: "amor", "mamá", "escúchame", o que hable solo.
+- Si la historia que se te ocurre NECESITA una persona más para funcionar, ESCRIBÍ OTRA HISTORIA. Es más fácil cambiar la trama que hacer aparecer a alguien que no tiene cara.
+
+Un personaje al que se nombra pero no se ve rompe la historia entera: el espectador lo espera, y nunca llega.` : ""}
 ${prevLines ? `
 🎬 ESTE ES EL EPISODIO ${epNum ?? "SIGUIENTE"} DE UNA SERIE 🎬
 Así terminó el episodio anterior (sus últimas líneas):
