@@ -356,6 +356,21 @@ export async function POST(req: NextRequest) {
           const elenco = await getProjectCast(parsed.data.project_id).catch(() => []);
           const claveDeNombre = (n: string) =>
             n.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+          // ── EL ARTÍCULO NO ES EL NOMBRE ──────────────────────────────────
+          //
+          // Se toma el primer nombre para reconocer al personaje dentro del
+          // texto de la escena, pero de "La Presencia" salía "La": dos letras,
+          // por debajo del mínimo, y el personaje quedaba sin detectar. Medido
+          // en una producción real —una historia de terror cuya antagonista se
+          // llama justamente "La Presencia"—, y le pasa igual a "El Doctor" o
+          // "La Niña", que son formas naturales de nombrar a un personaje.
+          //
+          // Sin detección, su retrato no viaja y el modelo le inventa la cara.
+          const nombreUtil = (n: string) => {
+            const partes = claveDeNombre(n).split(/\s+/).filter(Boolean);
+            const sinArticulo = partes.filter((p) => !["el", "la", "los", "las", "un", "una", "lo"].includes(p));
+            return (sinArticulo[0] ?? partes[0] ?? "");
+          };
           const retratoPorNombre = new Map<string, string>();
           for (const c of elenco) {
             if (c.name && c.reference_image_url) retratoPorNombre.set(claveDeNombre(c.name), c.reference_image_url);

@@ -188,12 +188,38 @@ const SUAVIZADO: Array<[RegExp, string]> = [
   [/\b(sheet(?:s)? barely covering)\b/gi, "blanket pulled up over"],
   [/\b(thighs|bare legs)\b/gi, "hands"],
   [/\b(intimate|in bed together|post[- ]coital)\b/gi, "sitting close, tense"],
+  // ROPA MOJADA. Medido en una producción real de terror: "grey cotton t-shirt
+  // SOAKED THROUGH with sweat" fue rechazada con content_policy_violation. La
+  // escena era un hombre despertándose asustado — nada íntimo—, pero la ropa
+  // empapada lee como sugerente para el filtro. Y el guion la escribe sola,
+  // porque el sudor es la forma natural de mostrar miedo.
+  [/\b(soaked through|drenched|clinging wet|wet and clinging|see[- ]through)\b/gi, "damp"],
+  [/\b(sweat[- ]soaked|dripping with sweat)\b/gi, "damp with sweat"],
 ];
 
 export function suavizarParaModeracion(prompt: string): string {
   let out = prompt;
   for (const [re, rep] of SUAVIZADO) out = out.replace(re, rep);
   return out;
+}
+
+// Quita el tramo que describe el CUERPO y la ROPA del personaje, y deja el resto
+// de la escena. El image_prompt se escribe por segmentos separados por comas:
+//   [nombre, rasgo, ropa, LA ACCIÓN], [lugar + detalles], [primer plano], [luz]
+// Los adjetivos de vestuario y anatomía son los que disparan la moderación, y
+// son justamente los que el RETRATO ya aporta mejor que cualquier frase.
+const DESCRIPCION_DE_CUERPO =
+  /\b(?:[\w-]+\s+){0,3}(shirt|t-shirt|blouse|dress|robe|pyjamas|pajamas|trousers|pants|skirt|sweater|coat|jacket|nightgown|slip|underwear|bathrobe|torso|chest|shoulders|thighs|legs|skin|body|hair)\b(?:\s+[\w-]+){0,4}/gi;
+
+export function sinDescripcionDePersonaje(prompt: string): string {
+  const partes = prompt.split(",");
+  const limpias = partes.map((p) => p.replace(DESCRIPCION_DE_CUERPO, "").replace(/\s{2,}/g, " ").trim());
+  const util = limpias.filter((p) => p.length > 3);
+  if (!util.length) return prompt;
+  return (
+    util.join(", ") +
+    ". The character in this scene is exactly the person in the reference image: same face, same hair, same clothing."
+  );
 }
 
 async function callReference(prompt: string, referenceUrl: string, extraImages?: string[]): Promise<string | null> {
@@ -227,6 +253,26 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   // cómo se nombra el vestuario.
   const suave = suavizarParaModeracion(prompt);
   if (suave !== prompt) intentos.push({ imgs: [referenceUrl], prompt: suave, nota: "prompt reformulado" });
+
+  // ÚLTIMO INTENTO: la escena SIN describir al personaje.
+  //
+  // El suavizado reemplaza términos conocidos, pero el filtro rechaza cosas que
+  // ninguna lista anticipa — y cada rechazo cuesta la cara del personaje, que es
+  // lo más caro que puede perder este pipeline.
+  //
+  // Y hay algo que hace este intento casi gratis: la descripción del cuerpo y la
+  // ropa es REDUNDANTE con el retrato. El retrato ya va como referencia y ya dice
+  // cómo se ve; describirlo otra vez en palabras no agrega identidad, solo agrega
+  // superficie para que el filtro se enganche. Medido: un "grey cotton t-shirt
+  // soaked through with sweat" tiró una escena entera de terror.
+  //
+  // Así que se conserva el LUGAR, la ACCIÓN y la LUZ —lo que la foto no tiene— y
+  // se delega la apariencia a la referencia. Un plano con el vestuario descrito a
+  // medias es infinitamente mejor que uno con otra persona adentro.
+  const soloEscena = sinDescripcionDePersonaje(prompt);
+  if (soloEscena !== prompt) {
+    intentos.push({ imgs: [referenceUrl], prompt: soloEscena, nota: "sin describir al personaje" });
+  }
 
   let ultimo = "";
   for (const [k, intento] of intentos.entries()) {

@@ -226,7 +226,15 @@ export async function POST(req: NextRequest) {
         // Pass 1.5 — NOMBRE PARCIAL. El guion escribe "Camila Restrepo" donde el
         // elenco dice "Camila", o al reves. Comparar la cadena entera falla y esa
         // escena se queda sin retrato.
-        const primerNombre = (s: string) => norm(s).split(/\s+/)[0] ?? "";
+        // EL ARTÍCULO NO ES EL NOMBRE. De "La Presencia" salía "La", que no
+        // identifica a nadie y además colisiona con cualquier otro personaje
+        // que empiece igual ("La Niña", "La Madre"). Medido en una producción
+        // real de terror cuya antagonista se llama "La Presencia".
+        const ARTICULOS = ["el", "la", "los", "las", "un", "una", "lo"];
+        const primerNombre = (s: string) => {
+          const partes = norm(s).split(/\s+/).filter(Boolean);
+          return partes.find((p) => !ARTICULOS.includes(p)) ?? partes[0] ?? "";
+        };
         const porPrimerNombre = new Map(withPortrait.map((c) => [primerNombre(c.name), c.reference_image_url!]));
         for (const s of targetScenes) {
           if (map.has(s.scene_number) || !s.speaker) continue;
@@ -320,7 +328,11 @@ export async function POST(req: NextRequest) {
         const otros = withPortrait
           .filter((c) => {
             if (c.reference_image_url === propio) return false;      // ya va como principal
-            const nombre = sinAcentos((c.name ?? "").split(/\s+/)[0] ?? "");
+            // El primer nombre SIN el artículo: de "La Presencia" hay que
+            // buscar "presencia", no "la" — que tiene dos letras y quedaba
+            // descartado, dejando al personaje sin retrato.
+            const partes = sinAcentos(c.name ?? "").split(/\s+/).filter(Boolean);
+            const nombre = partes.find((p) => !["el","la","los","las","un","una","lo"].includes(p)) ?? partes[0] ?? "";
             // Límite de palabra a mano: "Ana" no debe activarse dentro de "Anacleto".
             return nombre.length >= 3 && new RegExp(`(^|[^\\p{L}])${nombre}([^\\p{L}]|$)`, "u").test(texto);
           })
