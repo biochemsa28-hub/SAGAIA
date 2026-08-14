@@ -358,7 +358,7 @@ export interface DbCastMember {
 // Replace the whole cast for a project (idempotent — clears then inserts).
 export async function setProjectCast(
   projectId: string,
-  members: Array<{ name: string; role?: string | null; voice_profile?: string | null; reference_image_url?: string | null; bible_url?: string | null }>,
+  members: Array<{ name: string; role?: string | null; voice_profile?: string | null; reference_image_url?: string | null; bible_url?: string | null; age?: string | null }>,
 ): Promise<void> {
   const db = getDb();
   await db.execute({ sql: "DELETE FROM project_cast WHERE project_id = ?", args: [projectId] });
@@ -367,9 +367,13 @@ export async function setProjectCast(
     await db.execute({
       // bible_url carries over from a previous episode so a series never pays to
       // rebuild the same character sheet twice.
-      sql: `INSERT INTO project_cast (id, project_id, name, role, voice_profile, reference_image_url, bible_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      args: [uuidv4(), projectId, m.name, m.role ?? null, m.voice_profile ?? null, m.reference_image_url ?? null, m.bible_url ?? null],
+      // age decide si a este personaje se le dibujan picos de contacto o de
+      // violencia. Sin guardarla, el generador de picos no puede saber que hay
+      // un menor en la escena — y ya se midió lo que pasa: un elenco de adulta y
+      // niña recibió los picos de drama, confesión y terror igual.
+      sql: `INSERT INTO project_cast (id, project_id, name, role, voice_profile, reference_image_url, bible_url, age)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [uuidv4(), projectId, m.name, m.role ?? null, m.voice_profile ?? null, m.reference_image_url ?? null, m.bible_url ?? null, m.age ?? null],
     });
   }
 }

@@ -361,6 +361,31 @@ export async function POST(req: NextRequest) {
             if (c.name && c.reference_image_url) retratoPorNombre.set(claveDeNombre(c.name), c.reference_image_url);
           }
 
+          // ── MENORES: EL PICO NO SE DIBUJA ────────────────────────────────
+          //
+          // Medido: un proyecto cuyo elenco era una adulta y una nena recibió los
+          // picos de drama, confesión y terror igual que cualquier otro, y tres
+          // de cuatro cuadros salieron con la niña en escena — cachetada y
+          // agarre de muñeca incluidos. El sistema no lo sabía porque la edad no
+          // se guardaba; ahora sí.
+          //
+          // Las plataformas no penalizan ese video: penalizan la cuenta. Y no es
+          // un error que se arregle después, porque para cuando se ve ya se
+          // publicó.
+          //
+          // El bloque se anima igual, por image-to-video normal y sin cuadro
+          // destino: la escena existe, la acción sale más suave, y nadie dibuja
+          // a un menor en un pico de contacto o de violencia.
+          const nombresMenores = new Set(
+            elenco
+              .filter((c) => ["child", "teen"].includes(String((c as { age?: string | null }).age ?? "").toLowerCase()))
+              .map((c) => claveDeNombre(c.name ?? ""))
+              .filter(Boolean),
+          );
+          if (nombresMenores.size) {
+            console.log(`[pico] ${nombresMenores.size} personaje(s) menor(es) en el elenco — sus bloques no reciben cuadro destino`);
+          }
+
           // Cuántos bloques ya se enrutaron a reference-to-video en este video.
           let rtvUsados = 0;
           // Y CUÁNTO SE LLEVA GASTADO. En dólares, que es la unidad en la que se
@@ -440,7 +465,19 @@ export async function POST(req: NextRequest) {
                     .find((a) => ACCION_CLAVE.test(a)) ?? "",
                 };
               })
-              .filter((x) => x.accion);
+              .filter((x) => x.accion)
+              // Un bloque donde habla o aparece un menor no recibe cuadro
+              // destino, sin importar cuán claro sea su pico.
+              .filter(({ b }) => {
+                const conMenor = b.scenes.some((n) => {
+                  const sp = sceneByNumber.get(n)?.speaker;
+                  return sp ? nombresMenores.has(claveDeNombre(sp)) : false;
+                });
+                if (conMenor) {
+                  console.log(`[pico] bloque escena ${b.leadScene}: hay un menor en la escena — sin cuadro destino, va por image-to-video normal`);
+                }
+                return !conMenor;
+              });
 
             if (picos.length) {
               const { generarCuadroDestino } = await import("@/services/video/peak-frame");

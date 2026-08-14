@@ -56,6 +56,9 @@ const BodySchema = z.object({
     // Multi-view sheet inherited from a previous episode — kept so a series pays
     // to build the bible once instead of once per episode.
     bible_url: z.string().url().optional(),
+    // La edad decide si a este personaje se le dibujan picos de contacto o
+    // violencia. Opcional para no romper a quien ya tenga proyectos guardados.
+    age: z.enum(["child","teen","young","adult","elderly"]).optional(),
   })).max(4).optional(),
 });
 

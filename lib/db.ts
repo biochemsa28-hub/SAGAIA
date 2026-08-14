@@ -207,6 +207,17 @@ export async function initDb(): Promise<void> {
   // regex queda como respaldo para los guiones viejos que no la traen.
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN is_peak INTEGER NOT NULL DEFAULT 0");
 
+  // ── LA EDAD DEL PERSONAJE VIAJA CON EL ELENCO ─────────────────────────────
+  //
+  // El casting siempre definió la edad (child/teen/young/adult/elderly) pero no
+  // se guardaba, así que el generador de picos NO PODÍA SABER si un personaje
+  // era menor. Medido: un proyecto cuyo elenco era una adulta y una nena recibió
+  // los picos de drama, confesión y terror igual, y tres de cuatro cuadros
+  // salieron con la niña en escena — cachetada y agarre de muñeca incluidos.
+  //
+  // Las plataformas no penalizan ese video: penalizan la cuenta.
+  await runMigration(db, "ALTER TABLE project_cast ADD COLUMN age TEXT");
+
   // ── RECUPERAR CONTRASEÑA ───────────────────────────────────────────────────
   // Hasta ahora no existía: quien olvidaba la suya quedaba afuera para siempre,
   // sin ninguna vía de vuelta. Se guarda el HASH del token, nunca el token: si
