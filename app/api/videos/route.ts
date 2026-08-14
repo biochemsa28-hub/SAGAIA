@@ -420,12 +420,26 @@ export async function POST(req: NextRequest) {
           const destinoPorBloque = new Map<number, string>();
           if (PICOS_ON) {
             const picos = paraAnimar
-              .map((b) => ({
-                b,
-                accion: b.scenes
-                  .map((n) => (sceneByNumber.get(n) as { physical_action?: string | null } | undefined)?.physical_action ?? "")
-                  .find((a) => ACCION_CLAVE.test(a)) ?? "",
-              }))
+              .map((b) => {
+                // LA MARCA DEL GUIONISTA MANDA; la regex es el respaldo.
+                //
+                // ACCION_CLAVE enumera categorías de acción, y lo que un cuerpo
+                // puede hacer no se enumera: se le encontraron seis agujeros en
+                // un solo día de pruebas, y cada uno era un video sin su momento.
+                // El guionista sabe cuál escena es su pico y ahora lo declara con
+                // is_peak. Los guiones anteriores a ese campo siguen entrando por
+                // la regex, que para eso queda.
+                const marcada = b.scenes
+                  .map((n) => sceneByNumber.get(n) as { physical_action?: string | null; is_peak?: number | boolean } | undefined)
+                  .find((sc) => sc && Boolean(sc.is_peak));
+                if (marcada?.physical_action) return { b, accion: marcada.physical_action };
+                return {
+                  b,
+                  accion: b.scenes
+                    .map((n) => (sceneByNumber.get(n) as { physical_action?: string | null } | undefined)?.physical_action ?? "")
+                    .find((a) => ACCION_CLAVE.test(a)) ?? "",
+                };
+              })
               .filter((x) => x.accion);
 
             if (picos.length) {
@@ -509,7 +523,10 @@ export async function POST(req: NextRequest) {
 
             // ── ACCIÓN QUE CAMBIA EL CUERPO → reference-to-video ──────────────
             //
-            const esAccionClave = lines.some((l) => ACCION_CLAVE.test(l.physicalAction ?? ""));
+            // Igual que arriba: primero la marca del guion, después la regex.
+            const esAccionClave =
+              block.scenes.some((n) => Boolean((sceneByNumber.get(n) as { is_peak?: number | boolean } | undefined)?.is_peak)) ||
+              lines.some((l) => ACCION_CLAVE.test(l.physicalAction ?? ""));
             // TECHO DE GASTO: referencias cuesta ~6x por segundo (medido: $0.30/s
             // contra $0.052/s a 720p). Sin tope, un guion muy físico enrutaría
             // todos los bloques y el margen desaparece en silencio. Los que

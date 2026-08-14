@@ -192,6 +192,21 @@ export async function initDb(): Promise<void> {
   // una escena sea una escena pasa antes de la línea y después de ella.
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN physical_action TEXT");
 
+  // ── EL GUIONISTA DECLARA CUÁL ES EL PICO, EN VEZ DE QUE LO ADIVINEMOS ──────
+  //
+  // Hasta acá el sistema deducía el pico físico de una escena leyendo su
+  // physical_action con una regex de categorías: besos, caídas, golpes, llanto…
+  // Eso es una ENUMERACIÓN, y el espacio de lo que un cuerpo puede hacer no se
+  // enumera. En un solo día de pruebas se le encontraron seis agujeros —arrancar
+  // un velo, dejar caer una carpeta, incorporarse en un cajón, frenar en seco,
+  // la multitud que se da vuelta, la mancha visible— y cada uno significaba un
+  // video sin su momento. Mañana habría seis más.
+  //
+  // Pero el guionista YA SABE cuál escena es el pico: la REGLA #2.8 se lo exige.
+  // Lo único que faltaba era que pudiera decirlo. Con esta columna lo dice, y la
+  // regex queda como respaldo para los guiones viejos que no la traen.
+  await runMigration(db, "ALTER TABLE scenes ADD COLUMN is_peak INTEGER NOT NULL DEFAULT 0");
+
   // ── RECUPERAR CONTRASEÑA ───────────────────────────────────────────────────
   // Hasta ahora no existía: quien olvidaba la suya quedaba afuera para siempre,
   // sin ninguna vía de vuelta. Se guarda el HASH del token, nunca el token: si

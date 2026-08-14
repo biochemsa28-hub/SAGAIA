@@ -116,6 +116,18 @@ export const SceneSchema = z.object({
   // Formato: "antes | después". Ej: "they are kissing, she pulls back an inch to
   // speak | their eyes lock and neither looks away".
   physical_action: z.string().max(220).optional(),
+  /** ESTA es la escena del pico físico del video.
+   *
+   *  Antes se deducía leyendo physical_action con una regex de categorías —
+   *  besos, caídas, golpes, llanto—, o sea una ENUMERACIÓN de lo que un cuerpo
+   *  puede hacer. Eso no se enumera: en un solo día de pruebas aparecieron seis
+   *  agujeros (arrancar un velo, dejar caer una carpeta, incorporarse en un
+   *  cajón, frenar en seco, la multitud que se da vuelta, la mancha visible) y
+   *  cada uno era un video sin su momento.
+   *
+   *  El guionista ya sabe cuál es —la REGLA #2.8 le exige tener una—; solo le
+   *  faltaba poder decirlo. */
+  is_peak: z.boolean().optional(),
   emotion: z.string(),
   camera_move: z.string(),
 });

@@ -448,8 +448,23 @@ export async function POST(req: NextRequest) {
     // hay ninguno se le pide al modelo que reescriba UNA escena. Cuesta una
     // llamada de texto —centavos— y ocurre antes de gastar en imágenes.
     if (result.data?.scenes?.length) {
-      const escenas = result.data.scenes as Array<{ physical_action?: string | null; scene_number?: number }>;
-      const hayPico = escenas.some((sc) => ACCION_CLAVE.test(sc.physical_action ?? ""));
+      const escenas = result.data.scenes as Array<{ physical_action?: string | null; scene_number?: number; is_peak?: boolean }>;
+      // PRIMERO SE LE PREGUNTA AL GUIONISTA, y solo si no contestó se adivina.
+      //
+      // La regex enumera categorías de acción, y lo que un cuerpo puede hacer no
+      // se enumera: en un día de pruebas se le encontraron seis agujeros. El
+      // guionista, en cambio, SABE cuál escena es su pico —la REGLA #2.8 se lo
+      // exige—, así que ahora lo declara. La regex queda de respaldo para los
+      // guiones que no traigan la marca.
+      const marcadas = escenas.filter((sc) => sc.is_peak);
+      // Más de una marca no es un pico: son varios momentos importantes, y el
+      // sistema solo puede dibujar uno. Se conserva la última, que en una
+      // estructura de microdrama es la que está más cerca del clímax.
+      if (marcadas.length > 1) {
+        for (const sc of marcadas.slice(0, -1)) sc.is_peak = false;
+        console.warn(`[pico] el guion marcó ${marcadas.length} escenas como pico — se conserva la última`);
+      }
+      const hayPico = marcadas.length > 0 || escenas.some((sc) => ACCION_CLAVE.test(sc.physical_action ?? ""));
 
       if (!hayPico) {
         // La anteúltima: es donde cae el punto de quiebre en una estructura de
@@ -466,12 +481,15 @@ export async function POST(req: NextRequest) {
         // cada entrada está verificada contra esta misma regla.
         const reemplazo = picoPorDefecto(parsed.data.tone);
         objetivo.physical_action = reemplazo;
+        objetivo.is_peak = true;
         console.log(
           `[pico] escena ${objetivo.scene_number ?? idx + 1} recibe el pico de "${parsed.data.tone}": "${reemplazo.slice(0, 80)}"`,
         );
       } else {
-        const cuantos = escenas.filter((sc) => ACCION_CLAVE.test(sc.physical_action ?? "")).length;
-        console.log(`[pico] ${cuantos} escena(s) con pico físico`);
+        const declarada = escenas.find((sc) => sc.is_peak);
+        console.log(declarada
+          ? `[pico] el guion declaró la escena ${declarada.scene_number} como pico`
+          : `[pico] sin marca del guion; la regla reconoce ${escenas.filter((sc) => ACCION_CLAVE.test(sc.physical_action ?? "")).length} escena(s) con pico`);
       }
     }
 
