@@ -654,8 +654,23 @@ export async function POST(req: NextRequest) {
                 `[video] bloque escena ${block.leadScene}: acción física clave, pero solo ${refsPosibles.length} referencia(s) ` +
                 `(hablantes: ${lines.map((l) => l.speaker ?? "?").join(", ")}) — va por image-to-video en vez de pagar 6x por nada`,
               );
-            } else if (esAccionClave && !esContacto) {
-              console.warn(`[video] bloque escena ${block.leadScene}: acción física clave, pero RTV_MAX_BLOCKS=${RTV_MAX} agotado — va por image-to-video`);
+            } else if (esAccionClave && !esContacto && !destinoPorBloque.has(block.leadScene)) {
+              // Solo es un problema si el pico se queda SIN cuadro destino Y sin
+              // endpoint caro: ahí sí la acción va a salir como amago.
+              //
+              // Antes se avisaba siempre, y con RTV_MAX_BLOCKS=0 —que es el
+              // valor por defecto y el que queremos— el log escupía un "error"
+              // por cada pico aunque el cuadro destino se hubiera dibujado bien.
+              // Producción mostró tres de esos junto a "3/3 cuadros destino
+              // dibujados": el sistema hizo exactamente lo correcto y lo reportó
+              // como fallo.
+              //
+              // Un log que grita cuando todo anda bien entrena a ignorarlo, y
+              // entonces el día que grita de verdad nadie lo mira.
+              console.warn(
+                `[video] bloque escena ${block.leadScene}: acción física clave sin cuadro destino ` +
+                `y sin endpoint de referencias — la acción va a salir como amago`,
+              );
             }
             if (esContacto) rtvUsados++;
             const refsContacto = esContacto ? refsPosibles : undefined;

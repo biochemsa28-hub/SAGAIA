@@ -95,13 +95,32 @@ export async function generateSceneSfx(
     console.log(`[sfx] ${pedidos.length} sonidos pedidos, se generan ${recortados.length} (tope MAX_SCENE_SFX)`);
   }
 
-  const out = await Promise.all(
-    recortados.map(async (e) => {
-      const clave = "esc_" + e.p.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 48);
-      const url = await generate(clave, e.p, 3);
-      return url ? { scene_number: e.n, url } : null;
-    }),
-  );
+  // ── DE A CUATRO, NO TODOS A LA VEZ ────────────────────────────────────────
+  //
+  // Promise.all lanzaba los ocho de golpe y ElevenLabs devolvía
+  // "concurrent_limit_exceeded: maximum of 5 concurrent requests". Medido en
+  // producción: 5 de 6 sonidos generados — el sexto se perdió, y la escena que
+  // lo necesitaba salió muda.
+  //
+  // Y lo perdido no se recupera después: el sonido se pide una vez, el video se
+  // arma con lo que haya, y nadie vuelve a intentarlo. Un lote que excede el
+  // límite del proveedor no es un error de red: es una decisión nuestra de
+  // pedir más de lo que se puede.
+  //
+  // Cuatro deja margen: la voz y la música también consumen cupo en la misma
+  // cuenta, y el tope de la suscripción es cinco.
+  const LOTE = Math.max(1, Number(process.env.SFX_CONCURRENCY ?? 4) || 4);
+  const out: Array<SceneSfx | null> = [];
+  for (let i = 0; i < recortados.length; i += LOTE) {
+    const tanda = await Promise.all(
+      recortados.slice(i, i + LOTE).map(async (e) => {
+        const clave = "esc_" + e.p.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 48);
+        const url = await generate(clave, e.p, 3);
+        return url ? { scene_number: e.n, url } : null;
+      }),
+    );
+    out.push(...tanda);
+  }
   const listos = out.filter((x): x is SceneSfx => x !== null);
   console.log(`[sfx] ${listos.length}/${recortados.length} sonidos de escena generados`);
   return listos;
