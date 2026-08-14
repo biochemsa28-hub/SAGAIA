@@ -13,6 +13,7 @@ import { ACCION_CLAVE, picoPorDefecto } from "@/lib/ai/accion-clave";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
+import { TOPIC_MAX } from "@/lib/validators/story.schema";
 import { captureServer } from "@/lib/analytics/posthog";
 import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 
@@ -25,7 +26,16 @@ const BodySchema = z.object({
   title: z.string().optional(),
   niche: z.string().min(1),
   sub_niche: z.string().optional(),
-  topic: z.string().min(1),
+  // EL MISMO LÍMITE QUE EL GENERADOR, Y EN LA PUERTA.
+  //
+  // Acá decía min(1) sin máximo, así que una premisa larga entraba, se cobraban
+  // los NAVOS, se creaba el proyecto, y recién adentro del generador el esquema
+  // la rechazaba. Reembolso había, pero el usuario ya había esperado y perdido
+  // la generación por un error que se podía ver en el primer milisegundo.
+  //
+  // Validar en la puerta con el MISMO número —importado, no copiado— es la
+  // diferencia entre "datos inválidos" instantáneo y un cobro con devolución.
+  topic: z.string().min(1).max(TOPIC_MAX),
   tone: z.string().min(1),
   duration_target: z.string().min(1),
   language: z.string().default("es"),
@@ -85,7 +95,15 @@ export async function POST(req: NextRequest) {
     const body: unknown = await req.json();
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+      // QUÉ campo y POR QUÉ. "Datos inválidos" a secas obliga a adivinar cuál de
+      // los quince campos está mal, y el usuario ya perdió el viaje completo.
+      // Ahora que la validación ocurre en la puerta, el mensaje tiene que servir
+      // para arreglarlo sin abrir el código.
+      const f = parsed.error.issues[0];
+      const detalle = f
+        ? `${f.path.join(".")}: ${f.code === "too_big" ? `es demasiado largo (máximo ${TOPIC_MAX} caracteres)` : f.message}`
+        : "";
+      return NextResponse.json({ error: `Datos inválidos — ${detalle}` }, { status: 400 });
     }
 
     await initDb();

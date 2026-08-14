@@ -1,11 +1,28 @@
 import { z } from "zod";
 
+// ── Cuánto puede durar la premisa ────────────────────────────────────────────
+//
+// Estaba en 500 y escrito a mano dentro del esquema, y ese número quedó viejo
+// cuando el propio sugeridor de la app empezó a devolver premisas ricas: las que
+// escribe Claude promedian 310 caracteres y las buenas pasan de 400, así que una
+// premisa mejor podía volverse inválida.
+//
+// Peor: el límite se validaba DESPUÉS de cobrar los NAVOS —la ruta aceptaba
+// cualquier largo y el rechazo ocurría adentro del generador—, así que el
+// usuario pagaba, esperaba, y recibía "String must contain at most 500
+// characters". Había reembolso, pero la generación se perdía igual.
+//
+// 1200 deja lugar de sobra para una premisa con textura sin inflar el prompt. Y
+// vive acá, una sola vez: la ruta, el generador y el navegador lo importan, así
+// que no puede volver a haber tres números distintos diciendo cosas distintas.
+export const TOPIC_MAX = 1200;
+
 // ── Input Schemas ────────────────────────────────────────────────────────────
 
 export const StoryInputSchema = z.object({
   niche: z.string().min(2).max(100),
   sub_niche: z.string().max(100).optional(),
-  topic: z.string().min(5).max(500),
+  topic: z.string().min(5).max(TOPIC_MAX),
   tone: z.enum([
     "horror",
     "romance",

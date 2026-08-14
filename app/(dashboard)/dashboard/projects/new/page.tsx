@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
+import { TOPIC_MAX } from "@/lib/validators/story.schema";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import confetti from "canvas-confetti";
@@ -1695,13 +1696,29 @@ function NewProjectForm() {
               value={form.topic}
               onChange={e => set("topic")(e.target.value)}
               rows={4}
+              // El navegador no puede dejar escribir algo que el servidor va a
+              // rechazar: antes se podía pegar una premisa larga, esperar la
+              // generación entera y recibir un error de validación. El límite
+              // vive en el esquema y se importa — no se copia, para que no
+              // vuelva a haber dos números distintos.
+              maxLength={TOPIC_MAX}
               placeholder="Ej: Una mujer descubre que su marido lleva doble vida y decide vengarse de forma inesperada…"
               className={`w-full bg-zinc-900 border rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all resize-none ${
                 errors.topic ? "border-red-700" : `border-zinc-800 focus:${theme.border}`
               }`}
             />
             {errors.topic && <p className="text-xs text-red-400 mt-1">{errors.topic}</p>}
-            <p className="text-[10px] text-zinc-700 mt-1">Cuanto más específico, más viral. La IA construye el resto.</p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-[10px] text-zinc-700">Cuanto más específico, más viral. La IA construye el resto.</p>
+              {/* El contador aparece recién cerca del límite: mostrarlo siempre
+                  es ruido, y esconderlo del todo deja al usuario chocando contra
+                  un tope invisible. */}
+              {form.topic.length > TOPIC_MAX * 0.75 && (
+                <p className={`text-[10px] tabular-nums ${form.topic.length >= TOPIC_MAX ? "text-red-400" : "text-zinc-600"}`}>
+                  {form.topic.length}/{TOPIC_MAX}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Duración — vive junto a la historia porque es parte de ella: cuántas
