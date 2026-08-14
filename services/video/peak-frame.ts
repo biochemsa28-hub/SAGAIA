@@ -44,7 +44,18 @@ function apiKey(): string {
 // Medido con un beso: "directo" y "sobrio" rechazados, "narrativo" aceptado. Sin
 // la escalera, el pico se pierde en silencio y nadie sabe por qué.
 function escalera(accion: string, identidad: string): Array<{ etiqueta: string; prompt: string }> {
-  const limpia = accion.trim().replace(/\s+/g, " ").slice(0, 220);
+  // ⚠️ SOLO LA PRIMERA MITAD. physical_action viene en formato "antes | después",
+  // y el pico es el ANTES: el contacto. El después es la resolución.
+  //
+  //   "their lips meet and hold | they part an inch, foreheads still touching"
+  //          ↑ esto es el beso        ↑ esto es la separación
+  //
+  // Pasando la cadena entera, el modelo dibujaba lo último que leía. Medido
+  // sobre retratos fotorrealistas: salió una pareja con las FRENTES tocándose y
+  // los labios separados — o sea, el cuadro exacto del "casi" que este sistema
+  // existe para eliminar. Le estábamos pidiendo el después y culpando al modelo
+  // por no darnos el durante.
+  const limpia = accion.split("|")[0]!.trim().replace(/\s+/g, " ").slice(0, 220) || accion.trim();
   return [
     // PRIMER PELDAÑO: LA ACCIÓN, INSISTIDA.
     //
