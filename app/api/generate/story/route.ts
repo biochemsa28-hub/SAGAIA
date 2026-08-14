@@ -60,8 +60,20 @@ const BodySchema = z.object({
   // speaker the right face (per-scene image reference) and voice (Phase 4).
   cast: z.array(z.object({
     name: z.string().min(1).max(60),
-    role: z.string().max(40).optional(),
-    voice_profile: z.string().max(30).optional(),
+    // ── UN CAMPO COSMÉTICO NO PUEDE TUMBAR LA PETICIÓN ────────────────────
+    //
+    // "role" y "voice_profile" son etiquetas: describen al personaje pero no
+    // deciden nada del video. Aun así estaban declarados con .max() estricto, y
+    // un rol largo hacía fallar la generación ENTERA — pasó en producción con
+    // "cast.2.role", porque el prompt de casting ofrece la lista abierta
+    // "protagonista | antagonista | interés amoroso | testigo | etc." y el
+    // modelo escribe cosas como "hermana de la protagonista y cómplice".
+    //
+    // Es la misma lección que is_peak: un dato auxiliar que invalida todo es un
+    // fallo de diseño, no del modelo. Se RECORTA en vez de rechazar — nadie va a
+    // extrañar los caracteres 41 en adelante de una etiqueta.
+    role: z.preprocess((v) => (typeof v === "string" ? v.slice(0, 40) : v), z.string().max(40).optional()),
+    voice_profile: z.preprocess((v) => (typeof v === "string" ? v.slice(0, 30) : v), z.string().max(30).optional()),
     reference_image_url: z.string().url().optional(),
     // Multi-view sheet inherited from a previous episode — kept so a series pays
     // to build the bible once instead of once per episode.
@@ -99,9 +111,18 @@ export async function POST(req: NextRequest) {
       // los quince campos está mal, y el usuario ya perdió el viaje completo.
       // Ahora que la validación ocurre en la puerta, el mensaje tiene que servir
       // para arreglarlo sin abrir el código.
+      // EL MÁXIMO DEL CAMPO QUE FALLÓ, no una constante fija.
+      //
+      // La primera versión ponía TOPIC_MAX en todos los casos, así que un rol de
+      // elenco demasiado largo se anunciaba como "máximo 1200 caracteres" cuando
+      // su límite real son 40. Un mensaje de error que da el número equivocado
+      // es peor que uno genérico: manda a buscar el problema donde no está.
       const f = parsed.error.issues[0];
+      const tope = (f as { maximum?: number } | undefined)?.maximum;
       const detalle = f
-        ? `${f.path.join(".")}: ${f.code === "too_big" ? `es demasiado largo (máximo ${TOPIC_MAX} caracteres)` : f.message}`
+        ? `${f.path.join(".")}: ${f.code === "too_big" && tope !== undefined
+            ? `es demasiado largo (máximo ${tope} caracteres)`
+            : f.message}`
         : "";
       return NextResponse.json({ error: `Datos inválidos — ${detalle}` }, { status: 400 });
     }
