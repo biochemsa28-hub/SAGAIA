@@ -336,7 +336,6 @@ export async function POST(req: NextRequest) {
       // se regenera UNA vez nombrando las escenas, y solo se acepta si mejora.
       // Se relee de result.data porque el reintento de duración pudo reemplazarlo.
       const TECHO_ESCENA = Math.round(BLOCK_TARGET_SECONDS * CHARS_PER_SECOND * 1.15);
-      type EscenaMin = { scene_number?: number; narration_text?: string | null; image_prompt?: string | null };
       const palabras = (t: string) => new Set(t.toLowerCase().match(/[a-záéíóúñü]{4,}/gi) ?? []);
       // Jaccard sobre palabras de 4+ letras: dos prompts que comparten el 65% del
       // vocabulario van a producir la misma imagen aunque el texto no sea igual.
@@ -346,6 +345,18 @@ export async function POST(req: NextRequest) {
         let comunes = 0;
         for (const w of A) if (B.has(w)) comunes++;
         return comunes / (A.size + B.size - comunes);
+      };
+      // 3) El pico demasiado temprano. Medido en 6 géneros a 60s: 2 de 6 lo
+      //    ponían en la escena 9 de 14 (64%) — el momento más fuerte a los ~38s
+      //    y 22 segundos de bajada. El algoritmo paga segundos vistos; la bajada
+      //    es donde se van. Umbral 70%: el prompt pide último cuarto, se tolera
+      //    un poco menos antes de pagar un reintento.
+      type EscenaMin = { scene_number?: number; narration_text?: string | null; image_prompt?: string | null; is_peak?: boolean };
+      const picoTemprano = (scenes: EscenaMin[]) => {
+        const i = scenes.findIndex((s) => s.is_peak);
+        if (i < 0 || scenes.length < 5) return null;
+        const pct = Math.round(((i + 1) / scenes.length) * 100);
+        return pct < 70 ? { escena: scenes[i]!.scene_number ?? i + 1, pct, total: scenes.length } : null;
       };
       const defectosDe = (scenes: EscenaMin[]) => {
         const largas = scenes
@@ -357,13 +368,15 @@ export async function POST(req: NextRequest) {
           const b = (scenes[i]!.image_prompt ?? "").trim();
           if (a && b && parecidos(a, b) >= 0.65) duplicadas.push(`${scenes[i - 1]!.scene_number}-${scenes[i]!.scene_number}`);
         }
-        return { largas, duplicadas, total: largas.length + duplicadas.length };
+        const temprano = picoTemprano(scenes);
+        return { largas, duplicadas, temprano, total: largas.length + duplicadas.length + (temprano ? 1 : 0) };
       };
       const defectos = defectosDe((result.data?.scenes ?? []) as EscenaMin[]);
       if (defectos.total) {
         console.warn(
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
-          `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}] — regenerando una vez`,
+          `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
+          `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -375,6 +388,12 @@ export async function POST(req: NextRequest) {
           (defectos.duplicadas.length
             ? ` Las escenas ${defectos.duplicadas.join(" y ")} tienen image_prompt casi idéntico — cada escena necesita su PROPIA imagen: ` +
               "cambiá el tamaño del plano, el ángulo de cámara o quién ocupa el cuadro."
+            : "") +
+          (defectos.temprano
+            ? ` El pico físico (is_peak) cayó en la escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%) — demasiado temprano: ` +
+              `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
+              "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
+              "Lo que hoy pasa después del pico se comprime o se corta."
             : "");
         const reintentoEscenas = await storyGeneratorService.generate({
           ...parsed.data,

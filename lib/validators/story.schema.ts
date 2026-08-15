@@ -69,15 +69,29 @@ export type StoryInput = z.infer<typeof StoryInputSchema>;
 
 // ── Output Schemas (what AI must return) ─────────────────────────────────────
 
+// ── Campos AUXILIARES: se recortan, nunca se rechazan ────────────────────────
+// Cada uno de estos campos ayuda a producir mejor pero ninguno decide si el guion
+// existe. Con .max() a secas, un speaker_look de 85 caracteres o un sfx de 130
+// tumbaba una generacion entera que costo creditos y un minuto de espera. Medido
+// tres veces en un dia (is_peak, cast.role, physical_action, narration min).
+// Un dato auxiliar no puede invalidar la generacion: se recorta al tope y sigue.
+const recortado = (n: number) =>
+  z.preprocess((v) => (typeof v === "string" ? v.trim().slice(0, n) : v), z.string().max(n).optional());
+
 export const SceneSchema = z.object({
   scene_number: z.number().int().positive(),
-  narration_text: z.string().min(10),
+  // min(1), no min(10). "No.", "¿Qué?", "Andá." son réplicas legítimas — y las
+  // mejores escenas de un drama a veces son una palabra. Con min(10) una sola
+  // línea corta tumbaba el guion ENTERO (medido: 2 de 6 generaciones a 60s).
+  // Es la misma familia que is_peak y cast.role: un dato auxiliar no puede
+  // invalidar una generación que cuesta créditos.
+  narration_text: z.string().trim().min(1),
   // WHO speaks this scene's narration (a cast member's name). Optional so older
   // stories without attribution still validate.
-  speaker: z.string().max(60).optional(),
+  speaker: recortado(60),
   // The speaking character's voice archetype (from the cast). Drives the per-scene
   // ElevenLabs voice so each character sounds distinct.
-  voice_profile: z.string().max(30).optional(),
+  voice_profile: recortado(30),
   // EL SONIDO DE ESTA ESCENA — el ruido concreto que ocurre en ella (una puerta que
   // se abre, un vaso que se rompe, pasos que se acercan). En INGLÉS porque el
   // generador de audio está entrenado así. Opcional: una escena sin sonido propio
@@ -86,7 +100,7 @@ export const SceneSchema = z.object({
   // Esto es distinto de la música: la música sostiene el tono de TODA la historia,
   // el sfx marca UN instante. El golpe seco es lo que hace saltar al espectador —
   // la música sola nunca produce ese reflejo.
-  sfx_prompt: z.string().max(120).optional(),
+  sfx_prompt: recortado(120),
   // CÓMO SE VE quien habla, en inglés y en pocas palabras ("the woman in the red
   // dress", "the man in the white shirt"). El modelo de video no sabe quién es
   // "Valeria": un nombre no identifica a nadie en una imagen, así que ponía todas
@@ -95,7 +109,7 @@ export const SceneSchema = z.object({
   //
   // Tiene que ser EL MISMO texto para el mismo personaje en todas sus escenas, o
   // deja de servir para identificarlo.
-  speaker_look: z.string().max(80).optional(),
+  speaker_look: recortado(80),
   // DÓNDE transcurre la escena, en inglés y en pocas palabras ("the master
   // bedroom", "the kitchen at night"). Dos escenas en el mismo lugar deben llevar
   // EL MISMO texto — es lo que permite saber si hubo cambio de escenario.
@@ -106,7 +120,7 @@ export const SceneSchema = z.object({
   // modelo intenta TRANSFORMAR una habitación en otra y el resultado es un morfeo
   // feo. Sabiendo la locación se puede encadenar cuando corresponde y cortar
   // limpio cuando no.
-  location: z.string().max(80).optional(),
+  location: recortado(80),
   // QUÉ SE MUEVE EN EL AMBIENTE, aparte del personaje y de la cámara. En inglés.
   // Lluvia en la ventana, una cortina, el humo de una taza, una lámpara que
   // parpadea, polvo en el haz de luz.
@@ -116,15 +130,15 @@ export const SceneSchema = z.object({
   // solo texto hace que el modelo elija una y descarte las otras. Un plano donde
   // solo se mueve la cara se lee como una foto que habla; el mismo plano con la
   // lluvia corriendo por el vidrio detrás se lee como una toma.
-  environment: z.string().max(100).optional(),
-  duration_seconds: z.number().int().min(2).max(120),
+  environment: recortado(100),
+  duration_seconds: z.preprocess((v) => (typeof v === "number" ? Math.min(120, Math.max(2, Math.round(v))) : v), z.number().int().min(2).max(120)),
   image_prompt: z
     .string()
     .min(20)
     .describe("Detailed prompt for image generation (Midjourney/SDXL)"),
   animation_prompt: z
     .string()
-    .min(10)
+    .min(1)
     .describe("Motion prompt for video animation (Kling/Runway)"),
   // LA ACCIÓN FÍSICA ENTRE LOS PERSONAJES, EN ORDEN.
   //
@@ -136,7 +150,13 @@ export const SceneSchema = z.object({
   //
   // Formato: "antes | después". Ej: "they are kissing, she pulls back an inch to
   // speak | their eyes lock and neither looks away".
-  physical_action: z.string().max(220).optional(),
+  // Se TRUNCA, no se rechaza: una acción de 240 caracteres tumbaba el guion
+  // entero (medido, romance a 60s). El cuadro destino ya usa solo la primera
+  // mitad ("antes | después") y recorta a 220 él mismo.
+  physical_action: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim().slice(0, 220) : v),
+    z.string().max(220).optional(),
+  ),
   /** ESTA es la escena del pico físico del video.
    *
    *  Antes se deducía leyendo physical_action con una regex de categorías —
@@ -173,12 +193,12 @@ export const SEOSchema = z.object({
   // The prompt still asks for ambitious counts (15-25 hashtags) for virality.
   title: z.string().min(8).max(160),
   description: z.string().min(20).max(600),
-  hashtags: z.array(z.string()).min(3).max(40),
-  tags: z.array(z.string()).min(3).max(30),
-  thumbnail_concept: z.string().min(10),
+  hashtags: z.array(z.string()).max(40),
+  tags: z.array(z.string()).max(30),
+  thumbnail_concept: z.string().min(1),
   thumbnail_prompt: z
     .string()
-    .min(10)
+    .min(1)
     .describe("Image generation prompt for thumbnail"),
 });
 
@@ -202,9 +222,9 @@ export const StoryOutputSchema = z.object({
     visual_style: z.string(),
   }),
   story: z.object({
-    hook: z.string().min(10).describe("Opening hook sentence (first 3 seconds)"),
+    hook: z.string().min(1).describe("Opening hook sentence (first 3 seconds)"),
     full_narrative: z.string().min(100),
-    cta: z.string().min(10).describe("Call to action for end of video"),
+    cta: z.string().min(1).describe("Call to action for end of video"),
   }),
   scenes: z.array(SceneSchema).min(3).max(50),
   seo: SEOSchema,

@@ -211,7 +211,7 @@ Prohibido que las 6 escenas sean la misma conversación continua en el mismo cua
 ════════════════════════════════════════
 REGLA #2.8 — UNA ESCENA TIENE QUE SER EL PICO FÍSICO. NO ES OPCIONAL.
 ════════════════════════════════════════
-Elegí UNA escena —la del punto de quiebre, normalmente la anteúltima o la penúltima— y hacé que ahí el CUERPO haga lo que el género pide. No una mirada, no un paso atrás: la acción que aparece en ACCIÓN FÍSICA de tu tono, ejecutada de verdad.
+Elegí UNA escena —la del punto de quiebre— y hacé que ahí el CUERPO haga lo que el género pide. DÓNDE CAE ES RETENCIÓN PURA: el pico va en el ÚLTIMO CUARTO del guion (con 12 escenas, la 10 u 11; con 6, la 5), NUNCA antes del 75%. Medido: un pico en la escena 9 de 14 deja 20 segundos de bajada después del momento más fuerte, y ahí es donde la gente se va. Después del pico queda UNA escena, máximo dos: la reacción y el cliffhanger. No una mirada, no un paso atrás: la acción que aparece en ACCIÓN FÍSICA de tu tono, ejecutada de verdad.
 
 Los labios que se juntan y se quedan. La mano que sale de la oscuridad y agarra la muñeca. La cachetada que llega. Las rodillas que ceden. El cuerpo que se levanta del piso. El vaso que se estrella.
 
