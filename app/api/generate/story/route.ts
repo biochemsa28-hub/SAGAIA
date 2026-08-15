@@ -47,7 +47,7 @@ const BodySchema = z.object({
   // "borrador" salta el modelo de video — el 82,5% del costo — para poder juzgar
   // la historia antes de pagar el render caro. Ausente = estreno.
   quality: z.enum(["borrador", "estreno"]).optional(),
-  format: z.enum(["story", "ad"]).optional(), // "ad" = UGC advertising video
+  format: z.enum(["story", "ad", "consejo"]).optional(), // "ad" = UGC advertising video · "consejo" = la historia demuestra la respuesta
   reference_image_url: z.string().url().optional(), // user-uploaded product/creative image
   reference_image_urls: z.array(z.string().url()).max(4).optional(), // multiple product angles
   // Series wiring — set when this project continues another one ("Parte N").

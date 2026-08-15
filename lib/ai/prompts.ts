@@ -390,6 +390,47 @@ REGLAS ABSOLUTAS:
 - NUNCA clichés sin subvertirlos; NUNCA personajes planos; NUNCA situaciones genéricas`;
 }
 
+// ── FORMATO CONSEJO ──────────────────────────────────────────────────────────
+// "Cómo superar a mi ex", "5 señales de que te miente", "qué hacer si tu jefe
+// te humilla": el usuario no pidió una historia, pidió una RESPUESTA. Medido con
+// la premisa del ex: el motor de drama la volvió una reconciliación en la puerta
+// — lo contrario de superar. Bien escrita, y no era lo que se pidió.
+//
+// No se cambia de motor (el anuncio sí lo hace, y pierde reparto y pico). Se
+// agrega una capa: la historia sigue siendo drama con pico físico, pero el pico
+// ES el personaje ejecutando la respuesta, y la respuesta se dice en voz alta.
+//
+// Se activa por elección explícita (format: "consejo") o por detección: una
+// premisa que empieza como pregunta/instrucción es consejo aunque el usuario no
+// haya tocado el selector. Detectar de más no daña — un drama que además deja
+// una lección sigue siendo drama.
+// Solo arranques que en TikTok/YouTube significan "te voy a explicar algo".
+// "Cuando", "Nunca", "El día que" son arranques de HISTORIA y quedaron fuera a
+// propósito (medido: los tres disparaban en falso). \b no funciona tras "é" en
+// modo Unicode, por eso el cierre es (?=\s|$|[?:,]) y no \b.
+const PATRON_CONSEJO =
+  /^\s*(¿?\s*)?(c[oó]mo|qu[eé] (hacer|decir|pasa)|por ?qu[eé]|cu[aá]les? (son|es)|\d+\s+(se[ñn]ales|formas|maneras|razones|errores|cosas|pasos|trucos|tips|consejos|h[aá]bitos|frases)|se[ñn]ales de|razones (por|para)|la (forma|manera) de|deja de|aprend[eé] a|how to|why|what to do|signs (that|of)|\d+\s+(signs|ways|reasons|mistakes|things|steps|tips|habits))(?=\s|$|[?:,¿])/iu;
+
+export function esPremisaDeConsejo(input: Pick<StoryInput, "topic" | "format">): boolean {
+  if (input.format === "consejo") return true;
+  if (input.format === "ad") return false;
+  return PATRON_CONSEJO.test(input.topic ?? "");
+}
+
+const BLOQUE_CONSEJO = `
+
+━━━ FORMATO: CONSEJO — LA HISTORIA TIENE QUE DEMOSTRAR LA RESPUESTA ━━━
+La premisa no es una historia: es una PREGUNTA o un CONSEJO ("cómo superar a mi ex", "5 señales de que te miente", "qué hacer si tu jefe te humilla"). El espectador que la busca quiere LA RESPUESTA, y la quiere VIVIDA, no explicada. Reglas encima de todo lo demás:
+
+1. LA HISTORIA ES LA DEMOSTRACIÓN. El personaje principal ATRAVIESA el problema y al final HACE lo que la respuesta dice. Si la premisa es "cómo superar a mi ex", el final es ella cerrando la puerta, bloqueando el número, tirando la caja — NUNCA la reconciliación, nunca "tal vez algún día". La historia no puede contradecir el consejo que la titula.
+2. EL PICO FÍSICO ES LA RESPUESTA EJECUTADA. La escena is_peak es el cuerpo haciendo el consejo: la mano que borra el chat en primerísimo plano, la puerta que se cierra en la cara, el anillo que cae en el buzón, la silla que se corre para irse de la mesa. Un consejo que no se ve ejecutar no se aprendió.
+3. LA LECCIÓN SE DICE EN VOZ ALTA, UNA VEZ, EN LA ÚLTIMA ESCENA — como réplica del personaje, no como narrador ni moraleja: una frase corta, filosa, citable, ESCRITA POR VOS para esta historia — nacida de lo que pasó en las escenas, con las palabras de este personaje (el estilo es el de "No se supera pensando menos en él; se supera decidiendo más por mí" — NO copies esa frase, inventá la propia). Es la frase que la gente pone en el caption. Sin ella el video es un drama más; con ella es un consejo que se comparte.
+4. SI LA PREMISA ES UNA LISTA ("5 señales de…"), no la recites: cada escena MUESTRA una señal ocurriendo, y el personaje la nombra en una palabra ("Tercera: nunca dice dónde estuvo."). La última escena es la reacción: qué hace con lo que ya vio.
+5. EL ANTAGONISTA EXISTE Y HABLA (el ex, el jefe, la amiga tóxica): el consejo se demuestra CONTRA alguien, no en un monólogo. Sin la voz del otro no hay tentación, y sin tentación superar no cuesta nada.
+6. Todo lo demás —reparto, pico obligatorio, techo por escena, un encuadre por escena— sigue vigente.
+
+`;
+
 export function buildUserPrompt(input: StoryInput): string {
   const duration = DURATION_SCENE_MAP[input.duration_target] ?? DURATION_SCENE_MAP["60s"]!;
   const langInstruction = LANGUAGE_INSTRUCTION[input.language] ?? LANGUAGE_INSTRUCTION["es"]!;
@@ -413,8 +454,9 @@ export function buildUserPrompt(input: StoryInput): string {
     .replace(/\[HOOK ELEGIDO\]:.*/g, "")
     .replace(/\[ELENCO DISEÑADO\]:.*/g, "")
     .trim();
+  const consejo = esPremisaDeConsejo(input) ? BLOQUE_CONSEJO : "";
 
-  return `${langInstruction}
+  return `${langInstruction}${consejo}
 
 ━━━ PROYECTO ━━━
 NICHO: ${input.niche}${input.sub_niche ? ` › ${input.sub_niche}` : ""}
@@ -457,12 +499,12 @@ CÓMO alargar sin rellenar — esto es lo que importa:
 Cada segundo agregado trae información nueva. Alargar repitiendo es PEOR que
 quedarse corto: el espectador se va.
 
-🚫 TECHO POR ESCENA — 200 CARACTERES, SIN EXCEPCIÓN
-Cada narration_text individual NO puede pasar de 200 caracteres (~14 segundos).
-No es una preferencia de estilo: cada escena se anima como UN clip de video, y un
-clip tiene duración máxima. Si el parlamento dura más que el clip, el video se
-queda CONGELADO en un cuadro fijo mientras el personaje sigue hablando. Medido:
-un parlamento de 19 segundos sobre un clip de 8 dejó ONCE SEGUNDOS de foto quieta
+🚫 TECHO POR ESCENA — ${Math.round(BLOCK_TARGET_SECONDS * CHARS_PER_SECOND)} CARACTERES, SIN EXCEPCIÓN
+Cada narration_text individual NO puede pasar de ${Math.round(BLOCK_TARGET_SECONDS * CHARS_PER_SECOND)} caracteres (~${BLOCK_TARGET_SECONDS} segundos).
+No es una preferencia de estilo: cada escena se anima como UN clip de video de
+${BLOCK_TARGET_SECONDS} segundos. Si el parlamento dura más que el clip, el video se queda
+CONGELADO en un cuadro fijo mientras el personaje sigue hablando. Medido: un
+parlamento de 19 segundos sobre un clip de 8 dejó ONCE SEGUNDOS de foto quieta
 en el medio del video.
 
 La duración total se consigue con MÁS ESCENAS, nunca con parlamentos más largos.

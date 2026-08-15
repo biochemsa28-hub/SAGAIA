@@ -210,13 +210,22 @@ interface FormState {
   niche: string; sub_niche: string; topic: string; tone: string;
   duration_target: string; language: string; visual_style: string;
   target_platform: string; additional_instructions: string;
+  // "story" = microdrama; "consejo" = la historia DEMUESTRA la respuesta a una
+  // premisa tipo "cómo superar a mi ex" y la dice en voz alta al final.
+  format: "story" | "consejo";
 }
 const DEFAULTS: FormState = {
   niche: "", sub_niche: "", topic: "", tone: "",
   duration_target: "60s", language: "es",
   visual_style: "cinematic", target_platform: "tiktok",
   additional_instructions: "",
+  format: "story",
 };
+
+const FORMAT_OPTIONS: Array<{ id: FormState["format"]; emoji: string; label: string; hint: string }> = [
+  { id: "story",   emoji: "🎬", label: "Historia",  hint: "Microdrama con giro y pico físico. Lo que engancha." },
+  { id: "consejo", emoji: "💡", label: "Consejo",   hint: "\"Cómo superar a mi ex\": la historia vive la respuesta y la dice al final." },
+];
 
 // Recharge modal — shown when a step returns 402 (out of NAVOS). Captures the sale
 // at peak intention with a clear CTA instead of a buried error message.
@@ -1719,6 +1728,36 @@ function NewProjectForm() {
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Formato — historia o consejo. La premisa "cómo superar a mi ex" salía
+              como reconciliación (lo contrario de superar): el motor tenía un solo
+              molde. En "consejo" la historia demuestra la respuesta y la dice. */}
+          <div>
+            <p className="text-xs font-bold text-zinc-400 mb-3">Formato</p>
+            <div className="grid grid-cols-2 gap-2">
+              {FORMAT_OPTIONS.map(f => {
+                const activa = form.format === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => set("format")(f.id)}
+                    className={`vy-press p-3 rounded-xl border text-left transition-all ${
+                      activa ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                    }`}
+                  >
+                    <p className={`text-sm font-extrabold ${activa ? "text-white" : "text-zinc-300"}`}>{f.emoji} {f.label}</p>
+                    <p className={`text-[10px] mt-0.5 leading-tight ${activa ? theme.accent : "text-zinc-600"}`}>{f.hint}</p>
+                  </button>
+                );
+              })}
+            </div>
+            {form.format === "story" && /^\s*¿?\s*(c[oó]mo|qu[eé] hacer|por ?qu[eé]|\d+\s+(señales|formas|razones|errores|cosas|pasos|trucos|tips|hábitos|frases)|señales de|deja de|how to|why)(?=\s|$|[?:,¿])/i.test(form.topic) && (
+              <p className="text-[10px] text-amber-300/80 mt-2">
+                Tu premisa suena a consejo — se va a tratar como <span className="font-bold">Consejo</span> automáticamente: la historia demuestra la respuesta y la dice al final. Elige "Consejo" para dejarlo explícito.
+              </p>
+            )}
           </div>
 
           {/* Duración — vive junto a la historia porque es parte de ella: cuántas

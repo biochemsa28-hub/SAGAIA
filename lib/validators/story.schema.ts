@@ -53,9 +53,13 @@ export const StoryInputSchema = z.object({
   // Holds the user's notes PLUS the injected cast design + chosen hook, so the
   // ceiling must fit several character bios — not just a short note.
   additional_instructions: z.string().max(3000).optional(),
-  // Content format: a narrative micro-series (default) or a UGC-style ADVERTISING
-  // video (product pitch). Same pipeline, different script brain.
-  format: z.enum(["story", "ad"]).default("story"),
+  // Content format: a narrative micro-series (default), a UGC-style ADVERTISING
+  // video (product pitch), or "consejo": the SAME drama engine (cast, physical
+  // peak, every rule) but the story has to DEMONSTRATE the answer to a
+  // how-to/advice premise — "cómo superar a mi ex" ends with her closing the
+  // door, not opening it. Same pipeline; the ad is a different script brain,
+  // consejo is a layer on top of the story brain.
+  format: z.enum(["story", "ad", "consejo"]).default("story"),
   // "borrador" salta el modelo de video — el 82,5% del costo — para poder juzgar
   // la historia antes de pagar el render caro. Ausente = estreno.
   quality: z.enum(["borrador", "estreno"]).optional(),
