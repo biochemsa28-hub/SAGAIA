@@ -37,9 +37,12 @@ const FREEZE_MAX = Math.max(0.5, Number(process.env.FREEZE_MAX_SECONDS ?? 2) || 
 
 const TAIL_MIN = Math.max(1, Number(process.env.TAIL_SILENCE_MIN ?? 2.5) || 2.5);
 const TAIL_KEEP = Math.max(0.5, Number(process.env.TAIL_SILENCE_KEEP ?? 2) || 2);
-// Objetivo de sonoridad. Las plataformas normalizan alrededor de -14/-16 LUFS;
-// un video medido a -28 dB de media suena flojo contra todo lo demas del feed.
-const LOUDNORM_LUFS = Number(process.env.LOUDNORM_LUFS ?? -16) || -16;
+// Objetivo de sonoridad. TikTok, Reels y YouTube normalizan a -14 LUFS, y en
+// la práctica solo BAJAN lo que llega más fuerte: lo que llega más bajo se
+// queda bajo. A -16 el video sonaba 2 dB más flojo que todo lo demás del feed
+// (medido: dos videos a -20 dB de media, picos a -0.8). -14 es el nivel del
+// feed; el techo real de picos (-1.5 dBTP) sigue protegiendo de la distorsión.
+const LOUDNORM_LUFS = Number(process.env.LOUDNORM_LUFS ?? -14) || -14;
 // Living-atmosphere pass over still frames (grain that moves every frame). Off via
 // ATMOSPHERE=off if you ever want perfectly clean stills.
 // Ken Burns oversamples so the zoom does not pixelate. 2x (4K per scene) needs
@@ -916,20 +919,45 @@ export async function assembleWithFfmpeg(params: {
         idx++;
       }
 
-      // Whoosh at each scene cut (skip the very first — nothing to transition from).
+      // ── WHOOSH: SOLO EN LOS SALTOS DE LUGAR, NO EN CADA CORTE ──────────────
+      //
+      // Antes sonaba el MISMO whoosh en cada corte de escena: en un video de 64s
+      // con 12 escenas, once veces el mismo ruido. Medido sobre el mp4: en los
+      // cortes la energía de alta frecuencia salta ×5-6 sobre la base — es el
+      // whoosh — y el usuario lo describió exacto: "hay mismo efectos de sonido".
+      //
+      // El whoosh en cada corte es un hábito de slideshow. El drama vertical de
+      // verdad corta en seco dentro de una escena (el diálogo nativo ya lleva el
+      // corte) y solo marca con sonido el CAMBIO DE LUGAR o de tiempo. Así que:
+      //   · solo donde la escena marca newLocation (dato que ya viene del guion)
+      //   · nunca dos en menos de 6s (dos saltos seguidos suenan a metralleta)
+      //   · más bajo (0.38 → 0.24): acompaña el corte, no lo tapa
+      // Si el guion no trae ninguna newLocation, no suena ninguno — un video sin
+      // whoosh es normal; con once, no.
       const cuts = boundaries.slice(1);
-      if (params.sfxWhooshUrl && cuts.length) {
+      const saltos: number[] = [];
+      let ultimo = -Infinity;
+      cuts.forEach((t, k) => {
+        const esc = params.scenes[k + 1];
+        if (!esc?.newLocation) return;
+        if (t - ultimo < 6) return;
+        saltos.push(t); ultimo = t;
+      });
+      if (params.sfxWhooshUrl && saltos.length) {
         const w = join(dir, "whoosh.mp3");
         await download(params.sfxWhooshUrl, w);
         inputs.push("-i", w);
         const wi = idx++;
-        const outs = cuts.map((_, k) => `[w${k}]`).join("");
-        filters.push(`[${wi}:a]asplit=${cuts.length}${outs}`);
-        cuts.forEach((t, k) => {
+        const outs = saltos.map((_, k) => `[w${k}]`).join("");
+        filters.push(`[${wi}:a]asplit=${saltos.length}${outs}`);
+        saltos.forEach((t, k) => {
           const ms = Math.max(0, Math.round((t - 0.12) * 1000));  // land just before the cut
-          filters.push(`[w${k}]adelay=${ms}|${ms},volume=0.38[wd${k}]`);
+          filters.push(`[w${k}]adelay=${ms}|${ms},volume=0.24[wd${k}]`);
           mixLabels.push(`[wd${k}]`);
         });
+        console.log(`[audio] whoosh en ${saltos.length} salto(s) de lugar de ${cuts.length} cortes`);
+      } else if (cuts.length) {
+        console.log(`[audio] sin whoosh: ${cuts.length} cortes, ninguno cambia de lugar`);
       }
 
       // ── SONIDO DE CADA ESCENA ──────────────────────────────────────────────
@@ -939,9 +967,17 @@ export async function assembleWithFfmpeg(params: {
       //
       // Volumen por debajo del whoosh: compite con el diálogo nativo, y una puerta
       // que tapa una línea cuesta más de lo que aporta.
+      //
+      // Y EL MISMO SONIDO NO SUENA DOS VECES. La caché de efectos es por texto:
+      // dos escenas que piden "door creaking" reciben el MISMO archivo, y el
+      // espectador oye la misma puerta idéntica dos veces — que suena a error,
+      // no a diseño. Se toca la primera vez; las repeticiones se saltan.
+      const yaSono = new Set<string>();
       for (const s of params.sceneSfx ?? []) {
         const i = params.scenes.findIndex((_, k) => k === s.sceneIndex);
         if (i < 0 || !s.url) continue;
+        if (yaSono.has(s.url)) { console.log(`[audio] sfx repetido en escena ${i + 1}, se omite`); continue; }
+        yaSono.add(s.url);
         try {
           const f = join(dir, `sfx_${i}.mp3`);
           await download(s.url, f);
@@ -1057,6 +1093,14 @@ export async function assembleWithFfmpeg(params: {
     // videos terminados —planos eternos, congelados, volumen flojo— sale de
     // estos números, así que a partir de ahora se anuncian solos en el log.
     await auditarVideo(finalOut);
+
+    // Salida local para PROBAR el ensamblador sin subir nada: con
+    // ASSEMBLE_LOCAL_OUT=<ruta.mp4> el archivo se copia ahí y se devuelve como
+    // file:// — es lo que permite medir el mezclado de audio en un experimento.
+    if (process.env.ASSEMBLE_LOCAL_OUT) {
+      writeFileSync(process.env.ASSEMBLE_LOCAL_OUT, readFileSync(finalOut));
+      return { url: `file://${process.env.ASSEMBLE_LOCAL_OUT}`, provider: "ffmpeg" };
+    }
 
     // 4) Upload to durable R2.
     const buffer = readFileSync(finalOut);

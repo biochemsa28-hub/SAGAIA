@@ -1,13 +1,18 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const ROOT = new URL("../", import.meta.url);
-const EXTS = ["", ".ts", ".tsx", "/index.ts", ".js", "/index.js"];
+// Un ARCHIVO con estas extensiones; un directorio no cuenta (node no importa
+// directorios) — para eso están las variantes /index.*
+const EXTS = [".ts", ".tsx", ".js", "/index.ts", "/index.js", ""];
 
 const conExtension = (url) => {
   for (const ext of EXTS) {
     const cand = new URL(url.href + ext);
-    try { if (existsSync(fileURLToPath(cand))) return cand.href; } catch { /* no es file: */ }
+    try {
+      const p = fileURLToPath(cand);
+      if (existsSync(p) && statSync(p).isFile()) return cand.href;
+    } catch { /* no es file: */ }
   }
   return null;
 };
