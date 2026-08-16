@@ -112,7 +112,14 @@ export function creditCostForTier(tier: AnimationTier): number {
 // real — fal (Seedance + flux) fue el 95,5% del gasto y Claude el 0,4% — así que
 // quitar la animación quita casi todo. El valor sigue siendo una ESTIMACIÓN
 // hasta que se produzca el primer borrador y se lea su costo real.
-export const BORRADOR_COST_USD = Number(process.env.BORRADOR_COST_USD ?? 0.45) || 0.45;
+// 1.10, no 0.45. Recalculado pieza por pieza con los precios de hoy: un
+// borrador es un video entero MENOS los clips — 12 imágenes ($0.47) + casting
+// ($0.16) + guion y reintento ($0.14) + efectos y música ($0.21) + voz
+// ElevenLabs — ronda $1.00-1.20. A $0.45 el borrador se vendía a 1.350 NAVOS
+// con margen ~1.1×: casi al costo, y quien hace cinco borradores para elegir
+// uno costaba más de lo que pagaba. A 1.10 → 3.300 NAVOS, sigue siendo ~4×
+// más barato que el estreno — la promesa "pruébala antes de pagar" se mantiene.
+export const BORRADOR_COST_USD = Number(process.env.BORRADOR_COST_USD ?? 1.10) || 1.10;
 export const BORRADOR_NAVOS = Math.round(BORRADOR_COST_USD * MARGIN_MULTIPLIER * NAVOS_PER_USD);
 
 // El precio de referencia es POR 60 SEGUNDOS. Sin esto, un video de 30s cobraba

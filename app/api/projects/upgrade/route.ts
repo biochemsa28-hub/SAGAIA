@@ -35,7 +35,14 @@ export async function POST(req: NextRequest) {
     const tier = resolveProjectTier(detail.project.animation_tier, user?.plan ?? "free");
     const duracion = detail.project.duration_target;
     const precioEstreno = creditCostFor(tier, duracion, "estreno");
-    const yaPagado = creditCostFor(tier, duracion, "borrador");
+    // Se descuenta lo que el usuario PAGÓ por el borrador (credits_spent), no el
+    // precio de borrador de hoy. Son distintos en cuanto el precio cambia: el
+    // borrador subió de 1.350 a 3.300 NAVOS, y con el precio actual un borrador
+    // viejo (pagado a 1.350) habría recibido 1.950 NAVOS de descuento que nadie
+    // pagó. Si el dato falta (proyectos anteriores a la columna) se cae al
+    // precio actual, que es lo que había antes.
+    const pagadoReal = Number((detail.project as unknown as Record<string, unknown>)["credits_spent"] ?? 0) || 0;
+    const yaPagado = pagadoReal > 1 ? pagadoReal : creditCostFor(tier, duracion, "borrador");
     const diferencia = Math.max(1, precioEstreno - yaPagado);
 
     const credito = await deductCredits(session.user.id, diferencia);
@@ -46,7 +53,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ok = await ascenderAEstreno(parsed.data.project_id, session.user.id);
+    const ok = await ascenderAEstreno(parsed.data.project_id, session.user.id, diferencia);
     if (!ok) return NextResponse.json({ error: "No se pudo ascender" }, { status: 409 });
 
     console.log(`[upgrade] proyecto ${parsed.data.project_id.slice(0, 8)} borrador → estreno, cobrado ${diferencia} NAVOS (diferencia sobre ${precioEstreno})`);

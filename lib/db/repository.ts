@@ -732,11 +732,13 @@ export async function borrarMotionDna(userId: string, dnaId: string): Promise<bo
 // Asciende un borrador a estreno. Solo cambia la marca: el guion, el elenco, las
 // imágenes y las escenas aprobadas ya existen y no se vuelven a pagar — lo único
 // que falta comprar es la animación.
-export async function ascenderAEstreno(projectId: string, userId: string): Promise<boolean> {
+// `cobradoAhora` se SUMA a credits_spent: si después el proyecto se reembolsa,
+// se devuelve borrador + diferencia — el total real — y no solo el borrador.
+export async function ascenderAEstreno(projectId: string, userId: string, cobradoAhora = 0): Promise<boolean> {
   const db = getDb();
   const r = await db.execute({
-    sql: "UPDATE projects SET quality = NULL, updated_at = datetime('now') WHERE id = ? AND user_id = ? AND quality IS NOT NULL",
-    args: [projectId, userId],
+    sql: "UPDATE projects SET quality = NULL, credits_spent = credits_spent + ?, updated_at = datetime('now') WHERE id = ? AND user_id = ? AND quality IS NOT NULL",
+    args: [Math.max(0, Math.round(cobradoAhora)), projectId, userId],
   });
   return (r.rowsAffected ?? 0) > 0;
 }
