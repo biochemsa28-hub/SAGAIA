@@ -3,13 +3,29 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import { Megaphone, Sparkles, ArrowRight, AlertCircle, Loader2, Zap, Upload, X, Images } from "lucide-react";
-import { TONES, DURATION_OPTIONS, PLATFORMS } from "@/lib/constants/nichos";
-import { CREDIT_COST_BY_TIER } from "@/lib/config";
+import { DURATION_OPTIONS, PLATFORMS } from "@/lib/constants/nichos";
+import { videoSecondsFor, NAVOS_PER_USD } from "@/lib/config";
 import { CinematicLoader } from "@/components/ui/CinematicLoader";
 
-// Ad-specific tone presets (friendlier than the drama tones, but we map to the
-// same tone ids the engine understands).
-const AD_TONES = TONES;
+// Tonos DE ANUNCIO. Antes se ofrecían los del drama —"Terror", "Misterio",
+// "Chisme"— para vender una cafetera. Cada uno se mapea a un tono que el motor
+// entiende, pero el usuario ve cómo va a SONAR su anuncio.
+const AD_TONES: Array<{ id: string; label: string; hint: string }> = [
+  { id: "inspirational", label: "Cercano y honesto", hint: "Como un amigo que te recomienda algo" },
+  { id: "comedy",        label: "Divertido",         hint: "Ligero, con gracia, se comparte" },
+  { id: "drama",         label: "Premium",           hint: "Elegante, aspiracional, sin gritar" },
+  { id: "thriller",      label: "Urgente (oferta)",  hint: "Ritmo rápido, cierre con prisa" },
+  { id: "confesion",     label: "Testimonio",        hint: "\"Yo no creía… hasta que lo probé\"" },
+];
+// 30s es lo recomendado para un anuncio UGC: se ve entero, y el CTA llega antes
+// de que el pulgar siga. 60s solo si el producto necesita demostración.
+const AD_DURATIONS = DURATION_OPTIONS.filter(d => d.id === "30s" || d.id === "60s").map(d => ({
+  id: d.id, label: d.label,
+  hint: d.id === "30s" ? "Recomendado · se ve entero, el CTA llega a tiempo" : "Si el producto necesita demostrarse",
+  recomendada: d.id === "30s",
+}));
+const precioLegible = (navos: number) =>
+  `${navos.toLocaleString("es")} NAVOS · ≈ US${(navos / NAVOS_PER_USD).toFixed(navos / NAVOS_PER_USD < 10 ? 1 : 0)}`;
 
 export default function NewAdPage() {
   const router = useRouter();
@@ -17,13 +33,17 @@ export default function NewAdPage() {
   const [benefit, setBenefit] = useState("");
   const [audience, setAudience] = useState("");
   const [cta, setCta] = useState("");
-  const [tone, setTone] = useState<string>(TONES[0]?.id ?? "inspirational");
+  const [tone, setTone] = useState<string>("inspirational");
   const [duration, setDuration] = useState("30s");
   const [platform, setPlatform] = useState("tiktok");
   // Single premium tier — every ad is produced with lip-sync (a presenter that talks).
   const [tier] = useState<"kenburns" | "cinematic" | "talking">("talking");
   const [userPlan, setUserPlan] = useState("free");
   const [credits, setCredits] = useState<number | null>(null);
+  // El precio que el SERVIDOR va a cobrar (por 60s), escalado a la duración
+  // elegida. Antes se mostraba una constante del tier "talking" —19.500— y el
+  // servidor cobraba 6.120: tres veces menos de lo anunciado.
+  const [navosPor60s, setNavosPor60s] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -34,9 +54,10 @@ export default function NewAdPage() {
 
   useEffect(() => {
     fetch("/api/credits").then(r => r.json())
-      .then((d: { credits?: number; plan?: string }) => {
+      .then((d: { credits?: number; plan?: string; navos_por_60s?: number }) => {
         if (typeof d.credits === "number") setCredits(d.credits);
         if (d.plan) setUserPlan(d.plan);
+        if (typeof d.navos_por_60s === "number") setNavosPor60s(d.navos_por_60s);
       }).catch(() => null);
   }, []);
 
@@ -101,7 +122,7 @@ export default function NewAdPage() {
       });
       if (res.status === 402) {
         const e = await res.json() as { required?: number };
-        setError(`Necesitas ${e.required ?? ""} NAVOS para este anuncio. Recarga para continuar.`);
+        setError(`Necesitas ${(e.required ?? 0).toLocaleString("es")} NAVOS para este anuncio y tienes ${(credits ?? 0).toLocaleString("es")}. Recarga para continuar.`);
         setLoading(false);
         return;
       }
@@ -232,12 +253,13 @@ export default function NewAdPage() {
 
         {/* Tono */}
         <div>
-          <p className="text-xs font-bold text-zinc-400 mb-2">Tono del anuncio</p>
-          <div className="flex flex-wrap gap-2">
+          <p className="text-xs font-bold text-zinc-400 mb-2">¿Cómo quieres que suene?</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {AD_TONES.map(t => (
               <button key={t.id} onClick={() => setTone(t.id)}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${tone === t.id ? "vy-grad-bg text-white border-transparent" : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"}`}>
-                {t.label}
+                className={`p-2.5 rounded-xl border text-left transition-all ${tone === t.id ? "vy-grad-bg text-white border-transparent" : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"}`}>
+                <p className={`text-xs font-bold ${tone === t.id ? "text-white" : "text-zinc-300"}`}>{t.label}</p>
+                <p className={`text-[10px] mt-0.5 leading-tight ${tone === t.id ? "text-white/80" : "text-zinc-600"}`}>{t.hint}</p>
               </button>
             ))}
           </div>
@@ -246,12 +268,19 @@ export default function NewAdPage() {
         {/* Duración + plataforma */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-2">Duración</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DURATION_OPTIONS.map(d => (
+            <p className="text-xs font-bold text-zinc-400 mb-2">¿Cuánto dura?</p>
+            <div className="grid grid-cols-1 gap-2">
+              {AD_DURATIONS.map(d => (
                 <button key={d.id} onClick={() => setDuration(d.id)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all ${duration === d.id ? "vy-grad-bg text-white border-transparent" : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"}`}>
-                  {d.label.split("(")[0]?.trim()}
+                  className={`relative p-2.5 rounded-xl border text-left transition-all ${duration === d.id ? "vy-grad-bg text-white border-transparent" : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"}`}>
+                  {d.recomendada && (
+                    <span className="absolute -top-2 right-2 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-500 text-black">Recomendado</span>
+                  )}
+                  <p className={`text-xs font-bold ${duration === d.id ? "text-white" : "text-zinc-300"}`}>{d.label}</p>
+                  <p className={`text-[10px] mt-0.5 leading-tight ${duration === d.id ? "text-white/80" : "text-zinc-600"}`}>{d.hint}</p>
+                  {navosPor60s !== null && (
+                    <p className={`text-[10px] mt-1 font-bold ${duration === d.id ? "text-white" : "text-violet-300/80"}`}>{precioLegible(Math.round(navosPor60s * (videoSecondsFor(d.id) / 60)))}</p>
+                  )}
                 </button>
               ))}
             </div>
@@ -269,12 +298,28 @@ export default function NewAdPage() {
           </div>
         </div>
 
-        {/* Calidad premium */}
-        <div className="vy-glass rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl vy-grad-bg flex items-center justify-center shrink-0 text-xl">🗣️</div>
-          <p className="flex-1 text-sm font-bold vy-grad-text">Crear anuncio</p>
-          <span className="text-[11px] font-bold text-violet-300 shrink-0">{CREDIT_COST_BY_TIER.talking.toLocaleString("es")} NAVOS</span>
-        </div>
+        {/* Resumen en una línea — lo mismo que en historias: qué vas a producir,
+            cuánto cuesta en NAVOS y en dólares, y cuánto te queda. */}
+        {navosPor60s !== null && (() => {
+          const seg = videoSecondsFor(duration);
+          const navos = Math.round(navosPor60s * (seg / 60));
+          const tonoLabel = AD_TONES.find(t => t.id === tone)?.label ?? tone;
+          return (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
+              <p className="text-[11px] text-zinc-500 mb-0.5">Vas a producir</p>
+              <p className="text-sm text-zinc-200">
+                <span className="font-extrabold text-white">Un anuncio con presentador que habla</span>
+                {" · "}<span className="font-bold">{seg} segundos</span>
+                {" · "}<span className="font-bold">{tonoLabel.toLowerCase()}</span>
+                {imageUrls.length ? <>{" · "}<span className="font-bold">con tu producto real</span></> : null}
+              </p>
+              <p className="text-[11px] mt-1 font-bold text-violet-300/90">
+                {precioLegible(navos)}
+                {credits !== null && <span className="font-normal text-zinc-500"> · te quedan {Math.max(0, credits - navos).toLocaleString("es")} NAVOS después</span>}
+              </p>
+            </div>
+          );
+        })()}
 
         {error && (
           <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-700/40 rounded-xl">

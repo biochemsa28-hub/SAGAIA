@@ -769,6 +769,9 @@ ${input.additional_instructions ? `INSTRUCCIONES EXTRA: ${input.additional_instr
 
 ━━━ REQUISITOS ━━━
 - Genera entre ${duration.min} y ${duration.max} escenas siguiendo la estructura HOOK → PROBLEMA → PRODUCTO → BENEFICIOS → CTA.
+- TECHO POR ESCENA: ningún narration_text pasa de ${Math.round(BLOCK_TARGET_SECONDS * CHARS_PER_SECOND)} caracteres (${BLOCK_TARGET_SECONDS} segundos hablados). Cada escena se anima como UN clip de ~${BLOCK_TARGET_SECONDS}s: si el presentador habla más que el clip, el video se congela mientras sigue hablando. Más que decir → más escenas, nunca parlamentos más largos.
+- FRASES CORTAS, como habla un creador de verdad: la mayoría de 3 a 9 palabras. "Dejé de gastar en café de la calle. Por esto." Nadie retiene un párrafo a cámara.
+- EL HOOK ES UNA SITUACIÓN, NO UN TITULAR: el presentador YA está en el problema ("Son las 7 y otra vez sin café. Otra vez.") — nunca "hoy te muestro…" ni "¿sabías que…?".
 - UN presentador habla a cámara en TODAS las escenas (mismo speaker + voice_profile en todas).
 - narration_text = lo que el presentador DICE (hablado, natural, persuasivo, primera persona).
 - story.hook = la primera frase que detiene el scroll. story.cta = la llamada a la acción final.
