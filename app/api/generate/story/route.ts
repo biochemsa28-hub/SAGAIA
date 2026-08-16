@@ -10,6 +10,7 @@ import {
 import { resolveProjectTier, creditCostFor, videoSecondsFor, esBorrador, BORRADOR, BLOCK_TARGET_SECONDS } from "@/lib/config";
 import { esNombreDePila } from "@/lib/ai/name-bank";
 import { ACCION_CLAVE, picoPorDefecto } from "@/lib/ai/accion-clave";
+import { esPremisaDeConsejo } from "@/lib/ai/prompts";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -374,14 +375,24 @@ export async function POST(req: NextRequest) {
           if (a && b && parecidos(a, b) >= 0.65) duplicadas.push(`${scenes[i - 1]!.scene_number}-${scenes[i]!.scene_number}`);
         }
         const temprano = picoTemprano(scenes);
-        return { largas, duplicadas, temprano, total: largas.length + duplicadas.length + (temprano ? 1 : 0) };
+        // 4) Un CONSEJO sin consejos. Medido con "cómo ahorrar dinero cuando
+        //    ganás poco": el bloque de formato estaba en el prompt y aun así
+        //    salió un drama madre-hija sin una sola instrucción — 31k
+        //    caracteres de guía de drama le ganaron a un bloque. Si es consejo
+        //    y ninguna réplica nombra un paso/consejo/regla/señal, falta la
+        //    respuesta que el usuario pidió.
+        const sinConsejo = esConsejo && !scenes.some((sc) => MARCA_CONSEJO.test(sc.narration_text ?? ""));
+        return { largas, duplicadas, temprano, sinConsejo, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinConsejo ? 1 : 0) };
       };
+      const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
+      const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
       const defectos = defectosDe((result.data?.scenes ?? []) as EscenaMin[]);
       if (defectos.total) {
         console.warn(
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
-          `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}] — regenerando una vez`,
+          `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -399,6 +410,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.sinConsejo
+            ? " El usuario pidió un CONSEJO y el guion no contiene NINGÚN consejo dicho en voz alta: es un drama. Reescribilo para que un personaje diga, nombrados y con detalle concreto (número, tiempo, mecanismo), los pasos que el profesional del tema daría — y que el espectador pueda anotar. La emoción se queda; la respuesta se agrega."
             : "");
         const reintentoEscenas = await storyGeneratorService.generate({
           ...parsed.data,
