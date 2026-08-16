@@ -66,7 +66,7 @@ REGLAS:
 - Y LA MISMA ROPA DURA TODA LA HISTORIA. Un microdrama transcurre en minutos u horas: el personaje NO se cambia entre escenas salvo que la historia diga que pasó tiempo. Lo que sí cambia es el ESTADO: se despeina, se le corre el maquillaje, se le moja la camisa, se arremanga, se saca el saco. Describí la prenda de forma que se pueda repetir igual en cada escena.
 - Define para cada uno: género (male/female/neutral), edad (child/teen/young/adult/elderly), tipo (human/animal/monster/other).
 - Asigna un "voice_profile" coherente con el personaje (de la lista permitida) para que después tenga su propia voz.
-- "visual_description": descripción física rica y CONCRETA para generar su retrato (rostro, edad, cabello, vestuario, expresión, iluminación, ambiente), incluyendo el rasgo firma. 1-3 frases potentes y cinematográficas.
+- "visual_description": descripción física rica y CONCRETA para generar su retrato (rostro, edad, cabello, vestuario, expresión, iluminación, ambiente), incluyendo el rasgo firma. 1-3 frases potentes y cinematográficas. SOLO ESTA PERSONA: no nombres ni menciones a ningún otro personaje ahí ("junto a su esposa", "mirando a su hermana", "la otra") — el generador dibuja a quien se nombra, y ese retrato tiene que tener UNA sola cara. Las relaciones van en "role" y "description", nunca en "visual_description".
 - Los personajes deben CONTRASTAR fuerte entre sí (visual, edad y emocionalmente) — que se distingan de un vistazo, nunca dos parecidos.
 - Evita el arquetipo más obvio: dale a cada uno un giro que lo haga inesperado (el villano que da ternura, la víctima que esconde algo, el niño que sabe demasiado).
 - Piensa en identificación + obsesión: que el espectador vea a alguien que reconoce Y quiera saber su secreto.

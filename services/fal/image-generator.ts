@@ -803,7 +803,14 @@ export async function generateCharacterOptions(params: {
     // abierta y las mujeres con suéter tejido, casting tras casting. La
     // descripción del personaje ya trae su cuerpo, su rasgo y su ropa con el
     // estado en que está — el prompt tiene que RESPETARLA, no lavarla.
+    // UNA SOLA PERSONA EN CUADRO. Medido en un casting real: el retrato del
+    // esposo infiel salió con la amante al lado, y el de la hermana con la
+    // protagonista detrás — porque el prompt nunca decía "sola" y la descripción
+    // nombraba a los otros. Ese retrato es la REFERENCIA DE IDENTIDAD del
+    // personaje para todo el video: con dos caras adentro, el modelo no sabe
+    // cuál copiar y la consistencia se pierde desde el primer plano.
     const prompt = `Cinematic character portrait for a premium vertical drama series. ${params.description}. ${variation}. ` +
+      `EXACTLY ONE PERSON in the frame — this character ALONE. No other people, no couple, no one in the background, no reflections of others. ` +
       `Follow the description EXACTLY — body type, distinctive feature, and the wardrobe with the wear and state described. ` +
       `A face you remember: striking and magnetic, with real skin texture, pores and marks — beautiful the way a lead actor is, not the way a stock photo is. ` +
       `HEAD AND SHOULDERS FULLY IN FRAME with room above the hair — never crop the top of the head. ` +
