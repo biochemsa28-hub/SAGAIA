@@ -102,10 +102,16 @@ export const TONES = [
 // además es el formato que de verdad se vuelve viral en Reels y TikTok. Un
 // video de 10 minutos se abandona al minuto dos; ocho episodios con cliffhanger
 // se ven los ocho.
+// 60s es la RECOMENDADA, y no por gusto: el algoritmo pesa segundos vistos (un
+// 60s visto al 60% le gana a un 30s visto al 90%), y medido con la misma
+// premisa, a 30s la historia terminó en carnada y el pico salió tibio; a 60s el
+// diálogo respiró y el pico cayó al 93%. 30s sirve para un gag único o un
+// borrador. La mitad de segundos cuesta la mitad de NAVOS — no es un descuento
+// por elegir corto, es que el precio es por segundo.
 export const DURATION_OPTIONS = [
-  { id: "30s", label: "30 segundos", hint: "Gancho puro · TikTok", scenes: "3-5" },
-  { id: "60s", label: "60 segundos", hint: "El estándar viral · Reels/Shorts", scenes: "5-8" },
-  { id: "90s", label: "90 segundos", hint: "Historia completa", scenes: "7-11" },
+  { id: "30s", label: "30 segundos", hint: "Un gag o un borrador. Las historias con giro rinden más en 60s.", scenes: "5-6", recomendada: false },
+  { id: "60s", label: "60 segundos", hint: "Recomendado · más tiempo visto, pico y cierre con aire", scenes: "10-12", recomendada: true },
+  { id: "90s", label: "90 segundos", hint: "Historia completa", scenes: "15-18", recomendada: false },
 ] as const;
 
 export const VISUAL_STYLES = [

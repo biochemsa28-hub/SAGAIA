@@ -34,7 +34,7 @@ export const PLANS: Plan[] = [
     credits: 29000,
     videos: 2,
     features: [
-      "2 videos premium / mes",
+      "2 videos de 60s al mes (o 4 de 30s)",
       "Los NAVOS que no uses se acumulan",
       "Personajes que hablan, con su propia voz",
       "Personajes recurrentes guardados",
@@ -51,7 +51,7 @@ export const PLANS: Plan[] = [
     videos: 4,
     popular: true,
     features: [
-      "4 videos premium / mes",
+      "4 videos de 60s al mes (o 8 de 30s)",
       "Los NAVOS que no uses se acumulan",
       "Máxima calidad visual y de voz",
       "Personajes y anuncios UGC",
@@ -67,7 +67,7 @@ export const PLANS: Plan[] = [
     credits: 99000,
     videos: 8,
     features: [
-      "8 videos premium / mes",
+      "8 videos de 60s al mes (o 16 de 30s)",
       "Los NAVOS que no uses se acumulan",
       "Máximo volumen, misma calidad",
       "Soporte 24/7 + facturación empresarial",

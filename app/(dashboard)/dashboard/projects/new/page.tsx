@@ -1776,10 +1776,15 @@ function NewProjectForm() {
                   <button
                     key={d.id}
                     onClick={() => set("duration_target")(d.id)}
-                    className={`vy-press p-3 rounded-xl border text-left transition-all ${
+                    className={`vy-press relative p-3 rounded-xl border text-left transition-all ${
                       activa ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
                     }`}
                   >
+                    {d.recomendada && (
+                      <span className="absolute -top-2 right-2 text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-500 text-black">
+                        Recomendado
+                      </span>
+                    )}
                     <p className={`text-sm font-extrabold ${activa ? "text-white" : "text-zinc-300"}`}>{d.label}</p>
                     <p className={`text-[10px] mt-0.5 leading-tight ${activa ? theme.accent : "text-zinc-600"}`}>{d.hint}</p>
                     {/* El costo se ve ANTES de generar, cambia con la duración, y
@@ -1793,6 +1798,16 @@ function NewProjectForm() {
                 );
               })}
             </div>
+            {/* Aviso medido, no teórico: la misma premisa a 30s terminó en carnada
+                (el consejo 5 "no te lo puedo decir") y a 60s entregó el pico al 93%.
+                Con 3 personajes o en formato consejo, 30s no alcanza. */}
+            {form.duration_target === "30s" && (form.format === "consejo" || castCharacters.length >= 3) && (
+              <p className="text-[10px] text-amber-300/80 mt-2">
+                {form.format === "consejo"
+                  ? "Un consejo en 30s suele quedarse sin el remate: no entra la lección al final. En 60s sí."
+                  : "Con 3 personajes en 30s cada uno habla dos veces y el giro llega apurado. En 60s la historia respira."}
+              </p>
+            )}
             <p className="text-[10px] text-zinc-600 mt-2">
               ¿Necesitas más minutos? Se hacen como <span className="text-zinc-400">serie de episodios</span> — es el formato que se vuelve viral, y luego se unen en un video largo.
             </p>
