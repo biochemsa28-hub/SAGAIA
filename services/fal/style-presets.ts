@@ -160,8 +160,12 @@ export function getStyleConfig(niche: string, visualStyle: string): StyleConfig 
   // natural skin, real-lens artifacts. Applied to photographic styles only
   // (skipped for anime/cartoon where it would fight the aesthetic).
   const photographic = !["anime", "cartoon"].includes(visualStyle.toLowerCase());
+  // "no legible text": medido en un video hiperrealista, el modelo bordó
+  // "JRICI" y "FERICH" en los uniformes. En anime no se nota; en foto el ojo
+  // LEE, y una palabra inventada rompe la ilusión más rápido que cualquier
+  // otro defecto. Sin letras en ropa, gorras, carteles ni pantallas.
   const realism = photographic
-    ? ", photographic film grain, natural skin texture with pores and subtle imperfections, realistic subsurface scattering, authentic depth of field, slight lens vignette, true-to-life color science, candid unposed expression, no plastic skin, no overly smooth render"
+    ? ", photographic film grain, natural skin texture with pores and subtle imperfections, realistic subsurface scattering, authentic depth of field, slight lens vignette, true-to-life color science, candid unposed expression, no plastic skin, no overly smooth render, no legible text, no logos, no lettering or writing on clothing, patches, caps, signs or screens"
     : "";
 
   // Pro cinematography layer — the "this looks like a real film" production value
