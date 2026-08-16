@@ -56,7 +56,29 @@ function escalera(accion: string, identidad: string): Array<{ etiqueta: string; 
   // existe para eliminar. Le estábamos pidiendo el después y culpando al modelo
   // por no darnos el durante.
   const limpia = accion.split("|")[0]!.trim().replace(/\s+/g, " ").slice(0, 220) || accion.trim();
+  // ── EL BESO, DE PERFIL ────────────────────────────────────────────────────
+  //
+  // En fotorrealista el peldaño "insistido" SE DIBUJA —o sea que la escalera,
+  // que solo sabe distinguir rechazado de dibujado, se queda con él— pero el
+  // modelo no se compromete: frente con frente, labios a un centímetro. El
+  // "casi" que este sistema existe para eliminar, ahora aprobado por el propio
+  // sistema.
+  //
+  // Medido con los mismos retratos: insistir más no cierra. Lo que cierra es
+  // decirle a la CÁMARA dónde ponerse. "Tight profile shot, seen from the side
+  // so both mouths are visible" + "kissing on the mouth, lips locked": 4 de 4
+  // dibujadas Y con los labios juntos, en foto. De perfil no hay dónde esconder
+  // el centímetro. (La versión anatómica —"lips compressed against each other"—
+  // rechazada, como siempre: el detalle dispara el filtro, el hecho no.)
+  //
+  // Va PRIMERO y solo cuando la acción es un beso; para todo lo demás la
+  // escalera sigue igual. Si el filtro lo rechaza cae al peldaño siguiente.
+  const esBeso = /\bkiss|\blips\b|\bbes[oa]/i.test(limpia);
+  const perfil = esBeso ? [{ etiqueta: "beso de perfil", prompt:
+    `Tight profile two-shot of the two of them kissing on the mouth — lips locked, eyes closed, heads tilted opposite ways — ` +
+    `photographed from the side at mouth height so both mouths are visible and together. ${limpia}. ${identidad}` }] : [];
   return [
+    ...perfil,
     // PRIMER PELDAÑO: LA ACCIÓN, INSISTIDA.
     //
     // Medido sobre retratos fotorrealistas —que son 19 de cada 22 proyectos, o

@@ -44,11 +44,11 @@ const IDENT = "Same two people as the reference images: identical faces, hair an
 // La hipótesis: en foto hay que quitarle al modelo la opción de dejar espacio,
 // describiendo el encuadre desde el punto de contacto en vez de desde la pareja.
 const INTENTOS = [
-  ["1-narrativo",  "The moment they finally kiss, at the end of a long conversation. " + IDENT],
-  ["2-contacto",   "They are kissing. Their mouths are together, eyes closed, his hand on her jaw. " + IDENT],
-  ["3-sin-espacio","They are kissing. There is no space between their faces — the mouths are touching, not near. Eyes closed, heads tilted in opposite directions. " + IDENT],
   ["4-desde-el-punto", "EXTREME CLOSE-UP framed on the point where their two mouths meet, filling the frame. Eyes closed, heads tilted opposite ways, her hand on his jaw. " + IDENT],
   ["5-perfil",     "Tight profile shot of a couple kissing, seen from the side so both mouths are visible and pressed together. Eyes closed. " + IDENT],
+  ["6-mid-kiss",   "Mid-kiss: their mouths are pressed together, lips compressed against each other, no air between the faces. Heads tilted opposite ways, eyes closed, his hand cupping the back of her head. Photographed from the side at mouth height. " + IDENT],
+  ["7-wedding",    "A wedding-photography style kiss: the couple kissing on the mouth, lips locked, eyes closed, heads tilted, framed tight from chest up. Romantic, tasteful, editorial. " + IDENT],
+  ["8-noun",       "A passionate kiss on the lips between the two of them — lips locked together — photographed as a tight profile two-shot. Eyes closed. " + IDENT],
 ];
 
 const refs = await retratos();
