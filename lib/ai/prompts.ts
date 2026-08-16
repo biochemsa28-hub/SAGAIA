@@ -417,20 +417,21 @@ export function esPremisaDeConsejo(input: Pick<StoryInput, "topic" | "format">):
   return PATRON_CONSEJO.test(input.topic ?? "");
 }
 
-const BLOQUE_CONSEJO = `
+const bloqueConsejo = (segundos: number) => { const maxItems = segundos <= 40 ? 3 : 5; return `
 
 ━━━ FORMATO: CONSEJO — LA HISTORIA TIENE QUE DEMOSTRAR LA RESPUESTA ━━━
+ESTE VIDEO DURA ${segundos} SEGUNDOS: si la premisa es una lista, la lista tiene EXACTAMENTE ${maxItems} ítems${maxItems === 3 ? " (sí, aunque la premisa diga cinco: en la primera escena decís \"te cuento tres\" y NO EXISTEN un cuarto ni un quinto)" : ""}. Contá los que nombrás antes de cerrar el JSON.
 La premisa no es una historia: es una PREGUNTA o un CONSEJO ("cómo superar a mi ex", "5 señales de que te miente", "qué hacer si tu jefe te humilla"). El espectador que la busca quiere LA RESPUESTA, y la quiere VIVIDA, no explicada. Reglas encima de todo lo demás:
 
 1. LA HISTORIA ES LA DEMOSTRACIÓN. El personaje principal ATRAVIESA el problema y al final HACE lo que la respuesta dice. Si la premisa es "cómo superar a mi ex", el final es ella cerrando la puerta, bloqueando el número, tirando la caja — NUNCA la reconciliación, nunca "tal vez algún día". La historia no puede contradecir el consejo que la titula.
 2. EL PICO FÍSICO ES LA RESPUESTA EJECUTADA. La escena is_peak es el cuerpo haciendo el consejo: la mano que borra el chat en primerísimo plano, la puerta que se cierra en la cara, el anillo que cae en el buzón, la silla que se corre para irse de la mesa. Un consejo que no se ve ejecutar no se aprendió.
 3. LA LECCIÓN SE DICE EN VOZ ALTA, UNA VEZ, EN LA ÚLTIMA ESCENA — como réplica del personaje, no como narrador ni moraleja: una frase corta, filosa, citable, ESCRITA POR VOS para esta historia — nacida de lo que pasó en las escenas, con las palabras de este personaje (el estilo es el de "No se supera pensando menos en él; se supera decidiendo más por mí" — NO copies esa frase, inventá la propia). Es la frase que la gente pone en el caption. Sin ella el video es un drama más; con ella es un consejo que se comparte.
-4. SI LA PREMISA ES UNA LISTA ("5 señales de…"), no la recites: cada escena MUESTRA una señal ocurriendo, y el personaje la nombra en una palabra ("Tercera: nunca dice dónde estuvo."). La última escena es la reacción: qué hace con lo que ya vio.
+4. SI LA PREMISA ES UNA LISTA ("5 señales de…"), no la recites: cada escena MUESTRA una señal ocurriendo, y el personaje la nombra en una palabra ("Tercera: nunca dice dónde estuvo."). La última escena es la reacción: qué hace con lo que ya vio. CUÁNTOS ÍTEMS: EN ESTE VIDEO, MÁXIMO ${maxItems}${maxItems === 3 ? " — aunque la premisa diga cinco: decilo en la primera escena (\"te cuento tres\") y no nombres un cuarto ni un quinto" : ""}. Los que quepan con aire. Un ítem por cada dos escenas, mínimo; cinco ítems apretados en seis escenas es una lista leída, no una historia. Y EL ÚLTIMO ÍTEM SE HACE, NO SE DICE: "el tercero… acércate y te lo digo" → y lo que sigue es el beso, el abrazo, la puerta que se cierra. Se puede RETENER el último con palabras SOLO si se ENTREGA con el cuerpo en la escena siguiente, dentro de este video. Retenerlo y no entregarlo ("el quinto no te lo puedo decir, comenta para la parte 2") es carnada: la gente que llegó al final se va con las manos vacías y comenta enojada, no comparte.
 5. EL OTRO EXISTE Y HABLA (la pareja, el ex, el jefe, la amiga tóxica): el consejo se demuestra CON o CONTRA alguien, no en un monólogo. Sin la voz del otro no hay tentación, y sin tentación superar no cuesta nada. CUÁNTOS aparecen lo decide la premisa: si menciona a la pareja, es una pareja; si nombra a más gente, aparecen esos. Ni uno menos de los que la premisa pide, ni uno más de los que necesita.
 6. EN PRIMERA PERSONA, A CÁMARA. Así se cuenta un consejo en TikTok y así lo cuenta este formato SIEMPRE: la protagonista le habla AL ESPECTADOR como a una amiga, con lo que aprendió. La PRIMERA escena y la ÚLTIMA son a cámara (mirada al lente, "yo lo aprendí así" / la lección + una pregunta al espectador: "¿cuál te cuesta más? cuéntame abajo"). Cada consejo del medio se VIVE en una escena con el otro —los dos hablan, el otro responde— pero es la voz de ella la que guía y la que nombra el consejo. Medido con "5 consejos para una relación sana": abre a cámara con la taza, cada consejo con la pareja, el quinto es el beso ejecutado, cierra con la lección dicha y la pregunta. Eso genera comentarios; retener el último consejo genera enojo.
 7. Todo lo demás —reparto, pico obligatorio, techo por escena, un encuadre por escena— sigue vigente.
 
-`;
+`; };
 
 export function buildUserPrompt(input: StoryInput): string {
   const duration = DURATION_SCENE_MAP[input.duration_target] ?? DURATION_SCENE_MAP["60s"]!;
@@ -455,7 +456,7 @@ export function buildUserPrompt(input: StoryInput): string {
     .replace(/\[HOOK ELEGIDO\]:.*/g, "")
     .replace(/\[ELENCO DISEÑADO\]:.*/g, "")
     .trim();
-  const consejo = esPremisaDeConsejo(input) ? BLOQUE_CONSEJO : "";
+  const consejo = esPremisaDeConsejo(input) ? bloqueConsejo(duration.seconds) : "";
 
   return `${langInstruction}${consejo}
 
@@ -572,7 +573,8 @@ Para CADA ESCENA define internamente:
 
 ━━━ REQUISITOS DE GUION ━━━
 - Entre ${duration.min} y ${duration.max} escenas, ORDEN CRONOLÓGICO. NUNCA empieces por el final.
-- ${chosenHook ? `HOOK OBLIGATORIO (escena 1): "${chosenHook}"` : "HOOK (escena 1): frase del personaje que DETIENE el scroll en 2 segundos — directa al nervio, sin contexto previo"}
+- ${chosenHook ? `HOOK OBLIGATORIO (escena 1): "${chosenHook}"` : "HOOK (escena 1): frase del personaje que DETIENE el scroll en 2 segundos — directa al nervio, sin contexto previo. Una SITUACIÓN concreta que ya está pasando, dicha por quien la vive, en presente (\"¿Olvidé hacerle su café? ¿Qué hago ahora?\", \"Todavía tengo tu número guardado\"), NUNCA un titular ni una promesa (\"hoy te cuento cómo…\", \"la historia de una mujer que…\")"}
+- RÉPLICAS CORTAS. La mayoría de las líneas tienen entre 2 y 8 palabras; una de 12 es la excepción, no la norma. El drama vertical habla en golpes: pregunta, respuesta, silencio. Medido en el video con mejor retención: 18 líneas en 38 segundos, ninguna de más de 9 palabras. Si una línea necesita explicar, es que la escena anterior no mostró.
 - UN SOLO SPEAKER POR ESCENA — nunca dos voces en el mismo narration_text. Para diálogo A↔B: escenas separadas (N habla A, N+1 habla B).
 - DIÁLOGO ACTUADO: narration_text = lo que el personaje DICE en voz alta, en primera persona. Grita, reclama, suplica, susurra, amenaza — emoción cruda. NUNCA narrador en tercera persona.
 - SUBTEXTO: que el personaje diga una cosa y signifique otra emocionalmente. El silencio, el objeto, el detalle cuentan más que la explicación.

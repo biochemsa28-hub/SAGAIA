@@ -433,7 +433,19 @@ async function generateReal(params: {
     // Lead with the NEW dramatic moment (edit models weight early tokens most), then
     // constrain identity. Leading with "keep identical" froze the composition and made
     // every scene look like a re-render of the reference instead of the story moving.
-    const refPrompt = `A completely NEW scene showing this exact moment: ${prompt}. IMPORTANT: the person/product must be the SAME one from the reference image — identical face, features, colors and branding — but in this new pose, action, framing and location. Do not reuse the reference's composition. ${style.promptSuffix}`;
+    //
+    // SIN LA ROPA NI EL CUERPO EN EL TEXTO — desde el PRIMER intento, no como
+    // último recurso. Medido en dos videos: la camisa del hombre iba y volvía
+    // (verde ↔ azul a cuadros) plano a plano, porque el guionista re-describe el
+    // vestuario en cada image_prompt con palabras distintas y el modelo obedece
+    // al texto por encima del retrato. La ropa YA está en la referencia y ahí
+    // es siempre la misma; en el texto es una fuente de deriva y de rechazos del
+    // filtro. Lo que el texto aporta —lugar, acción, encuadre, luz, emoción— se
+    // conserva; lo que la foto ya trae —cara, pelo, ropa— se delega a la foto.
+    // El video que el usuario aprobó como "perfecto" tenía justamente eso: bata
+    // blanca y camisa azul idénticas en los 8 planos.
+    const escena = sinDescripcionDePersonaje(prompt);
+    const refPrompt = `A completely NEW scene showing this exact moment: ${escena}. IMPORTANT: the person/product must be the SAME one from the reference image — identical face, hair, features, CLOTHING and colors, wearing exactly the same outfit as in the reference — but in this new pose, action, framing and location. Do not reuse the reference's composition. ${style.promptSuffix}`;
     imageUrl = await callReference(refPrompt, referenceImageUrl, params.referenceImageUrls);
     if (!imageUrl) console.log(`[fal.ai] reference failed for scene ${sceneNumber}, falling back to flux`);
   }
