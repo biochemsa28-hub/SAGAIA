@@ -440,6 +440,19 @@ export async function POST(req: NextRequest) {
               .map((sp) => retratoPorNombre.get(claveDeNombre(sp)))
               .filter((u): u is string => Boolean(u)),
           )];
+          // PARA EL PICO: los que hablan PRIMERO, y después el resto del reparto.
+          //
+          // Medido en un consejo en primera persona: ella habla en todas las
+          // escenas, así que el bloque del beso traía UN solo retrato —el de
+          // ella— y el cuadro destino salió con dos mujeres idénticas besándose.
+          // Un pico de contacto necesita a los DOS cuerpos, y quien no habla en
+          // ese bloque no deja de estar en la escena. Tope 3 retratos (más la
+          // imagen de la escena son los 4 que acepta el modelo).
+          const retratosParaPico = (b: { scenes: number[] }) => {
+            const hablan = retratosDe(b);
+            const resto = [...retratoPorNombre.values()].filter((u) => u && !hablan.includes(u));
+            return [...hablan, ...resto].slice(0, 3);
+          };
 
           // ── EL PICO SE DIBUJA, NO SE COMPRA ──────────────────────────────
           //
@@ -500,7 +513,7 @@ export async function POST(req: NextRequest) {
                 lead: b.leadScene,
                 url: await generarCuadroDestino({
                   accionFisica: accion,
-                  referencias: [...retratosDe(b), imgByScene.get(b.leadScene)].filter((u): u is string => Boolean(u)),
+                  referencias: [...retratosParaPico(b), imgByScene.get(b.leadScene)].filter((u): u is string => Boolean(u)),
                   escena: b.leadScene,
                   // El registro visual del proyecto decide si el filtro acepta
                   // un pico íntimo — y que el cuadro salga en el mismo estilo

@@ -281,11 +281,12 @@ export async function POST(req: NextRequest) {
       const segundos = Math.round(chars / CHARS_PER_SECOND);
       const pedidos = videoSecondsFor(parsed.data.duration_target);
       const pct = Math.round((segundos / pedidos) * 100);
-      if (segundos < pedidos * 0.8) {
-        console.warn(
-          `[duracion] el guion da ~${segundos}s hablados de los ${pedidos}s pedidos (${pct}%) — el video va a salir corto`,
-        );
-      } else if (segundos > pedidos * 1.15) {
+      // Corto o largo, se REESCRIBE una vez. Antes solo el largo se corregía y el
+      // corto se avisaba: medido, un "30s" salió de 22 segundos con cinco líneas
+      // — el 73% de lo pedido, y el usuario pagó por 30. Un guion corto es un
+      // problema de guion igual que uno largo, y se arregla en el guion.
+      if (segundos < pedidos * 0.8 || segundos > pedidos * 1.15) {
+        const corto = segundos < pedidos;
         // ── SE REESCRIBE, NO SE AVISA ──────────────────────────────────────────
         // Avisar no alcanzaba: medido, el guion pedía 10 bloques para 60 segundos
         // elegidos y el sistema descartaba 4 — la historia terminaba cortada y el
@@ -299,11 +300,15 @@ export async function POST(req: NextRequest) {
           `[duracion] el guion da ~${segundos}s y se pidieron ${pedidos}s (${pct}%) — regenerando una vez con la corrección`,
         );
         const objetivo = Math.round(pedidos * CHARS_PER_SECOND);
-        const correccion =
-          `\n[CORRECCIÓN DE DURACIÓN] El guion anterior sumaba ~${segundos} segundos hablados y se pidieron ${pedidos}. ` +
-          `Te pasaste ${segundos - pedidos} segundos. Reescribilo COMPLETO para que el total de todos los narration_text ` +
-          `no supere ~${objetivo} caracteres. NO comprimas la historia entera ni la cuentes a las apuradas: ` +
-          `contá MENOS historia. Cerrá el primer tramo en el punto de máxima tensión y dejá el resto para la Parte 2.`;
+        const correccion = corto
+          ? `\n[CORRECCIÓN DE DURACIÓN] El guion anterior sumaba ~${segundos} segundos hablados y se pidieron ${pedidos}: ` +
+            `quedó ${pedidos - segundos} segundos CORTO. Reescribilo COMPLETO con MÁS ESCENAS (no parlamentos más largos) hasta que el total ` +
+            `de todos los narration_text ronde ~${objetivo} caracteres. Cada escena nueva trae información nueva: un detalle, una réplica ` +
+            `del otro, un paso más del cuerpo. Nada de relleno ni repetir lo dicho.`
+          : `\n[CORRECCIÓN DE DURACIÓN] El guion anterior sumaba ~${segundos} segundos hablados y se pidieron ${pedidos}. ` +
+            `Te pasaste ${segundos - pedidos} segundos. Reescribilo COMPLETO para que el total de todos los narration_text ` +
+            `no supere ~${objetivo} caracteres. NO comprimas la historia entera ni la cuentes a las apuradas: ` +
+            `contá MENOS historia. Cerrá el primer tramo en el punto de máxima tensión y dejá el resto para la Parte 2.`;
         const reintento = await storyGeneratorService.generate({
           ...parsed.data,
           additional_instructions: (instrucciones + correccion).slice(0, 3000),
