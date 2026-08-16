@@ -109,9 +109,9 @@ export const TONES = [
 // borrador. La mitad de segundos cuesta la mitad de NAVOS — no es un descuento
 // por elegir corto, es que el precio es por segundo.
 export const DURATION_OPTIONS = [
-  { id: "30s", label: "30 segundos", hint: "Un gag o un borrador. Las historias con giro rinden más en 60s.", scenes: "5-6", recomendada: false },
-  { id: "60s", label: "60 segundos", hint: "Recomendado · más tiempo visto, pico y cierre con aire", scenes: "10-12", recomendada: true },
-  { id: "90s", label: "90 segundos", hint: "Historia completa", scenes: "15-18", recomendada: false },
+  { id: "30s", label: "30 segundos", hint: "Corto y directo. Perfecto para una escena graciosa o para probar una idea.", scenes: "5-6", recomendada: false },
+  { id: "60s", label: "60 segundos", hint: "El que más se ve. Tiene tiempo para enganchar, sorprender y cerrar bien.", scenes: "10-12", recomendada: true },
+  { id: "90s", label: "90 segundos", hint: "Para una historia con más personajes o más vueltas.", scenes: "15-18", recomendada: false },
 ] as const;
 
 export const VISUAL_STYLES = [

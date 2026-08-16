@@ -13,7 +13,13 @@ import {
 } from "lucide-react";
 import type { StoryOutput } from "@/lib/validators/story.schema";
 import type { HookVariant } from "@/app/api/generate/hooks/route";
-import { CREDIT_COST_BY_TIER, videoSecondsFor, BORRADOR_NAVOS } from "@/lib/config";
+import { CREDIT_COST_BY_TIER, videoSecondsFor, BORRADOR_NAVOS, NAVOS_PER_USD } from "@/lib/config";
+
+// "12.240 NAVOS" no le dice nada a quien acaba de llegar; "≈ US$12" sí. Se
+// muestran los dos: el NAVO es lo que se descuenta, el dólar es lo que se
+// entiende. Nunca el dólar solo — el saldo del usuario está en NAVOS.
+const precioLegible = (navos: number) =>
+  `${navos.toLocaleString("es")} NAVOS · ≈ US$${(navos / NAVOS_PER_USD).toFixed(navos / NAVOS_PER_USD < 10 ? 1 : 0)}`;
 
 // Los segundos que la etiqueta PROMETE. Si videoSecondsFor devuelve menos, es
 // que el tope de producción la recorta y la opción no se ofrece.
@@ -223,8 +229,9 @@ const DEFAULTS: FormState = {
 };
 
 const FORMAT_OPTIONS: Array<{ id: FormState["format"]; emoji: string; label: string; hint: string }> = [
-  { id: "story",   emoji: "🎬", label: "Historia",  hint: "Microdrama con giro y pico físico. Lo que engancha." },
-  { id: "consejo", emoji: "💡", label: "Consejo",   hint: "\"Cómo superar a mi ex\": la historia vive la respuesta y la dice al final." },
+  // Escrito para quien acaba de llegar: qué VA A VER, no cómo lo hacemos.
+  { id: "story",   emoji: "🎬", label: "Una historia",  hint: "Personajes, un giro y un momento que nadie olvida. Lo que más se comparte." },
+  { id: "consejo", emoji: "💡", label: "Un consejo",    hint: "Respondes a un \"¿cómo…?\" con una historia que lo demuestra. Ej: cómo superar a tu ex." },
 ];
 
 // Recharge modal — shown when a step returns 402 (out of NAVOS). Captures the sale
@@ -1734,7 +1741,7 @@ function NewProjectForm() {
               como reconciliación (lo contrario de superar): el motor tenía un solo
               molde. En "consejo" la historia demuestra la respuesta y la dice. */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-3">Formato</p>
+            <p className="text-xs font-bold text-zinc-400 mb-3">¿Qué quieres contar?</p>
             <div className="grid grid-cols-2 gap-2">
               {FORMAT_OPTIONS.map(f => {
                 const activa = form.format === f.id;
@@ -1755,7 +1762,7 @@ function NewProjectForm() {
             </div>
             {form.format === "story" && /^\s*¿?\s*(c[oó]mo|qu[eé] hacer|por ?qu[eé]|\d+\s+(señales|formas|razones|errores|cosas|pasos|trucos|tips|hábitos|frases)|señales de|deja de|how to|why)(?=\s|$|[?:,¿])/i.test(form.topic) && (
               <p className="text-[10px] text-amber-300/80 mt-2">
-                Tu premisa suena a consejo — se va a tratar como <span className="font-bold">Consejo</span> automáticamente: la historia demuestra la respuesta y la dice al final. Elige "Consejo" para dejarlo explícito.
+                Tu idea suena a un consejo — lo vamos a contar como una historia que <span className="font-bold">demuestra la respuesta</span> y la dice al final. Si es lo que buscas, elige "Un consejo".
               </p>
             )}
           </div>
@@ -1764,7 +1771,7 @@ function NewProjectForm() {
               escenas caben cambia lo que se puede contar, no es una preferencia
               técnica suelta. */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-3">Duración del video</p>
+            <p className="text-xs font-bold text-zinc-400 mb-3">¿Cuánto dura?</p>
             {/* Solo se ofrecen duraciones que la producción entrega de verdad: la
                 opción se filtra contra videoSecondsFor(), la MISMA función que
                 usa el pipeline. Antes la lista prometía 20 minutos y salían 60
@@ -1791,7 +1798,7 @@ function NewProjectForm() {
                         sale del precio que el SERVIDOR va a cobrar. */}
                     {navosPor60s !== null && (
                       <p className="text-[10px] mt-1 font-bold text-violet-300/80">
-                        {Math.round(navosPor60s * (videoSecondsFor(d.id) / 60)).toLocaleString("es")} NAVOS
+                        {precioLegible(Math.round(navosPor60s * (videoSecondsFor(d.id) / 60)))}
                       </p>
                     )}
                   </button>
@@ -1804,8 +1811,8 @@ function NewProjectForm() {
             {form.duration_target === "30s" && (form.format === "consejo" || castCharacters.length >= 3) && (
               <p className="text-[10px] text-amber-300/80 mt-2">
                 {form.format === "consejo"
-                  ? "Un consejo en 30s suele quedarse sin el remate: no entra la lección al final. En 60s sí."
-                  : "Con 3 personajes en 30s cada uno habla dos veces y el giro llega apurado. En 60s la historia respira."}
+                  ? "En 30 segundos un consejo casi nunca alcanza a dar la respuesta al final. Con 60 sí entra."
+                  : "Con 3 personajes, 30 segundos se quedan cortos: cada uno habla dos veces y la sorpresa llega apurada. Con 60 la historia respira."}
               </p>
             )}
             <p className="text-[10px] text-zinc-600 mt-2">
@@ -1818,11 +1825,11 @@ function NewProjectForm() {
               usuario prueba diez premisas por lo que hoy cuesta una, y paga el
               render caro solo cuando la historia ya lo convenció. */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-3">Calidad</p>
+            <p className="text-xs font-bold text-zinc-400 mb-3">¿Para qué es?</p>
             <div className="grid grid-cols-2 gap-2">
               {([
-                { id: "borrador", t: "Borrador", s: "Para probar la historia", d: "Imágenes con movimiento y voz. Sin animación." },
-                { id: "estreno", t: "Estreno", s: "Para publicar", d: "Personajes animados que hablan en cámara." },
+                { id: "borrador", t: "Para verla primero", s: "borrador", d: "Ves la historia completa con voz e imágenes en movimiento suave. Ideal para decidir si vale la pena." },
+                { id: "estreno", t: "Para publicar", s: "estreno", d: "Personajes que se mueven y hablan de verdad, listo para TikTok, Reels o Shorts." },
               ] as const).map(q => {
                 const activa = calidad === q.id;
                 const navos = navosPor60s === null ? null
@@ -1841,7 +1848,7 @@ function NewProjectForm() {
                     </div>
                     <p className="text-[10px] text-zinc-500 leading-tight mt-0.5">{q.d}</p>
                     {navos !== null && (
-                      <p className="text-[10px] mt-1 font-bold text-violet-300/80">{navos.toLocaleString("es")} NAVOS</p>
+                      <p className="text-[10px] mt-1 font-bold text-violet-300/80">{precioLegible(navos)}</p>
                     )}
                   </button>
                 );
@@ -1849,10 +1856,35 @@ function NewProjectForm() {
             </div>
             {calidad === "borrador" && (
               <p className="text-[10px] text-emerald-400/80 mt-2">
-                ✓ Si te gusta, lo pasas a Estreno después — el guion, el elenco y las imágenes ya no se vuelven a pagar.
+                ✓ Si te gusta, la conviertes en la versión para publicar después — y solo pagas la diferencia: el guion, los personajes y las imágenes ya están hechos.
               </p>
             )}
           </div>
+
+          {/* ── RESUMEN EN UNA LÍNEA ──
+              Tres filas de decisiones son mucho para leer de golpe. Esta línea
+              las junta en una frase que cualquiera entiende, con el precio en
+              NAVOS y en dólares, ANTES de apretar generar. */}
+          {navosPor60s !== null && (() => {
+            const seg = videoSecondsFor(form.duration_target);
+            const navos = Math.round((calidad === "borrador" ? BORRADOR_NAVOS : navosPor60s) * (seg / 60));
+            return (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
+                <p className="text-[11px] text-zinc-500 mb-0.5">Vas a producir</p>
+                <p className="text-sm text-zinc-200">
+                  <span className="font-extrabold text-white">{form.format === "consejo" ? "Un consejo" : "Una historia"}</span>
+                  {" · "}<span className="font-bold">{seg} segundos</span>
+                  {" · "}<span className="font-bold">{calidad === "borrador" ? "para verla primero" : "lista para publicar"}</span>
+                </p>
+                <p className="text-[11px] mt-1 font-bold text-violet-300/90">
+                  {precioLegible(navos)}
+                  {credits !== null && (
+                    <span className="font-normal text-zinc-500"> · te quedan {Math.max(0, credits - navos).toLocaleString("es")} NAVOS después</span>
+                  )}
+                </p>
+              </div>
+            );
+          })()}
 
           </div>
 
