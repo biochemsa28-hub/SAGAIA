@@ -1019,7 +1019,9 @@ export async function assembleWithFfmpeg(params: {
           await download(s.url, f);
           inputs.push("-i", f);
           const ms = Math.max(0, Math.round(((boundaries[i] ?? 0) + 0.45) * 1000));
-          filters.push(`[${idx}:a]adelay=${ms}|${ms},volume=0.32[sx${i}]`);
+          // Más bajo (0.32 → 0.22) y con entrada/salida suaves: un efecto que
+          // arranca en seco sobre el ambiente del clip se oye como un pop.
+          filters.push(`[${idx}:a]afade=t=in:d=0.06,afade=t=out:st=1.1:d=0.4,adelay=${ms}|${ms},volume=0.22[sx${i}]`);
           mixLabels.push(`[sx${i}]`);
           idx++;
         } catch { /* un efecto que no baja no vale el render entero */ }

@@ -115,7 +115,10 @@ export async function generateSceneSfx(
     const tanda = await Promise.all(
       recortados.slice(i, i + LOTE).map(async (e) => {
         const clave = "esc_" + e.p.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 48);
-        const url = await generate(clave, e.p, 3);
+        // 1.5s, no 3: el sfx es un evento con principio y fin. A 3s el modelo de
+        // sonido rellena con textura, y esa textura es el "ruido raro" sobre el
+        // ambiente que el clip ya trae.
+        const url = await generate(clave, e.p, 1.5);
         return url ? { scene_number: e.n, url } : null;
       }),
     );

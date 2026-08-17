@@ -98,7 +98,16 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number): 
       // Tramos de esta línea. La acción de entrada necesita tiempo REAL para
       // leerse: un beso de tres cuadros no es un beso.
       const t0 = porLinea * i;
-      const tAntes = antes ? t0 + porLinea * 0.32 : t0;
+      // ── AIRE ANTES DE LA PRIMERA PALABRA ───────────────────────────────
+      // Medido con un clip real: "Kiara, no me toques. Genaro y Fabricio ya lo
+      // sabían" salió "Caliara nomitox. Genaro y Fabricio ya lo sabían" — los
+      // nombres difíciles PERFECTOS y la primera frase destrozada. Y encaja con
+      // todo lo visto en videos terminados: "tokeks", "callar a Kiara",
+      // "Ginaro" — siempre las primeras palabras de un clip. El modelo arranca
+      // la voz antes de estabilizarla. Medio segundo de silencio con el cuerpo
+      // (una respiración, una mirada) antes de la primera palabra le da pista.
+      const respiro = i === 0 && !antes && total ? Math.min(0.6, porLinea * 0.25) : 0;
+      const tAntes = antes ? t0 + porLinea * 0.32 : t0 + respiro;
       const tHabla = despues ? t0 + porLinea * 0.82 : t0 + porLinea;
 
       return (
@@ -107,7 +116,9 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number): 
         // no informa nada y encima le dice al modelo que esa acción dura cero.
         (antes
           ? `${total ? reloj(t0, tAntes) + " " : ""}FIRST, before any words — hold this long enough to read: ${antes}. THEN, `
-          : "") +
+          : respiro
+            ? `${reloj(t0, tAntes)} FIRST, a silent beat — the character takes a breath and looks, no words yet. THEN, `
+            : "") +
         (total ? `${reloj(tAntes, tHabla)} ` : "") +
         `${comoSeVe(l)} ${verbo}, in Spanish: "${l.text.trim()}"` +
         (accion ? ` — while doing this: ${accion}` : "") +
@@ -146,10 +157,26 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number): 
     "If someone slaps, the hand lands. A gesture that stops halfway reads as a mistake, not as restraint. " +
     "Give each action the seconds it needs — the timings below are the schedule, follow them.";
 
+  // ── PRONUNCIACIÓN Y SONIDO PROPIO DEL CLIP ─────────────────────────────
+  // Medido en videos terminados: "no me toques" salió "mi tokeks", "Genaro"
+  // salió "Ginaro", "Fabricio" salió "Fabrigio". El modelo improvisa la
+  // dicción si no se le pide clara. Y genera su propia música y sus propios
+  // efectos, que se superponen a los nuestros en la mezcla — dos ambientes
+  // sintéticos encima es el "ruido raro" del arranque. La voz sale de acá; la
+  // música y los efectos los ponemos nosotros.
+  const diccion =
+    " PRONUNCIATION: neutral Latin American Spanish, clear articulation, every word pronounced exactly as written — " +
+    "no mumbling, no swallowed syllables, no invented words. Proper names are read as spelled in Spanish " +
+    "(each vowel sounds; 'c' before e/i sounds like 's', 'g' before e/i sounds like a soft 'h', 'j' sounds like a soft 'h'). " +
+    "Natural conversational pace, slightly slower on names." +
+    " AUDIO: dialogue and natural room tone only — NO background music, NO added sound effects, NO score, NO stingers; " +
+    "the soundtrack is added later.";
+
   return (
     " The characters SPEAK this dialogue out loud, in Spanish, in this exact order, " +
     "with the emotion the scene calls for. Do not invent other lines, do not narrate, " +
     "no voice-over — only these characters speaking to each other on camera." +
+    diccion +
     turnos +
     accionCompleta +
     " " + quoted
