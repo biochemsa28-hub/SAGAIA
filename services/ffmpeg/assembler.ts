@@ -399,6 +399,28 @@ function buildAssContent(
   }
   flush();
 
+  // ── NINGÚN CARTEL DE UNA SOLA PALABRA SIN PUNTUACIÓN ──────────────────────
+  // El guardia de arriba cubre el corte por tamaño, pero no el flush final del
+  // segmento ni el caso en que Whisper le asigna a una palabra un tramo que
+  // abarca la pausa siguiente. Medido en un video terminado: "QUE" solo en
+  // pantalla durante casi tres segundos, dos veces seguidas, en "Que no
+  // estábamos juntos". Se fusiona con el cartel siguiente (o con el anterior si
+  // es el último). Un "¡Sofía!" con signo se queda solo, como debe.
+  for (let i = 0; i < chunks.length; ) {
+    const c = chunks[i]!;
+    const solaSinPunto = c.words.length === 1 && !/[.!?…]$/.test(c.words[0]!.word.trim());
+    if (!solaSinPunto) { i++; continue; }
+    if (chunks[i + 1]) {
+      const n = chunks[i + 1]!;
+      chunks.splice(i, 2, { words: [...c.words, ...n.words], start: c.start, end: n.end });
+    } else if (chunks[i - 1]) {
+      const p = chunks[i - 1]!;
+      chunks.splice(i - 1, 2, { words: [...p.words, ...c.words], start: p.start, end: c.end });
+    } else {
+      i++;
+    }
+  }
+
   // ── Emit dialogue lines ────────────────────────────────────────────────────
   for (let i = 0; i < chunks.length; i++) {
     const c = chunks[i]!;
@@ -990,13 +1012,32 @@ export async function assembleWithFfmpeg(params: {
       }
 
       // Impact on the opening beat — the "stop scrolling" punch.
-      if (params.sfxImpactUrl) {
+      //
+      // A 0.5 era EL ELEMENTO MÁS FUERTE DE TODA LA MEZCLA, antes de la primera
+      // palabra. Medido en cinco videos terminados: el primer segundo suena
+      // entre 5 y 12 dB más fuerte que el cuerpo del video (terror: -9.6 dB
+      // contra -21; el romance aprobado: pico a -1.4 dB, casi al clip). Un boom
+      // de tráiler sobre una confesión íntima — y el usuario lo describió
+      // exacto: "al inicio todos los videos salen con un sonido muy mal".
+      //
+      // El golpe existe para marcar el arranque, no para asustar: en géneros
+      // oscuros baja a 0.22 (sigue leyéndose como golpe), en el resto a 0.10
+      // (un acento, no un impacto). Y en el formato consejo/UGC no va: nadie
+      // te da un consejo con un boom.
+      const nicho = (params.niche ?? "").toLowerCase();
+      const oscuro = /terror|horror|thriller|misterio|mystery|crimen|crime/.test(nicho);
+      const sinGolpe = /consejo|publicidad|ads?\b|ugc/.test(nicho);
+      if (params.sfxImpactUrl && !sinGolpe) {
         const im = join(dir, "impact.mp3");
         await download(params.sfxImpactUrl, im);
         inputs.push("-i", im);
-        filters.push(`[${idx}:a]adelay=150|150,volume=0.5[imp]`);
+        const vol = oscuro ? 0.22 : 0.10;
+        filters.push(`[${idx}:a]adelay=150|150,volume=${vol}[imp]`);
         mixLabels.push("[imp]");
         idx++;
+        console.log(`[audio] golpe de apertura a ${vol} (${oscuro ? "género oscuro" : "género suave"})`);
+      } else if (params.sfxImpactUrl) {
+        console.log(`[audio] sin golpe de apertura (${nicho})`);
       }
 
       if (mixLabels.length > 1) {

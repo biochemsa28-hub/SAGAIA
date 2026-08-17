@@ -11,6 +11,7 @@ import { buildDialogueDirection, transcribeClip } from "@/services/video/native-
 import { trimClipHead } from "@/services/ffmpeg/trim";
 import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, esBorrador, CLIP_BUDGET } from "@/lib/config";
 import { ACCION_CLAVE } from "@/lib/ai/accion-clave";
+import { similitudVoz, VOZ_MINIMA } from "@/services/quality/voz";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -1041,6 +1042,8 @@ export async function POST(req: NextRequest) {
       // Stage-aware checker: PRO motion → Seedance; PRO lipsync → video lip-sync;
       // otherwise talking → VEED image lip-sync; cinematic → Seedance.
       const collectDetail = await getProjectDetail(parsed.data.project_id, userId);
+      // escena → ¿la voz del clip coincide con el guion? (ver [voz] abajo)
+      const vozPorEscena = new Map<number, boolean>();
       const collectUser = await getUserById(userId).catch(() => null);
       const collectTier = resolveProjectTier(collectDetail?.project.animation_tier, collectUser?.plan ?? "free");
       const stage = parsed.data.stage;
@@ -1152,6 +1155,27 @@ export async function POST(req: NextRequest) {
           const transcript = NATIVE_AUDIO_ON
             ? await transcribeClip(durableUrl, NATIVE_AUDIO_LANGUAGE).catch(() => null)
             : null;
+          // ── LA VOZ SE COMPARA CON EL GUION ─────────────────────────────
+          // Medido en un video terminado: el pico emocional decía "No, mi
+          // Tokeks. No. Mi Tokeks." — el audio nativo masticó "no me toques" y
+          // nadie lo verificó; el subtítulo copió el error porque nace del
+          // audio. La transcripción ya existe (es la de los subtítulos): compararla
+          // con el guion cuesta cero. Si la voz se aparta demasiado, el clip se
+          // marca y el worker lo vuelve a pedir UNA vez.
+          let vozScore: number | null = null;
+          if (transcript && collectDetail?.scenes?.length) {
+            const escenasDelBloque = blockScenes?.length ? blockScenes : [r.scene_number];
+            const guion = escenasDelBloque
+              .map((n) => collectDetail.scenes.find((s) => s.scene_number === n)?.narration_text ?? "")
+              .join(" ");
+            vozScore = similitudVoz(guion, transcript.text);
+            const ok = vozScore >= VOZ_MINIMA;
+            vozPorEscena.set(r.scene_number, ok);
+            console.log(
+              `[voz] escena ${r.scene_number}: ${Math.round(vozScore * 100)}% del guion reconocido en el audio` +
+              (ok ? "" : ` — POR DEBAJO DE ${Math.round(VOZ_MINIMA * 100)}%: la voz se apartó del guion ("${transcript.text.slice(0, 60)}")`),
+            );
+          }
           if (transcript) {
             console.log(`[nativo] escena ${r.scene_number}: "${transcript.text.slice(0, 70)}" (${transcript.words.length} palabras)`);
           } else if (!NATIVE_AUDIO_ON) {
@@ -1178,7 +1202,7 @@ export async function POST(req: NextRequest) {
             metadata: (blockScenes && blockScenes.length > 1) || transcript
               ? JSON.stringify({
                   ...(blockScenes && blockScenes.length > 1 ? { block: blockScenes } : {}),
-                  ...(transcript ? { native_audio: true, text: transcript.text, wordTimings: transcript.words } : {}),
+                  ...(transcript ? { native_audio: true, text: transcript.text, wordTimings: transcript.words, ...(vozScore !== null ? { voz_score: vozScore } : {}) } : {}),
                 })
               : undefined,
           });
@@ -1249,7 +1273,7 @@ export async function POST(req: NextRequest) {
         success: true,
         action: "collect",
         all_done: allDone,
-        scenes: results,
+        scenes: results.map((r) => ({ ...r, voz_ok: vozPorEscena.get(r.scene_number) ?? true })),
       });
     }
 
@@ -1265,3 +1289,5 @@ export async function GET() {
   const hasKey = Boolean(process.env.FAL_API_KEY);
   return NextResponse.json({ status: "ok", provider: process.env.VIDEO_MODEL ?? "seedance-pro", has_key: hasKey });
 }
+
+

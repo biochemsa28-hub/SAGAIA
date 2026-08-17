@@ -626,6 +626,26 @@ export async function POST(req: NextRequest) {
         for (const sc of marcadas.slice(0, -1)) sc.is_peak = false;
         console.warn(`[pico] el guion marcó ${marcadas.length} escenas como pico — se conserva la última`);
       }
+      // ── EL PICO MARCADO TIENE QUE SER FÍSICO ────────────────────────────────
+      // Medido en un video de infidelidad: el guion marcó is_peak en "she points
+      // a finger at him" y la traición se resolvió con un dedo. La guardia
+      // aceptaba cualquier escena marcada. Ahora, si la marcada no trae una
+      // acción que la regla reconozca como fuerte y ninguna otra escena la
+      // trae, la escena marcada RECIBE la acción del género (la tabla): la
+      // cachetada, el anillo que cae, la puerta en la cara. Es el mismo arreglo
+      // determinista que ya se usa cuando no hay pico — solo que ahora también
+      // se aplica al pico tibio.
+      const marcada = escenas.find((sc) => sc.is_peak);
+      const marcadaFuerte = Boolean(marcada && ACCION_CLAVE.test(marcada.physical_action ?? ""));
+      const otraFuerte = escenas.some((sc) => !sc.is_peak && ACCION_CLAVE.test(sc.physical_action ?? ""));
+      if (marcada && !marcadaFuerte && !otraFuerte) {
+        const reemplazo = picoPorDefecto(parsed.data.tone);
+        console.warn(
+          `[pico] la escena ${marcada.scene_number} está marcada como pico pero su acción es tibia ("${(marcada.physical_action ?? "").slice(0, 60)}") — ` +
+          `recibe la acción del género: "${reemplazo.slice(0, 70)}"`,
+        );
+        marcada.physical_action = reemplazo;
+      }
       const hayPico = marcadas.length > 0 || escenas.some((sc) => ACCION_CLAVE.test(sc.physical_action ?? ""));
 
       if (!hayPico) {
