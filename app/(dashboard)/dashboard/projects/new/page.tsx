@@ -634,6 +634,7 @@ function NewProjectForm() {
           tone: form.tone,
           language: form.language,
           visual_style: form.visual_style,
+          format: form.format,
         }),
       });
       if (res.status === 402) {

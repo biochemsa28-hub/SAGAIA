@@ -19,6 +19,7 @@ const BodySchema = z.object({
   language: z.string().default("es"),
   visual_style: z.string().default("cinematic"),
   max_characters: z.number().int().min(1).max(MAX_CAST).optional(),
+  format: z.enum(["story", "ad", "consejo"]).optional(),
 });
 
 // How many portrait options to generate per character (cost control).

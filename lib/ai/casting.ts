@@ -47,6 +47,8 @@ export interface CastingInput {
   language: string;
   visual_style: string;
   max_characters?: number;
+  /** "consejo": la protagonista le habla a cámara al espectador; los demás solo si la premisa los nombra. */
+  format?: "story" | "ad" | "consejo";
 }
 
 // ─── Prompts ────────────────────────────────────────────────────────────────
@@ -87,7 +89,8 @@ export function buildCastingUserPrompt(input: CastingInput): string {
 
 ━━━ PREMISA ━━━
 NICHO: ${input.niche}${input.sub_niche ? ` › ${input.sub_niche}` : ""}
-HISTORIA: ${input.topic}
+HISTORIA: ${input.topic}${input.format === "consejo" ? `
+FORMATO: CONSEJO EN PRIMERA PERSONA. La protagonista le habla A CÁMARA al espectador y cuenta lo que aprendió; su "role" lo dice ("la que te cuenta a cámara cómo se dio cuenta"). Los demás personajes SOLO si la premisa los nombra o los implica de forma inequívoca ("mi esposo", "mi jefe", "mi suegra"): son contra quienes se demuestra el consejo. Si la premisa es sobre ella misma ("cómo tener confianza en mí misma", "cómo manejar mi ansiedad") el elenco es UNA persona — nadie la salva, no inventes pareja ni antagonista.` : ""}
 TONO: ${input.tone}
 ESTILO VISUAL: ${input.visual_style}
 MÁXIMO DE PERSONAJES: ${max}
