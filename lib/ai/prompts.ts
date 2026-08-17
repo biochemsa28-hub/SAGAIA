@@ -32,7 +32,11 @@ const IMAGE_PROMPT_LANGUAGE_RULE =
   "\n\n⚠️ EXCEPCIÓN DE IDIOMA (CRÍTICA): los campos \"image_prompt\", \"animation_prompt\" y \"thumbnail_prompt\" DEBEN escribirse SIEMPRE en INGLÉS cinematográfico, aunque todo lo demás vaya en el idioma del usuario. Los modelos de imagen/video solo entienden inglés: si los escribes en español, se pierden los detalles y las imágenes salen genéricas. Todo lo demás (narration_text, títulos, hooks, CTA, SEO) va en el idioma del usuario.";
 
 const LANGUAGE_INSTRUCTION: Record<string, string> = {
-  es: "Escribe TODO en español latinoamericano natural y fluido. Usa vocabulario emocional, directo y coloquial." + IMAGE_PROMPT_LANGUAGE_RULE,
+  // TUTEO NEUTRO, NO VOSEO. Las instrucciones de este archivo están escritas en
+  // voseo rioplatense y el modelo lo imitaba: medido en un video terminado,
+  // "Tenés que borrar el hilo… eligiéndote a vos" para un público mexicano.
+  // Las reglas son para el modelo; el diálogo es para el espectador.
+  es: "Escribe TODO en español latinoamericano NEUTRO: TUTEO (tú tienes, elígete, mírame), NUNCA voseo (nada de 'tenés', 'vos', 'elegite', 'mirá') aunque estas instrucciones estén escritas así — el voseo es del que te habla a ti, no del personaje. Sin regionalismos marcados salvo que la premisa fije el país. Vocabulario emocional, directo y coloquial." + IMAGE_PROMPT_LANGUAGE_RULE,
   en: "Write EVERYTHING in natural, engaging English. Use emotional, direct language.",
   pt: "Escreva TUDO em português brasileiro natural e fluido. Use linguagem emocional e direta." + IMAGE_PROMPT_LANGUAGE_RULE,
 };

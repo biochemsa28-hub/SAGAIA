@@ -636,9 +636,19 @@ export async function POST(req: NextRequest) {
       // determinista que ya se usa cuando no hay pico — solo que ahora también
       // se aplica al pico tibio.
       const marcada = escenas.find((sc) => sc.is_peak);
+      const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const marcadaFuerte = Boolean(marcada && ACCION_CLAVE.test(marcada.physical_action ?? ""));
       const otraFuerte = escenas.some((sc) => !sc.is_peak && ACCION_CLAVE.test(sc.physical_action ?? ""));
-      if (marcada && !marcadaFuerte && !otraFuerte) {
+      // ── EN CONSEJO, NUNCA. ─────────────────────────────────────────────
+      // El pico de un consejo es el consejo EJECUTADO: borrar el hilo, bloquear,
+      // tirar la camiseta, cerrar la puerta. Nada de eso figura en la lista de
+      // acciones "fuertes" del drama, así que esta guardia lo tomaba por tibio y
+      // lo reemplazaba por la acción del género — en romance, EL BESO. Medido:
+      // "cómo superar a mi ex" terminó con ella besando a un hombre mientras
+      // decía "se supera eligiéndote a vos". La referencia del beso existe para
+      // que el sistema PUEDA cerrar un contacto cuando el guion lo pide, no para
+      // meterlo por defecto. En consejo, lo que marcó el guionista se respeta.
+      if (marcada && !marcadaFuerte && !otraFuerte && !esConsejo) {
         const reemplazo = picoPorDefecto(parsed.data.tone);
         console.warn(
           `[pico] la escena ${marcada.scene_number} está marcada como pico pero su acción es tibia ("${(marcada.physical_action ?? "").slice(0, 60)}") — ` +
@@ -648,7 +658,7 @@ export async function POST(req: NextRequest) {
       }
       const hayPico = marcadas.length > 0 || escenas.some((sc) => ACCION_CLAVE.test(sc.physical_action ?? ""));
 
-      if (!hayPico) {
+      if (!hayPico && !esConsejo) {
         // La anteúltima: es donde cae el punto de quiebre en una estructura de
         // seis escenas, y deja la última para el cliffhanger.
         const idx = Math.max(0, escenas.length - 2);

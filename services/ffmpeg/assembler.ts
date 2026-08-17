@@ -317,7 +317,15 @@ function conciliarConGuion(
     // cae al reparto desde el guion, más abajo
   } else {
     const aciertos = escritas.filter((p) => set.has(p)).length;
-    if (aciertos / escritas.length >= 0.8) return timings;
+    // ── LAS PALABRAS DEL GUION, LOS TIEMPOS DE WHISPER ────────────────────
+    // Antes, con ≥80% de coincidencia se devolvía la transcripción ENTERA — con
+    // la palabra mal adentro: "ALIGIÉNDOTE", "BLOCALO", "SUPE SER SÍSMICO" en
+    // pantalla. Ahora se alinean las dos secuencias (subsecuencia común más
+    // larga) y se emite SIEMPRE el texto del guion: donde una palabra coincide
+    // toma su tiempo medido; donde el guion tiene palabras que Whisper no oyó,
+    // se reparten entre los vecinos alineados. Ortografía del guion, sincronía
+    // de Whisper.
+    if (aciertos / escritas.length >= 0.8) return alinearConGuion(timings, delGuion);
   }
 
   // Difiere demasiado: se conserva el TRAMO hablado que Whisper detecto y se
@@ -335,6 +343,48 @@ function conciliarConGuion(
     t += d;
     return w;
   });
+}
+
+// Alineación por subsecuencia común más larga entre las palabras oídas y las
+// del guion. Devuelve las palabras del GUION con tiempos: los medidos donde
+// hubo coincidencia, interpolados entre vecinos donde no.
+function alinearConGuion(
+  timings: Array<{ word: string; start: number; end: number }>,
+  guion: string,
+): Array<{ word: string; start: number; end: number }> {
+  const palabras = guion.split(/\s+/).filter(Boolean);
+  const A = timings.map((t) => normalizar(t.word)[0] ?? "");
+  const B = palabras.map((p) => normalizar(p)[0] ?? "");
+  const n = A.length, m = B.length;
+  if (!n || !m) return timings;
+  // LCS
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    dp[i]![j] = A[i] && A[i] === B[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
+  const match = new Array<number>(m).fill(-1); // índice de timing para cada palabra del guion
+  for (let i = 0, j = 0; i < n && j < m;) {
+    if (A[i] && A[i] === B[j]) { match[j] = i; i++; j++; }
+    else if (dp[i + 1]![j]! >= dp[i]![j + 1]!) i++;
+    else j++;
+  }
+  // Tiempos: coincidencia → medido; huecos → repartidos entre el fin del último
+  // ancla y el inicio del siguiente (o los bordes del tramo hablado).
+  const out: Array<{ word: string; start: number; end: number }> = [];
+  const t0 = timings[0]!.start, tN = timings[n - 1]!.end;
+  let j = 0;
+  while (j < m) {
+    if (match[j]! >= 0) { const t = timings[match[j]!]!; out.push({ word: palabras[j]!, start: t.start, end: t.end }); j++; continue; }
+    // hueco j..k-1
+    let k = j; while (k < m && match[k]! < 0) k++;
+    const desde = j > 0 ? out[out.length - 1]!.end : t0;
+    const hasta = k < m ? timings[match[k]!]!.start : tN;
+    const span = Math.max(0.15 * (k - j), hasta - desde);
+    const total = palabras.slice(j, k).reduce((acc, p) => acc + p.length + 1, 0);
+    let t = desde;
+    for (let q = j; q < k; q++) { const d = (span * (palabras[q]!.length + 1)) / total; out.push({ word: palabras[q]!, start: t, end: t + d }); t += d; }
+    j = k;
+  }
+  return out;
 }
 
 // Build an ASS subtitle file for one scene: CapCut captions from word timings,
