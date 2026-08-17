@@ -43,6 +43,9 @@ const TAIL_KEEP = Math.max(0.5, Number(process.env.TAIL_SILENCE_KEEP ?? 2) || 2)
 // (medido: dos videos a -20 dB de media, picos a -0.8). -14 es el nivel del
 // feed; el techo real de picos (-1.5 dBTP) sigue protegiendo de la distorsión.
 const LOUDNORM_LUFS = Number(process.env.LOUDNORM_LUFS ?? -14) || -14;
+// Objetivo POR CLIP antes de concatenar (ver el segmento con audio nativo). Un
+// poco por debajo del final para dejar sitio a música y efectos en la mezcla.
+const CLIP_LUFS = Number(process.env.CLIP_LUFS ?? -16) || -16;
 // Living-atmosphere pass over still frames (grain that moves every frame). Off via
 // ATMOSPHERE=off if you ever want perfectly clean stills.
 // Ken Burns oversamples so the zoom does not pixelate. 2x (4K per scene) needs
@@ -714,9 +717,20 @@ async function buildSceneClip(
         // La narración manda sobre la duración del segmento: un bloque narrativo
         // apila varias escenas sobre una sola generación, y cortar con -shortest
         // se comía líneas enteras. Pero el relleno ya no es una estatua indefinida.
-        "-filter_complex", `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${relleno}${lookDe(deco?.niche)}${subFilter}${outro}[v]`,
+        // ── CADA CLIP A LA MISMA SONORIDAD ───────────────────────────────
+        // Cada generación de Seedance sale con su propio volumen de voz, y el
+        // loudnorm del final empareja el PROMEDIO del video, no las diferencias
+        // entre escenas. Medido en un video terminado: -14.6 dB en una línea y
+        // -20.2 dB en la siguiente — 5.6 dB de salto entre dos réplicas, que
+        // se oye como "ahora grita, ahora susurra" sin que el guion lo pida.
+        // Se normaliza AQUÍ, clip por clip, a un objetivo fijo: determinista y
+        // sin bombeo. Solo aplica al audio nativo del clip; la narración de
+        // ElevenLabs ya sale pareja.
+        "-filter_complex",
+        `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${relleno}${lookDe(deco?.niche)}${subFilter}${outro}[v]` +
+        (!hasAudio && clipConAudio ? `;[0:a]loudnorm=I=${CLIP_LUFS}:TP=-1.5:LRA=7[a]` : ""),
         "-map", "[v]",
-        "-map", hasAudio ? "1:a" : (clipConAudio ? "0:a" : `${idxSilencio}:a`),
+        "-map", hasAudio ? "1:a" : (clipConAudio ? "[a]" : `${idxSilencio}:a`),
         ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
         ...SALIDA_UNIFORME, "-shortest", out,
       );

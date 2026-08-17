@@ -1,0 +1,10 @@
+import { readFileSync, existsSync } from "node:fs";
+import { createServer } from "node:http";
+import { resolve } from "node:path";
+const DIR = resolve("experimentos/salida/mezcla");
+const srv = createServer((req, res) => { const p = resolve(DIR, "." + req.url); if (!existsSync(p)) { res.statusCode = 404; return res.end(); } res.setHeader("content-type", "video/mp4"); res.end(readFileSync(p)); }).listen(0);
+const base = `http://127.0.0.1:${srv.address().port}`;
+process.env.ASSEMBLE_LOCAL_OUT = resolve(DIR, "nivelado.mp4");
+const { assembleWithFfmpeg } = await import("../services/ffmpeg/assembler.ts");
+await assembleWithFfmpeg({ scenes: [{ videoUrl: `${base}/fuerte.mp4`, durationSeconds: 4 }, { videoUrl: `${base}/suave.mp4`, durationSeconds: 4 }, { videoUrl: `${base}/fuerte.mp4`, durationSeconds: 4 }], niche: "drama", watermark: false });
+srv.close(); console.log("hecho");
