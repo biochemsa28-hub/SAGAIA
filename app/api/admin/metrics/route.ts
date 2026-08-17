@@ -117,21 +117,48 @@ export async function GET() {
     // "lecciones": defectos que se repiten en ≥3 videos. Un defecto aislado es
     // anécdota; uno que se repite es una regla que falta.
     type Aud = { segundos?: number; planos?: number; planoMasLargo?: number; quietoPct?: number; congelados?: unknown[]; volumenMedioDb?: number; silencios?: unknown[]; avisos?: string[] };
+    // Últimos 60 (no 20): con nichos y tonos separados, 20 no alcanza para que
+    // una lección se repita tres veces dentro de un mismo nicho.
     const finales = await rows(
-      "SELECT a.project_id, a.metadata, a.created_at, p.niche, p.duration_target FROM assets a JOIN projects p ON p.id = a.project_id " +
-      "WHERE a.asset_type = 'final_video' AND a.metadata IS NOT NULL ORDER BY a.created_at DESC LIMIT 20",
+      "SELECT a.project_id, a.metadata, a.created_at, p.niche, p.tone, p.visual_style, p.duration_target FROM assets a JOIN projects p ON p.id = a.project_id " +
+      "WHERE a.asset_type = 'final_video' AND a.metadata IS NOT NULL ORDER BY a.created_at DESC LIMIT 60",
     );
-    const auditados = finales
-      .map((r) => { try { const m = JSON.parse(String(r.metadata)) as { audit?: Aud; pedido_seg?: number }; return m.audit ? { ...m, niche: r.niche, at: r.created_at } : null; } catch { return null; } })
-      .filter((x): x is { audit: Aud; pedido_seg?: number; niche: unknown; at: unknown } => Boolean(x));
+    type Row = { audit: Aud; pedido_seg?: number; niche: string; tone: string; estilo: string; at: unknown };
+    const auditados: Row[] = (finales
+      .map((r) => { try { const m = JSON.parse(String(r.metadata)) as { audit?: Aud; pedido_seg?: number }; return m.audit ? { audit: m.audit, pedido_seg: m.pedido_seg, niche: String(r.niche ?? "?"), tone: String(r.tone ?? "?"), estilo: String(r.visual_style ?? "?"), at: r.created_at } : null; } catch { return null; } })
+      .filter((x): x is Row => Boolean(x))) as Row[];
     const prom = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
     const conteo = new Map<string, number>();
     for (const a of auditados) for (const av of a.audit.avisos ?? []) {
       const clave = av.replace(/[\d.,]+s?/g, "N").replace(/\s+/g, " ").slice(0, 70);
       conteo.set(clave, (conteo.get(clave) ?? 0) + 1);
     }
+    // Resumen por grupo (nicho / tono / estilo): promedio y la lección más
+    // repetida DENTRO del grupo. Es lo que permite decir "en terror los planos
+    // se alargan" o "en anime el % quieto es mayor" con números, y escribir la
+    // regla donde hace falta y no para todos.
+    const resumen = (grupo: Row[]) => {
+      const c = new Map<string, number>();
+      for (const a of grupo) for (const av of a.audit.avisos ?? []) { const k = av.replace(/[d.,]+s?/g, "N").replace(/s+/g, " ").slice(0, 70); c.set(k, (c.get(k) ?? 0) + 1); }
+      const top = [...c.entries()].sort((a, b) => b[1] - a[1])[0];
+      return {
+        videos: grupo.length,
+        quieto_pct: prom(grupo.map((a) => a.audit.quietoPct ?? 0)),
+        plano_max: prom(grupo.map((a) => a.audit.planoMasLargo ?? 0)),
+        con_avisos: grupo.filter((a) => (a.audit.avisos?.length ?? 0) > 0).length,
+        leccion: top && top[1] >= 2 ? { aviso: top[0], videos: top[1] } : null,
+      };
+    };
+    const agrupar = (clave: (r: Row) => string) => {
+      const m = new Map<string, Row[]>();
+      for (const a of auditados) { const k = clave(a); m.set(k, [...(m.get(k) ?? []), a]); }
+      return Object.fromEntries([...m.entries()].sort((a, b) => b[1].length - a[1].length).map(([k, g]) => [k, resumen(g)]));
+    };
     const calidad = {
       videos_medidos: auditados.length,
+      por_nicho: agrupar((r) => r.niche),
+      por_tono: agrupar((r) => r.tone),
+      por_estilo: agrupar((r) => r.estilo),
       quieto_pct_promedio: prom(auditados.map((a) => a.audit.quietoPct ?? 0)),
       plano_mas_largo_promedio: prom(auditados.map((a) => a.audit.planoMasLargo ?? 0)),
       volumen_db_promedio: prom(auditados.map((a) => a.audit.volumenMedioDb ?? 0)),
