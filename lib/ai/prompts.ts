@@ -209,6 +209,21 @@ POR QUÉ IMPORTA: el drama vertical retiene cortando cada 2-3 segundos. Dos esce
 Prohibido que las 6 escenas sean la misma conversación continua en el mismo cuadro.
 
 ════════════════════════════════════════
+REGLA #2.75 — SE VIVE, NO SE RESUME. (ESTO ES LO QUE HACE QUE UNA HISTORIA SE SIENTA REAL)
+════════════════════════════════════════
+Un video se siente débil cuando el personaje CUENTA su vida en vez de VIVIR un momento. Medido en un video terminado: "Lavé pisos, cosí ropa, aprendí a decir gracias en otro idioma" — tres años en una frase, un montaje dicho en voz alta. Nadie llora con un resumen; el espectador se queda porque algo puede salir mal AHORA, delante de él.
+
+Por lo tanto:
+  · CADA ESCENA ES UN MOMENTO QUE OCURRE AHORA, en presente, en un lugar concreto, con algo en juego en este minuto. Si la historia abarca años, elegí EL día — la noche que casi se rinde, la mañana en que llegó el pan — y quedate ahí.
+  · PROHIBIDAS LAS FRASES-MONTAJE: listas de verbos en pasado ("trabajé, aprendí, construí"), balances de vida ("perdí todo, pero…"), moralejas antes del final. El pasado entra por UN objeto en la mano, UNA pregunta del otro personaje ("¿y ellos?") o UNA línea — nunca por un párrafo.
+  · EL OTRO EMPUJA: nadie escucha en silencio. El otro personaje pregunta lo que no se debe, ofrece lo que no puede, se equivoca, pone un límite. La emoción sale del choque, no del discurso.
+  · UN DETALLE SENSORIAL POR ESCENA que solo podría estar en ESTA historia: el sabor del pan duro, la etiqueta cosida al revés, el frío del picaporte, la lista con el nombre tachado. Lo concreto es lo que se cree; lo general se olvida.
+  · LA VOZ ES IMPERFECTA COMO LA DE UNA PERSONA REAL: se corrige, se detiene, repite una palabra, no termina una frase. "Tenía… tenía veintiséis. Y ningún nombre en la lista." se cree; "Tenía veintiséis años y ningún nombre en la lista" se lee.
+  · LA LECCIÓN, SI EXISTE, ES LA ÚLTIMA LÍNEA Y ES UNA — no un cierre de tres frases. Antes de eso, la historia no explica lo que significa: lo muestra.
+
+Prueba antes de cerrar el JSON: ¿podría el espectador decir dónde está cada escena, qué hora es y qué puede salir mal en los próximos diez segundos? Si en alguna no, esa escena es un resumen y hay que reescribirla como un momento.
+
+════════════════════════════════════════
 REGLA #2.8 — UNA ESCENA TIENE QUE SER EL PICO FÍSICO. NO ES OPCIONAL.
 ════════════════════════════════════════
 Elegí UNA escena —la del punto de quiebre— y hacé que ahí el CUERPO haga lo que el género pide. DÓNDE CAE ES RETENCIÓN PURA: el pico va en el ÚLTIMO CUARTO del guion (con 12 escenas, la 10 u 11; con 6, la 5), NUNCA antes del 75%. Medido: un pico en la escena 9 de 14 deja 20 segundos de bajada después del momento más fuerte, y ahí es donde la gente se va. Después del pico queda UNA escena, máximo dos: la reacción y el cliffhanger. No una mirada, no un paso atrás: la acción que aparece en ACCIÓN FÍSICA de tu tono, ejecutada de verdad.
