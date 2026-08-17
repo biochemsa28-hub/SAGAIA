@@ -85,21 +85,21 @@ Genera EXACTAMENTE este JSON (sin texto adicional):
     {
       "id": "question",
       "type": "question",
-      "type_label": "En crisis",
+      "type_label": "${input.format === "consejo" ? "Lo que me pasa" : "En crisis"}",
       "text": "lo que el personaje DICE reaccionando a algo que ya está pasando (máx 20 palabras)",
       "why": "por qué esta línea detiene el scroll (1 frase)"
     },
     {
       "id": "in_medias_res",
       "type": "in_medias_res",
-      "type_label": "A otro personaje",
+      "type_label": "${input.format === "consejo" ? "Lo que me digo" : "A otro personaje"}",
       "text": "lo que el personaje LE DICE a otro, nombrándolo o reclamándole (máx 20 palabras)",
       "why": "por qué esta línea detiene el scroll (1 frase)"
     },
     {
       "id": "shocking_fact",
       "type": "shocking_fact",
-      "type_label": "Lo que admite",
+      "type_label": "${input.format === "consejo" ? "Lo que admito" : "Lo que admite"}",
       "text": "lo que el personaje ADMITE en voz alta y le cuesta decir (máx 20 palabras)",
       "why": "por qué esta línea detiene el scroll (1 frase)"
     }
