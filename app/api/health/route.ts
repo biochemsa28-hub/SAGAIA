@@ -195,13 +195,26 @@ export async function GET(req: Request) {
     // revocada. Con solo mirar la forma, el chequeo diría "anthropic: ok"
     // mientras ningún guion se genera, y el problema se buscaría en otro lado.
     //
-    // /v1/models es una LECTURA: no genera nada y no gasta tokens.
+    // /v1/models era una LECTURA y por eso no servía: respondía "ok" con la
+    // cuenta SIN SALDO — medido: la app decía "La cuenta de Claude no tiene
+    // saldo" mientras el health decía anthropic: ok. El saldo solo se ve al
+    // generar. Un mensaje de 1 token cuesta una fracción de centavo y dice la
+    // verdad: 200 = hay saldo; 400 con "credit balance" = sin saldo; 401 =
+    // llave mala.
     const an = process.env.ANTHROPIC_API_KEY;
     live.anthropic = an
-      ? await fetch("https://api.anthropic.com/v1/models?limit=1", {
-          headers: { "x-api-key": an, "anthropic-version": "2023-06-01" },
+      ? await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": an, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6", max_tokens: 1, messages: [{ role: "user", content: "." }] }),
         })
-          .then((r) => (r.ok ? "ok" : `RECHAZADA (${r.status})`))
+          .then(async (r) => {
+            if (r.ok) return "ok";
+            const t = (await r.text().catch(() => "")).toLowerCase();
+            if (r.status === 400 && /credit|balance|billing/.test(t)) return "SIN SALDO — recargar en console.anthropic.com";
+            if (r.status === 401) return "RECHAZADA (llave inválida)";
+            return `RECHAZADA (${r.status})`;
+          })
           .catch((e) => `sin respuesta: ${e instanceof Error ? e.message.slice(0, 60) : "error"}`)
       : "no configurada";
 
