@@ -126,7 +126,7 @@ export async function GET() {
     type Row = { audit: Aud; pedido_seg?: number; niche: string; tone: string; estilo: string; at: unknown };
     const auditados: Row[] = (finales
       .map((r) => { try { const m = JSON.parse(String(r.metadata)) as { audit?: Aud; pedido_seg?: number }; return m.audit ? { audit: m.audit, pedido_seg: m.pedido_seg, niche: String(r.niche ?? "?"), tone: String(r.tone ?? "?"), estilo: String(r.visual_style ?? "?"), at: r.created_at } : null; } catch { return null; } })
-      .filter((x): x is Row => Boolean(x))) as Row[];
+      .filter((x) => x !== null)) as Row[];
     const prom = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
     const conteo = new Map<string, number>();
     for (const a of auditados) for (const av of a.audit.avisos ?? []) {
