@@ -223,7 +223,11 @@ export function suavizarParaModeracion(prompt: string): string {
 // Los adjetivos de vestuario y anatomía son los que disparan la moderación, y
 // son justamente los que el RETRATO ya aporta mejor que cualquier frase.
 const DESCRIPCION_DE_CUERPO =
-  /\b(?:[\w-]+\s+){0,3}(shirt|t-shirt|blouse|dress|robe|pyjamas|pajamas|trousers|pants|skirt|sweater|coat|jacket|nightgown|slip|underwear|bathrobe|torso|chest|shoulders|thighs|legs|skin|body|hair)\b(?:\s+[\w-]+){0,4}/gi;
+  // Lista AMPLIA de prendas. Medido en un video: "light blue camisole" y "red
+  // tank top" no estaban acá, sobrevivían en el texto y le ganaban al retrato
+  // — la protagonista alternó TRES atuendos en 16 cuadros. Cualquier palabra de
+  // ropa que quede en el prompt es una puerta a la deriva.
+  /\b(?:[\w-]+\s+){0,3}(shirt|t-shirt|tee|blouse|(?:tank|crop|halter|silk|cotton|satin|red|blue|black|white|green|pink|grey|gray|yellow|purple|lilac|lavender|beige|cream|navy)[ -]?top|camisole|cami|dress|gown|robe|pyjamas?|pajamas?|pj'?s|nightgown|nightshirt|nightie|trousers|pants|jeans|shorts|leggings|skirt|sweater|sweatshirt|hoodie|cardigan|pullover|jumper|vest|coat|jacket|blazer|suit|tie|scarf|shawl|apron|uniform|overalls|slip|lingerie|underwear|bra|swimsuit|bikini|hat|cap|beanie|hood|glasses|sunglasses|sneakers|boots|heels|sandals|socks|torso|chest|cleavage|shoulders|thighs|legs|skin|body|hair)\b(?:\s+[\w-]+){0,4}/gi;
 
 // Lo ÚNICO que se conserva en el último recurso: qué siente. Sin esto el retrato
 // sale neutro y la escena pierde la emoción además del lugar; con esto al menos

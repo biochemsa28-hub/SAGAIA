@@ -357,7 +357,9 @@ export async function POST(req: NextRequest) {
       //    y 22 segundos de bajada. El algoritmo paga segundos vistos; la bajada
       //    es donde se van. Umbral 70%: el prompt pide último cuarto, se tolera
       //    un poco menos antes de pagar un reintento.
-      type EscenaMin = { scene_number?: number; narration_text?: string | null; image_prompt?: string | null; is_peak?: boolean };
+      type EscenaMin = { scene_number?: number; narration_text?: string | null; image_prompt?: string | null; is_peak?: boolean; physical_action?: string | null };
+      const esRuptura = /(ex|ex[ -]?(novio|novia|esposo|esposa|pareja)|superar|olvidar|ruptura|terminar|me (engañ|dej[oó]))/i.test(parsed.data.topic);
+      const BESO = /kiss|lips|bes[oa]s?|bes[aá]ndo|embrac|hug|abraz|foreheads? (touch|press)|his (arms|hand) around her/i;
       const picoTemprano = (scenes: EscenaMin[]) => {
         const i = scenes.findIndex((s) => s.is_peak);
         if (i < 0 || scenes.length < 5) return null;
@@ -375,6 +377,14 @@ export async function POST(req: NextRequest) {
           if (a && b && parecidos(a, b) >= 0.65) duplicadas.push(`${scenes[i - 1]!.scene_number}-${scenes[i]!.scene_number}`);
         }
         const temprano = picoTemprano(scenes);
+        // 5) BESO/CONTACTO EN UN CONSEJO DE RUPTURA. Medido dos veces: "cómo
+        //    superar a mi ex" salió con ella besando al ex — una vez por una
+        //    guardia mía, y otra porque el guionista lo escribió como recuerdo.
+        //    Un consejo de superar no puede mostrar el contacto que enseña a
+        //    soltar. Se detecta en physical_action e image_prompt.
+        const besoIndebido = esConsejo && esRuptura
+          ? scenes.filter((sc) => BESO.test(`${sc.physical_action ?? ""} ${sc.image_prompt ?? ""}`)).map((sc) => sc.scene_number ?? 0)
+          : [];
         // 4) Un CONSEJO sin consejos. Medido con "cómo ahorrar dinero cuando
         //    ganás poco": el bloque de formato estaba en el prompt y aun así
         //    salió un drama madre-hija sin una sola instrucción — 31k
@@ -382,7 +392,7 @@ export async function POST(req: NextRequest) {
         //    y ninguna réplica nombra un paso/consejo/regla/señal, falta la
         //    respuesta que el usuario pidió.
         const sinConsejo = esConsejo && !scenes.some((sc) => MARCA_CONSEJO.test(sc.narration_text ?? ""));
-        return { largas, duplicadas, temprano, sinConsejo, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinConsejo ? 1 : 0) };
+        return { largas, duplicadas, temprano, sinConsejo, besoIndebido, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
@@ -392,7 +402,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -411,6 +421,9 @@ export async function POST(req: NextRequest) {
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
             : "") +
+          (defectos.besoIndebido.length
+            ? ` Las escenas ${defectos.besoIndebido.join(", ")} muestran un beso, abrazo o contacto con el ex (en physical_action o image_prompt). En un consejo de ruptura eso está PROHIBIDO, también como recuerdo: reemplazalo por un OBJETO (la foto en el teléfono, el suéter, la taza) o por la prueba que ella pasa a distancia. Misma ropa en todas las escenas.`
+            : "") +
           (defectos.sinConsejo
             ? " El usuario pidió un CONSEJO y el guion no contiene NINGÚN consejo dicho en voz alta: es un drama. Reescribilo para que un personaje diga, nombrados y con detalle concreto (número, tiempo, mecanismo), los pasos que el profesional del tema daría — y que el espectador pueda anotar. La emoción se queda; la respuesta se agrega."
             : "");
@@ -427,6 +440,21 @@ export async function POST(req: NextRequest) {
           } else {
             console.warn(`[escenas] el reintento no mejoró (${despues.total} defecto(s)) — se conserva el original`);
           }
+        }
+      }
+      // ── CIERRE DURO: EN UN CONSEJO DE RUPTURA, EL BESO NO LLEGA A PRODUCCIÓN ──
+      // Si el reintento tampoco lo sacó, se reescribe la escena a mano: la acción
+      // pasa a ser un objeto (el teléfono boca abajo) y la imagen se limpia de
+      // cuerpos juntos. Peor imagen que un beso bien dibujado; infinitamente
+      // mejor que enseñar lo contrario del consejo.
+      if (esConsejo && esRuptura && result.data?.scenes?.length) {
+        for (const sc of result.data.scenes as Array<{ scene_number?: number; physical_action?: string | null; image_prompt?: string | null; is_peak?: boolean }>) {
+          if (!BESO.test(`${sc.physical_action ?? ""} ${sc.image_prompt ?? ""}`)) continue;
+          console.warn(`[escenas] escena ${sc.scene_number}: beso/contacto en consejo de ruptura tras el reintento — se reescribe sin contacto`);
+          sc.physical_action = "she is holding the phone with his photo on the screen, alone | she turns it face down on the table and pushes it away";
+          sc.image_prompt = (sc.image_prompt ?? "")
+            .replace(/[^.]*\b(kiss\w*|lips|embrac\w*|hug\w*|his (arms|hand) around her|foreheads? (touch|press)\w*)[^.]*\./gi, " She is alone in the frame, holding her phone with his photo on the screen, about to turn it face down.")
+            .replace(/\s{2,}/g, " ").trim();
         }
       }
     }
