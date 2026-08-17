@@ -672,6 +672,8 @@ function NewProjectForm() {
           topic: form.topic,
           language: form.language,
           duration_target: form.duration_target,
+          format: form.format,
+          cast_names: castCharacters.map((c) => c.name).filter(Boolean).slice(0, 4),
         }),
       });
       if (!res.ok) throw new Error("No se pudieron generar los hooks");

@@ -13,6 +13,12 @@ const BodySchema = z.object({
   topic: z.string().min(5),
   language: z.string().default("es"),
   duration_target: z.string().default("60s"),
+  // "consejo": los ganchos son la primera línea A CÁMARA, en primera persona.
+  format: z.enum(["story", "ad", "consejo"]).optional(),
+  // Los nombres del reparto YA elegido. Sin esto el gancho inventaba nombres
+  // ("Mariana", "Alejandro") que no existían en el elenco, y el guionista los
+  // heredaba: la misma fuente de nombres fantasma que ya cerramos en el guion.
+  cast_names: z.array(z.string().min(1).max(60)).max(4).optional(),
 });
 
 export interface HookVariant {
@@ -69,6 +75,9 @@ TEMA: ${input.topic}
 NICHO: ${input.niche}
 TONO: ${input.tone}
 IDIOMA: ${langMap[input.language] ?? "español latinoamericano"}
+${input.cast_names?.length ? `REPARTO (los ÚNICOS nombres que existen — si nombrás a alguien, es uno de estos, y si no hace falta nombrar, no nombres): ${input.cast_names.join(", ")}` : "SIN REPARTO TODAVÍA: no inventes nombres propios — decí \"mi esposo\", \"mi jefe\", \"mi hermana\"."}
+${input.format === "consejo" ? `
+⚠️ FORMATO CONSEJO — cambia todo lo de arriba: los tres ganchos son lo que la PROTAGONISTA le dice A CÁMARA al espectador, en primera persona, como a una amiga: la situación concreta que la trajo hasta acá, en presente. NUNCA el título del consejo ("hoy te cuento cómo superar…", "5 señales de…" — PROHIBIDO), nunca dirigido a otro personaje. Los tres ángulos se adaptan: (1) EN CRISIS = algo concreto que le está pasando AHORA con este tema — un objeto, un gesto, una hora (no una emoción abstracta); (2) A OTRO PERSONAJE pasa a ser LO QUE ELLA SE DICE — la frase que se repite para engañarse, y en la misma línea admite que no le sirve; (3) LO QUE ADMITE = lo que le da vergüenza confesar de sí misma en este tema. Máximo 14 palabras cada uno. Los tres tienen que nacer de ESTE tema y de sus detalles — inventá las frases, no uses ninguna que ya hayas visto en instrucciones.` : ""}
 
 Genera EXACTAMENTE este JSON (sin texto adicional):
 {
