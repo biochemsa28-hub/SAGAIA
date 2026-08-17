@@ -8,7 +8,7 @@ import { initDb } from "@/lib/db";
 import { z } from "zod";
 import { sendVideoReadyEmail } from "@/lib/email/resend";
 import { captureServer } from "@/lib/analytics/posthog";
-import { resolveProjectTier } from "@/lib/config";
+import { resolveProjectTier, videoSecondsFor } from "@/lib/config";
 import { CHARS_PER_SECOND } from "@/services/video/narrative-blocks";
 
 export const runtime = "nodejs";
@@ -395,11 +395,16 @@ export async function POST(req: NextRequest) {
         sfxImpactUrl,
         sceneSfx,
       });
+      // El reporte de calidad viaja CON el video final. Es lo que convierte
+      // "medimos cada video" en "aprendemos de cada video": la métrica queda
+      // guardada, /api/admin/metrics la agrega, y un defecto que se repite en
+      // varios videos se ve como tendencia, no como anécdota.
       await upsertAsset({
         projectId: parsed.data.project_id,
         assetType: "final_video",
         publicUrl: ff.url,
         mimeType: "video/mp4",
+        metadata: ff.audit ? JSON.stringify({ audit: ff.audit, pedido_seg: videoSecondsFor(detail.project.duration_target) }) : undefined,
       });
       await updateProjectStatus(parsed.data.project_id, "ready");
       // "done" render_id so the client's check loop resolves immediately.

@@ -111,8 +111,42 @@ export async function GET() {
     const costByProvider = await rows("SELECT provider, ROUND(COALESCE(SUM(cost_usd),0),3) usd, COUNT(*) n FROM api_logs GROUP BY provider ORDER BY usd DESC");
     const recentUsers = await rows("SELECT email, plan, credits, created_at FROM users ORDER BY created_at DESC LIMIT 12");
 
+    // ── CALIDAD: EL CICLO DE MEJORA ──────────────────────────────────────────
+    // Cada video final guarda su auditoría (services/quality/auditor) en la
+    // metadata del asset. Acá se agregan los últimos 20 en tendencia + las
+    // "lecciones": defectos que se repiten en ≥3 videos. Un defecto aislado es
+    // anécdota; uno que se repite es una regla que falta.
+    type Aud = { segundos?: number; planos?: number; planoMasLargo?: number; quietoPct?: number; congelados?: unknown[]; volumenMedioDb?: number; silencios?: unknown[]; avisos?: string[] };
+    const finales = await rows(
+      "SELECT a.project_id, a.metadata, a.created_at, p.niche, p.duration_target FROM assets a JOIN projects p ON p.id = a.project_id " +
+      "WHERE a.asset_type = 'final_video' AND a.metadata IS NOT NULL ORDER BY a.created_at DESC LIMIT 20",
+    );
+    const auditados = finales
+      .map((r) => { try { const m = JSON.parse(String(r.metadata)) as { audit?: Aud; pedido_seg?: number }; return m.audit ? { ...m, niche: r.niche, at: r.created_at } : null; } catch { return null; } })
+      .filter((x): x is { audit: Aud; pedido_seg?: number; niche: unknown; at: unknown } => Boolean(x));
+    const prom = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
+    const conteo = new Map<string, number>();
+    for (const a of auditados) for (const av of a.audit.avisos ?? []) {
+      const clave = av.replace(/[\d.,]+s?/g, "N").replace(/\s+/g, " ").slice(0, 70);
+      conteo.set(clave, (conteo.get(clave) ?? 0) + 1);
+    }
+    const calidad = {
+      videos_medidos: auditados.length,
+      quieto_pct_promedio: prom(auditados.map((a) => a.audit.quietoPct ?? 0)),
+      plano_mas_largo_promedio: prom(auditados.map((a) => a.audit.planoMasLargo ?? 0)),
+      volumen_db_promedio: prom(auditados.map((a) => a.audit.volumenMedioDb ?? 0)),
+      con_congelados: auditados.filter((a) => (a.audit.congelados?.length ?? 0) > 0).length,
+      con_silencios: auditados.filter((a) => (a.audit.silencios?.length ?? 0) > 0).length,
+      duracion_vs_pedida_pct: prom(auditados.filter((a) => a.pedido_seg && a.audit.segundos).map((a) => Math.round(((a.audit.segundos ?? 0) / (a.pedido_seg ?? 1)) * 100))),
+      // Los 5 más recientes, para ver la tendencia a ojo.
+      ultimos: auditados.slice(0, 5).map((a) => ({ at: a.at, niche: a.niche, seg: a.audit.segundos, quieto: a.audit.quietoPct, plano_max: a.audit.planoMasLargo, avisos: a.audit.avisos?.length ?? 0 })),
+      // Lecciones: avisos que se repiten en 3+ videos de los últimos 20.
+      lecciones: [...conteo.entries()].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).map(([aviso, n]) => ({ aviso, videos: n })),
+    };
+
     return NextResponse.json({
       generated_at: new Date().toISOString(),
+      calidad,
       users, videos, cost, navos, engagement, revenue, series,
       top_creators: topCreators.map((r) => ({ email: r.email, videos: Number(r.videos), last_seen: r.last_seen })),
       by_plan: byPlan.map((r) => ({ plan: r.plan, n: Number(r.n) })),

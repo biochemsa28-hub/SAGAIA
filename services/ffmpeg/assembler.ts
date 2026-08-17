@@ -13,7 +13,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 import { uploadBuffer } from "@/services/storage";
-import { auditarVideo } from "@/services/quality/auditor";
+import { auditarVideo , type AuditoriaVideo } from "@/services/quality/auditor";
 
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH ?? "ffmpeg";
@@ -1036,7 +1036,7 @@ export async function assembleWithFfmpeg(params: {
   // dentro de `scenes` — no por scene_number, porque los bloques absorben escenas y
   // los números dejan de ser correlativos con la línea de tiempo.
   sceneSfx?: Array<{ sceneIndex: number; url: string }>;
-}): Promise<{ url: string; provider: "ffmpeg" }> {
+}): Promise<{ url: string; provider: "ffmpeg"; audit?: AuditoriaVideo | null }> {
   const dir = join(tmpdir(), `vynavo_${randomUUID()}`);
   mkdirSync(dir, { recursive: true });
   try {
@@ -1311,20 +1311,20 @@ export async function assembleWithFfmpeg(params: {
     // cuesta ~4 segundos y cero dólares. Todo defecto que descubrimos mirando
     // videos terminados —planos eternos, congelados, volumen flojo— sale de
     // estos números, así que a partir de ahora se anuncian solos en el log.
-    await auditarVideo(finalOut);
+    const audit = await auditarVideo(finalOut);
 
     // Salida local para PROBAR el ensamblador sin subir nada: con
     // ASSEMBLE_LOCAL_OUT=<ruta.mp4> el archivo se copia ahí y se devuelve como
     // file:// — es lo que permite medir el mezclado de audio en un experimento.
     if (process.env.ASSEMBLE_LOCAL_OUT) {
       writeFileSync(process.env.ASSEMBLE_LOCAL_OUT, readFileSync(finalOut));
-      return { url: `file://${process.env.ASSEMBLE_LOCAL_OUT}`, provider: "ffmpeg" };
+      return { url: `file://${process.env.ASSEMBLE_LOCAL_OUT}`, provider: "ffmpeg", audit };
     }
 
     // 4) Upload to durable R2.
     const buffer = readFileSync(finalOut);
     const { url } = await uploadBuffer({ buffer, ext: "mp4", contentType: "video/mp4", folder: "finals" });
-    return { url, provider: "ffmpeg" };
+    return { url, provider: "ffmpeg", audit };
   } finally {
     if (!process.env.ASSEMBLE_KEEP_TMP) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ } } else { console.log("[ffmpeg] temp conservado:", dir); }
   }
