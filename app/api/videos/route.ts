@@ -11,7 +11,7 @@ import { buildDialogueDirection, transcribeClip } from "@/services/video/native-
 import { trimClipHead } from "@/services/ffmpeg/trim";
 import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, esBorrador, CLIP_BUDGET } from "@/lib/config";
 import { ACCION_CLAVE } from "@/lib/ai/accion-clave";
-import { similitudVoz, VOZ_MINIMA } from "@/services/quality/voz";
+import { similitudPorLinea, VOZ_MINIMA } from "@/services/quality/voz";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -1165,10 +1165,12 @@ export async function POST(req: NextRequest) {
           let vozScore: number | null = null;
           if (transcript && collectDetail?.scenes?.length) {
             const escenasDelBloque = blockScenes?.length ? blockScenes : [r.scene_number];
-            const guion = escenasDelBloque
+            const lineas = escenasDelBloque
               .map((n) => collectDetail.scenes.find((s) => s.scene_number === n)?.narration_text ?? "")
-              .join(" ");
-            vozScore = similitudVoz(guion, transcript.text);
+              .filter(Boolean);
+            // El puntaje es el de la PEOR línea del bloque, no el promedio: una
+            // frase masticada dentro de un bloque bien dicho es un clip malo.
+            vozScore = similitudPorLinea(lineas, transcript.text);
             const ok = vozScore >= VOZ_MINIMA;
             vozPorEscena.set(r.scene_number, ok);
             console.log(
