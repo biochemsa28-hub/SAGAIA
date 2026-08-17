@@ -189,6 +189,8 @@ export async function POST(req: NextRequest) {
         wordTimings,
         emotion: scene.emotion ?? undefined,
         shots,
+        // El pico físico del guion: el montaje lo subraya (punch-in, ralentí).
+        isPeak: Boolean((scene as { is_peak?: number | boolean }).is_peak),
       };
     });
 
@@ -383,6 +385,7 @@ export async function POST(req: NextRequest) {
             && s.location !== timeline[i - 1]?.location,
           emotion: s.emotion,
           shots: s.shots,
+          isPeak: (s as { isPeak?: boolean }).isPeak,
         })),
         musicUrl,
         cta: detail.story?.cta ?? null,

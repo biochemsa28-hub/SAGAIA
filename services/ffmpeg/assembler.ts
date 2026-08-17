@@ -74,6 +74,55 @@ const LOOK: Record<string, string> = {
   default:       "eq=contrast=1.06:saturation=1.00:gamma=1.00,vignette=PI/5",
 };
 const LOOK_ON = (process.env.LOOK ?? "on").toLowerCase() !== "off";
+
+// ── EFECTOS DE MONTAJE ───────────────────────────────────────────────────────
+// Lo que un editor hace en CapCut y el ensamblador no hacía: subrayar el pico
+// y hacer que los primeros segundos se sientan EDITADOS, no pegados. Todo son
+// recortes animados por tiempo sobre el mismo render — cuestan cero.
+//
+//   · PUNCH-IN EN EL PICO: la escena marcada is_peak entra a escala normal y en
+//     su último tramo (donde vive el "después" del contacto) se acerca de 100 a
+//     112 % en 0.4 s. El espectador no sabe por qué lo sintió; lo sintió.
+//   · MICRO-ZOOM EN LOS PRIMEROS CORTES: cada plano de los primeros 6 s arranca
+//     a 104 % y se asienta en 0.5 s. Es lo que hace que un montaje se lea como
+//     hecho por alguien.
+//   · SACUDIDA EN GOLPES: si el pico es un golpe/portazo/caída (la emoción o el
+//     texto lo delatan), seis cuadros de sacudida en el punch-in.
+//
+// Se hace con crop animado (w=iw/z) seguido de scale de vuelta a 1080x1920. Un
+// solo interruptor: EFECTOS=off.
+const EFECTOS_ON = (process.env.EFECTOS ?? "on").toLowerCase() !== "off";
+function efectosDeMontaje(
+  scene: FfScene,
+  deco: { isFirst?: boolean; startsAt?: number; niche?: string } | undefined,
+  durSeg: number,
+): string {
+  if (!EFECTOS_ON || !(durSeg > 1.2)) return "";
+  const partes: string[] = [];
+  // Expresión de zoom z(t): base 1; en el pico sube al final; en los primeros
+  // cortes arranca en 1.04 y baja. Se combinan sumando desvíos.
+  const desvios: string[] = [];
+  const t0 = Math.max(0.5, durSeg * 0.6);           // arranque del punch-in del pico
+  if (scene.isPeak) desvios.push(`0.12*min(1,max(0,(t-${t0.toFixed(2)})/0.4))`);
+  const temprano = (deco?.startsAt ?? 99) < 6 && !deco?.isFirst;
+  if (temprano) desvios.push(`0.04*max(0,1-t/0.5)`);
+  if (!desvios.length) return "";
+  const z = `(1+${desvios.join("+")})`;
+  // crop no evalúa w/h por cuadro (medido: "Error when evaluating the expression"
+  // con t). scale con eval=frame sí acepta t: se AGRANDA el cuadro y se recorta
+  // el centro a tamaño fijo. Verificado con un cuadrado blanco: área ×2.25 a
+  // zoom 1.5, exacto.
+  const zw = `trunc(1080*${z}/2)*2`;
+  const zh = `trunc(1920*${z}/2)*2`;
+  // Sacudida: solo en picos de golpe. Desplaza el recorte ±6 px durante 0.25 s
+  // (x/y de crop sí se evalúan por cuadro).
+  const golpe = scene.isPeak && /slap|hit|punch|slam|fall|crash|golpe|cachet|porta|ca[ií]d|estrell/i.test(`${scene.narrationText ?? ""} ${scene.emotion ?? ""}`);
+  const sx = golpe ? `+if(between(t,${t0.toFixed(2)},${(t0 + 0.25).toFixed(2)}),6*sin(t*220),0)` : "";
+  const sy = golpe ? `+if(between(t,${t0.toFixed(2)},${(t0 + 0.25).toFixed(2)}),4*cos(t*190),0)` : "";
+  partes.push(`scale=w='${zw}':h='${zh}':eval=frame`);
+  partes.push(`crop=1080:1920:'(iw-1080)/2${sx}':'(ih-1920)/2${sy}'`);
+  return "," + partes.join(",");
+}
 function lookDe(niche?: string): string {
   if (!LOOK_ON) return "";
   const l = LOOK[(niche ?? "").toLowerCase()] ?? LOOK.default;
@@ -106,6 +155,8 @@ export interface FfScene {
   newLocation?: boolean;
   emotion?: string;    // drives the Ken Burns motion (direction, easing, anchor)
   shots?: string[];    // extra camera setups of this same beat → the edit cuts between them
+  /** Esta escena es el pico físico del guion — el montaje la subraya. */
+  isPeak?: boolean;
 }
 
 // ── CapCut-style burned subtitles via an ASS file ────────────────────────────
@@ -290,7 +341,7 @@ function conciliarConGuion(
 // plus optional watermark (free plan) and a CTA card on the closing seconds.
 function buildAssContent(
   timings: Array<{ word: string; start: number; end: number }> | undefined,
-  opts?: { durSec?: number; watermark?: boolean; cta?: string | null; niche?: string; guion?: string },
+  opts?: { durSec?: number; watermark?: boolean; cta?: string | null; niche?: string; guion?: string; isLast?: boolean },
 ): string {
   const hi = NICHE_COLOR[(opts?.niche ?? "").toLowerCase()] ?? NICHE_COLOR.default;
   const header =
@@ -309,7 +360,10 @@ function buildAssContent(
     // 74px no entraba: un CTA de hasta 60 caracteres a ese cuerpo mide bastante
     // mas que los 900px utiles. Con WrapStyle 0 ya parte solo, pero bajarlo a 58
     // evita que un cierre largo se coma media pantalla en tres renglones.
-    `Style: CTA,Arial Black,58,${hi},&H00000000,&H00000000,-1,0,1,7,3,5,80,80,0\n\n` +
+    `Style: CTA,Arial Black,58,${hi},&H00000000,&H00000000,-1,0,1,7,3,5,80,80,0\n` +
+    // Lesson: la frase citable del cierre, más grande y al CENTRO del cuadro —
+    // es la que la gente captura y comparte. Solo en la última escena.
+    `Style: Lesson,${SUBTITLE_FONT},104,&H00FFFFFF,&H00000000,&H00000000,-1,0,1,9,5,2,90,90,620\n\n` +
     "[Events]\nFormat: Layer, Start, End, Style, MarginL, MarginR, Effect, Text\n";
 
   const lines: string[] = [];
@@ -436,6 +490,21 @@ function buildAssContent(
     const end = next ? Math.min(next.start, c.end + 0.35) : c.end + 0.25;
     // Punch styling: emphasize lines that carry a question/exclamation.
     const isPunch = /[!?¡¿]/.test(text);
+    // ── LA LECCIÓN COMO TEXTO CINÉTICO ───────────────────────────────────
+    // En la última escena, la frase de cierre (la citable) sube al centro,
+    // más grande, y ENTRA palabra por palabra con un pop — como un cartel de
+    // CapCut, no como un subtítulo. Es lo que la gente captura. El resto de
+    // los carteles de esa escena siguen abajo, normales.
+    const esLeccion = Boolean(opts?.isLast) && i === chunks.length - 1 && words.length >= 3;
+    if (esLeccion) {
+      const paso = Math.max(0.12, Math.min(0.32, (c.end - c.start) / words.length));
+      const partes = words.map((w, k) => {
+        const t = Math.round(k * paso * 1000);
+        return `{\\alpha&HFF&\\t(${t},${t + 90},\\alpha&H00&)}{\\fscx88\\fscy88\\t(${t},${t + 110},\\fscx100\\fscy100)}${w}`;
+      });
+      lines.push(`Dialogue: 1,${assTime(c.start)},${assTime(Math.max(end + 0.6, c.start + 1.2))},Lesson,,,,${partes.join(" ")}`);
+      continue;
+    }
     const style = isPunch ? "Pop" : "Cap";
     // Subtle pop-in scale so each caption "snaps" like CapCut.
     lines.push(`Dialogue: 0,${assTime(c.start)},${assTime(Math.max(end, c.start + 0.25))},${style},,,,{\\fscx92\\fscy92\\t(0,90,\\fscx100\\fscy100)}${text}`);
@@ -536,7 +605,7 @@ async function probeDuration(path: string): Promise<number> {
 // `deco` adds the finishing touches: crossfade-in, watermark, and the closing CTA.
 async function buildSceneClip(
   dir: string, i: number, scene: FfScene,
-  deco?: { watermark?: boolean; cta?: string | null; isFirst?: boolean; isLast?: boolean; niche?: string },
+  deco?: { watermark?: boolean; cta?: string | null; isFirst?: boolean; isLast?: boolean; niche?: string; startsAt?: number },
 ): Promise<string | null> {
   const out = join(dir, `scene_${i}.mp4`);
   const audioPath = join(dir, `a_${i}.mp3`);
@@ -613,6 +682,7 @@ async function buildSceneClip(
       // El guion de esta escena: la verdad sobre QUÉ se dice, para corregir a
       // Whisper cuando inventa palabras o parte los nombres propios.
       guion: scene.narrationText,
+      isLast: deco?.isLast,
     }));
   }
   const subFilter = assName ? `,ass=${assName}` : "";
@@ -688,7 +758,11 @@ async function buildSceneClip(
       // abajo. Medido en un video real: un clip de 8s bajo 19s de narración dejaba
       // 11 SEGUNDOS de foto quieta en el medio del video — el 11% del total, justo
       // donde se decide si alguien sigue mirando.
-      const clipDur = hasAudio ? await probeDuration(vid).catch(() => 0) : 0;
+      // La duración real del clip SIEMPRE se mide: los efectos de montaje la
+      // necesitan también con audio nativo (antes era 0 en ese camino y el
+      // punch-in nunca se aplicaba — medido).
+      const durVideo = await probeDuration(vid).catch(() => 0);
+      const clipDur = hasAudio ? durVideo : 0;
       const audioDur = hasAudio ? await probeDuration(audioPath).catch(() => 0) : 0;
       const sobra = clipDur > 0 && audioDur > clipDur ? audioDur - clipDur : 0;
 
@@ -727,7 +801,7 @@ async function buildSceneClip(
         // sin bombeo. Solo aplica al audio nativo del clip; la narración de
         // ElevenLabs ya sale pareja.
         "-filter_complex",
-        `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${relleno}${lookDe(deco?.niche)}${subFilter}${outro}[v]` +
+        `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${relleno}${efectosDeMontaje(scene, deco, hasAudio ? audioDur : durVideo)}${lookDe(deco?.niche)}${subFilter}${outro}[v]` +
         (!hasAudio && clipConAudio ? `;[0:a]loudnorm=I=${CLIP_LUFS}:TP=-1.5:LRA=7[a]` : ""),
         "-map", "[v]",
         "-map", hasAudio ? "1:a" : (clipConAudio ? "[a]" : `${idxSilencio}:a`),
@@ -735,6 +809,43 @@ async function buildSceneClip(
         ...SALIDA_UNIFORME, "-shortest", out,
       );
       await exec(FFMPEG, args, opts);
+
+      // ── RALENTÍ DEL "DESPUÉS" EN EL PICO ────────────────────────────────
+      // El segundo que la gente captura es el que sigue al contacto: la mano que
+      // aterriza, los labios que se separan, el cuerpo que cae. Se estira SOLO
+      // el tramo posterior a la última palabra (0.6×), así la voz queda intacta
+      // y el audio de esa cola —room tone— se silencia (la música lo cubre).
+      // Solo en géneros de acción y solo si hay al menos 1.2 s de cola.
+      // Post-proceso sobre el segmento ya hecho: si falla, se conserva el
+      // original y no se pierde nada.
+      if (EFECTOS_ON && scene.isPeak && !hasAudio && clipConAudio && /drama|terror|horror|thriller|comedia|comedy|misterio|mystery|accion|action/i.test(deco?.niche ?? "")) {
+        const finVoz = scene.wordTimings?.length ? Math.max(...scene.wordTimings.map((w) => w.end)) : 0;
+        const durSeg = await probeDuration(out).catch(() => 0);
+        if (finVoz > 0.5 && durSeg - finVoz >= 1.2) {
+          const lento = join(dir, `s_${i}_slow.mp4`);
+          const f = 0.6; // velocidad de la cola
+          try {
+            await exec(FFMPEG, [
+              "-y", "-i", out,
+              "-filter_complex",
+              `[0:v]trim=0:${finVoz.toFixed(2)},setpts=PTS-STARTPTS[v1];` +
+              `[0:v]trim=${finVoz.toFixed(2)},setpts=(PTS-STARTPTS)/${f}[v2];` +
+              `[0:a]atrim=0:${finVoz.toFixed(2)},asetpts=PTS-STARTPTS[a1];` +
+              `anullsrc=r=48000:cl=stereo,atrim=0:${((durSeg - finVoz) / f).toFixed(2)}[a2];` +
+              `[v1][v2]concat=n=2:v=1:a=0[v];[a1][a2]concat=n=2:v=0:a=1[a]`,
+              "-map", "[v]", "-map", "[a]",
+              ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+              ...SALIDA_UNIFORME, lento,
+            ], opts);
+            if (existsSync(lento) && (await probeDuration(lento).catch(() => 0)) > durSeg) {
+              writeFileSync(out, readFileSync(lento));
+              console.log(`[efectos] escena ${i}: pico — cola de ${(durSeg - finVoz).toFixed(1)}s ralentizada a ${f}×`);
+            }
+          } catch (e) {
+            console.warn(`[efectos] escena ${i}: ralentí omitido — ${e instanceof Error ? e.message.slice(0, 120) : e}`);
+          }
+        }
+      }
     } else if (scene.imageUrl && (scene.shots?.length ?? 0) > 0) {
       // ── MULTI-SHOT: cut between camera setups inside this one scene ───────────
       // Build a silent Ken Burns segment per shot, concat them, THEN lay the scene's
@@ -891,6 +1002,7 @@ export async function assembleWithFfmpeg(params: {
         isFirst: i === 0,
         isLast: i === last,
         niche: params.niche,
+        startsAt: elapsed,
       });
       if (c) {
         clips.push(c);
@@ -1164,6 +1276,6 @@ export async function assembleWithFfmpeg(params: {
     const { url } = await uploadBuffer({ buffer, ext: "mp4", contentType: "video/mp4", folder: "finals" });
     return { url, provider: "ffmpeg" };
   } finally {
-    try { rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+    if (!process.env.ASSEMBLE_KEEP_TMP) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ } } else { console.log("[ffmpeg] temp conservado:", dir); }
   }
 }
