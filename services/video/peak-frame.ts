@@ -29,6 +29,7 @@
 // Así que el pico ya no se compra: se DIBUJA, y el modelo barato viaja hacia él.
 
 import { fal } from "@fal-ai/client";
+import { esCollage } from "@/services/quality/collage";
 
 const MODELO = process.env.CHARACTER_REF_MODEL ?? "fal-ai/nano-banana/edit";
 
@@ -300,11 +301,15 @@ export async function generarCuadroDestino(opts: {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = await (fal.subscribe as any)(MODELO, {
-        input: { prompt, image_urls: refs, num_images: 1, enable_safety_checker: false },
+        input: { prompt: prompt + " ONE single continuous frame — NOT a collage, no split panels, no grid, no multiple views side by side.", image_urls: refs, num_images: 1, enable_safety_checker: false },
         logs: false,
       }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> };
       const url = (r.data ?? r)?.images?.[0]?.url;
       if (url) {
+        // Con 3-4 referencias el modelo a veces devuelve una GRILLA. Medido en un
+        // video terminado. Si hay costura, este peldaño no vale: se sigue.
+        const c = await esCollage(url);
+        if (c.collage) { console.warn(`[pico] escena ${opts.escena}: el peldaño "${etiqueta}" devolvió un COLLAGE (${c.motivo}) — se descarta`); rechazos.push(`${etiqueta}=collage`); continue; }
         console.log(
           `[pico] escena ${opts.escena}: cuadro destino dibujado con el prompt "${etiqueta}"` +
           (rechazos.length ? ` (${rechazos.join(", ")} rechazado(s) por el filtro)` : ""),

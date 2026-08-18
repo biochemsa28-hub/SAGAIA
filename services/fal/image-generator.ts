@@ -2,6 +2,7 @@ import { fal } from "@fal-ai/client";
 import { writeFileSync, mkdirSync } from "fs";
 import { join, isAbsolute, resolve } from "path";
 import { getStyleConfig, type StyleConfig } from "./style-presets";
+import { esCollage } from "@/services/quality/collage";
 
 export interface ImageGenerationResult {
   success: boolean;
@@ -341,9 +342,23 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   let ultimo = "";
   for (const [k, intento] of intentos.entries()) {
     try {
-      const result = await fal.subscribe(model, { input: armar(intento.imgs, intento.prompt), logs: false });
+      // "un solo cuadro": con varias referencias el modelo a veces devuelve
+      // una grilla de paneles. Se pide explícito y se COMPRUEBA abajo.
+      const unSoloCuadro = " ONE single continuous frame — NOT a collage, no split panels, no grid, no multiple views side by side.";
+      const result = await fal.subscribe(model, { input: armar(intento.imgs, intento.prompt + unSoloCuadro), logs: false });
       const url = extractUrl(result);
       if (url) {
+        // ── ¿SALIÓ UN COLLAGE? ─────────────────────────────────────────
+        // Medido en un video terminado: tres paneles en un cuadro (la pareja
+        // arriba, la espalda y la taza abajo) y el clip lo animó tal cual. Si
+        // hay costura, se descarta y se sigue con el intento siguiente, que
+        // trae menos referencias.
+        const c = await esCollage(url);
+        if (c.collage) {
+          console.warn(`[fal.ai] reference devolvió un COLLAGE (${c.motivo}) con ${intento.nota} — se descarta y se reintenta con menos referencias`);
+          ultimo = "collage";
+          continue;
+        }
         if (k > 0) console.log(`[fal.ai] reference recuperada al reintentar con ${intento.nota}`);
         console.log("[fal.ai] reference model:", model, "url:", url);
         return url;
