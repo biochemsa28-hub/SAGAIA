@@ -386,6 +386,19 @@ export async function POST(req: NextRequest) {
         // 6) EL ÚLTIMO CONSEJO RETENIDO ("no te lo puedo decir", "acércate y te
         //    lo muestro", "comenta para la parte 2") en un consejo: es carnada.
         //    Medido a 30s: aparece cuando el guion se queda sin aire.
+        // 7) NOMBRE CRUZADO: el hablante se nombra a sí mismo, o nombra al
+        //    interlocutor y en la misma línea usa ESE nombre para un tercero.
+        //    Medido: "Nayeli, ¿por qué no nos dijiste que Nayeli te invitó a
+        //    salir?" — la amiga en el lugar del chico. Un espectador lo nota al
+        //    instante y la historia deja de creerse.
+        const cruzados = scenes.filter((sc) => {
+          const t = sc.narration_text ?? "";
+          const sp = (sc as { speaker?: string | null }).speaker?.trim().split(/\s+/)[0] ?? "";
+          const nombres = (t.match(/\b\p{Lu}\p{Ll}{2,}\b/gu) ?? []).filter((n) => esNombreDePila(n));
+          const seNombra = sp.length >= 3 && new RegExp("(^|[^\\p{L}])" + sp + "(?![\\p{L}])", "iu").test(t) && !new RegExp("\\b(soy|me llamo|yo,? " + sp + ")\\b", "i").test(t);
+          const repetido = nombres.length >= 2 && new Set(nombres.map((n) => n.toLowerCase())).size < nombres.length;
+          return seNombra || repetido;
+        }).map((sc) => sc.scene_number ?? 0);
         const retenido = esConsejo
           ? scenes.filter((sc) => RETENIDO.test(sc.narration_text ?? "")).map((sc) => sc.scene_number ?? 0)
           : [];
@@ -399,7 +412,7 @@ export async function POST(req: NextRequest) {
         //    y ninguna réplica nombra un paso/consejo/regla/señal, falta la
         //    respuesta que el usuario pidió.
         const sinConsejo = esConsejo && !scenes.some((sc) => MARCA_CONSEJO.test(sc.narration_text ?? ""));
-        return { largas, duplicadas, temprano, sinConsejo, besoIndebido, retenido, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length };
+        return { largas, duplicadas, temprano, sinConsejo, besoIndebido, retenido, cruzados, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
@@ -409,7 +422,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -427,6 +440,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.cruzados.length
+            ? ` Las escenas ${defectos.cruzados.join(", ")} tienen un NOMBRE CRUZADO: el que habla se nombra a sí mismo, o repite el mismo nombre para dos personas en la misma línea (la amiga en el lugar del chico). Corregí quién le habla a quién y usá el nombre correcto de cada uno; nadie dice su propio nombre.`
             : "") +
           (defectos.retenido.length
             ? ` Las escenas ${defectos.retenido.join(", ")} RETIENEN el último consejo ("no te lo puedo decir", "acércate y te lo muestro", "comenta para la parte 2"). Eso es carnada: el último consejo se DICE y se HACE dentro de este video, aunque queden pocos segundos — reemplazá la retención por el consejo dicho en primera persona y su acción.`
