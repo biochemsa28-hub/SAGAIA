@@ -11,6 +11,7 @@ import { buildDialogueDirection, transcribeClip } from "@/services/video/native-
 import { trimClipHead } from "@/services/ffmpeg/trim";
 import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, esBorrador, CLIP_BUDGET } from "@/lib/config";
 import { ACCION_CLAVE } from "@/lib/ai/accion-clave";
+import { esPremisaDeConsejo } from "@/lib/ai/prompts";
 import { similitudPorLinea, VOZ_MINIMA } from "@/services/quality/voz";
 import { z } from "zod";
 
@@ -55,6 +56,9 @@ export async function POST(req: NextRequest) {
     if (parsed.data.action === "submit") {
       const detail = await getProjectDetail(parsed.data.project_id, userId);
       if (!detail) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      // ¿Es un consejo en primera persona? Entonces la protagonista le habla AL
+      // ESPECTADOR y la actuación se dirige a cámara (ojos al lente).
+      const esConsejoProyecto = esPremisaDeConsejo({ topic: detail.project.topic ?? "", format: "story" });
 
       // ── BORRADOR: acá se corta el 82,5% del costo ──────────────────────────
       // Este endpoint es el ÚNICO que gasta en modelo de video, y los clips son
@@ -827,7 +831,7 @@ export async function POST(req: NextRequest) {
                   "spoken at that exact moment." +
                   // La duración real del clip: sin ella los tramos de tiempo
                   // serían inventados y el reparto no cerraría con el audio.
-                  buildDialogueDirection(lines, Math.min(HOOK_BLOCK_SECONDS, Math.max(4, Math.ceil(block.seconds + 1))))
+                  buildDialogueDirection(lines, Math.min(HOOK_BLOCK_SECONDS, Math.max(4, Math.ceil(block.seconds + 1))), { aCamara: esConsejoProyecto })
                 );
               })(),
               duration_seconds: Math.min(HOOK_BLOCK_SECONDS, Math.max(4, Math.ceil(block.seconds + 1))),
@@ -924,7 +928,7 @@ export async function POST(req: NextRequest) {
               "eyes blink and search, hair and fabric keep settling, and the light behind them keeps living. " +
               "A still camera on a frozen frame is a photograph, not a shot. " +
               "Consistent character appearance and wardrobe throughout." +
-              (NATIVE_AUDIO_ON ? buildDialogueDirection(linea, effectiveDur) : ""),
+              (NATIVE_AUDIO_ON ? buildDialogueDirection(linea, effectiveDur, { aCamara: esConsejoProyecto }) : ""),
             image_url: matched ?? fallback,
             duration_seconds: effectiveDur,
             generate_audio: NATIVE_AUDIO_ON,

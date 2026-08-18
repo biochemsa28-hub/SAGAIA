@@ -37,7 +37,7 @@ export interface SpokenLine {
 //
 // Order matters: the dialogue goes LAST and is quoted verbatim. Buried in the
 // middle of camera instructions it gets treated as description and paraphrased.
-export function buildDialogueDirection(lines: SpokenLine[], segundos?: number): string {
+export function buildDialogueDirection(lines: SpokenLine[], segundos?: number, opts?: { aCamara?: boolean }): string {
   const spoken = lines.map((l) => l.text?.trim()).filter((t): t is string => Boolean(t));
   if (!spoken.length) return "";
 
@@ -172,11 +172,36 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number): 
     " AUDIO: dialogue and natural room tone only — NO background music, NO added sound effects, NO score, NO stingers; " +
     "the soundtrack is added later.";
 
+  // ── ACTUACIÓN DE PERSONA, NO DE MUÑECO ────────────────────────────────
+  // Lo que hace que el espectador sienta que ELLA le habla: no los gestos
+  // grandes sino los chicos e involuntarios — la respiración antes de la
+  // frase, el parpadeo, el peso que cambia de pie, la mano que toca el pelo,
+  // la mirada que baja y vuelve, la voz que se corrige. Un plano donde solo se
+  // mueve la boca se lee como una foto que habla.
+  const actuacion =
+    " PERFORMANCE — REAL HUMAN MICRO-BEHAVIOUR THROUGHOUT: natural blinks at irregular intervals, visible breathing (shoulders and chest), " +
+    "small weight shifts, hands that do something real (touch hair, hold a cup, press the phone, fidget with a sleeve), " +
+    "the gaze that drops for a beat and comes back, a swallow or a lip press before a hard line, an unfinished gesture. " +
+    "Emotion shows in the face BEFORE the words and lingers AFTER. Nothing theatrical, nothing symmetrical, no frozen pose. " +
+    "Camera: subtle handheld micro-drift, never locked off; a slow, almost imperceptible push-in on the emotional line.";
+  // ── A CÁMARA (consejo en primera persona) ─────────────────────────────
+  // Cuando le habla al espectador: ojos AL LENTE, como a una amiga en
+  // videollamada — con las pausas, la mirada que se escapa y vuelve, la media
+  // sonrisa cuando algo le da vergüenza. Es lo que hace que quien mira diga
+  // "yo me he sentido así" y lo comparta.
+  const aCamara = opts?.aCamara
+    ? " SHE IS TALKING TO THE VIEWER: eyes locked on the lens as if on a video call with a close friend, occasionally glancing away and back when a line costs her, " +
+      "a half-smile of embarrassment on the confession, a breath before the hard truth, leaning slightly toward the camera on the important line. " +
+      "Intimate, unguarded, imperfect — like a real person recording herself at night, not a presenter."
+    : "";
+
   return (
     " The characters SPEAK this dialogue out loud, in Spanish, in this exact order, " +
     "with the emotion the scene calls for. Do not invent other lines, do not narrate, " +
     "no voice-over — only these characters speaking to each other on camera." +
     diccion +
+    actuacion +
+    aCamara +
     turnos +
     accionCompleta +
     " " + quoted

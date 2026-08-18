@@ -77,7 +77,11 @@ const STYLE_MODIFIER: Record<string, string> = {
     "beautiful expressive anime faces with large emotive eyes and detailed catchlights, " +
     "crisp confident linework, rich cel shading with soft gradients, dramatic anime lighting with god rays and lens flare, " +
     "lush hand-painted detailed backgrounds, cinematic composition, vibrant saturated color grading, " +
-    "emotional atmosphere, anime key visual, masterpiece anime illustration",
+    "emotional atmosphere, anime key visual, masterpiece anime illustration, " +
+    // El anime también tiene "piel": el sombreado de la cara con dos tonos y un
+    // rubor suave, la luz de recorte en el pelo, y ojos con brillo doble — es lo
+    // que separa un fotograma de película de un dibujo plano.
+    "soft two-tone skin shading with subtle blush, delicate rim light on the hair, double catchlights in the eyes, gentle subsurface glow on the skin in warm light",
   cartoon:
     "stylized 3D render, Pixar-quality CGI, polished and colorful, expressive characters, soft global illumination",
   vintage:
@@ -165,7 +169,13 @@ export function getStyleConfig(niche: string, visualStyle: string): StyleConfig 
   // LEE, y una palabra inventada rompe la ilusión más rápido que cualquier
   // otro defecto. Sin letras en ropa, gorras, carteles ni pantallas.
   const realism = photographic
-    ? ", photographic film grain, natural skin texture with pores and subtle imperfections, realistic subsurface scattering, authentic depth of field, slight lens vignette, true-to-life color science, candid unposed expression, no plastic skin, no overly smooth render, no legible text, no logos, no lettering or writing on clothing, patches, caps, signs or screens"
+    ? ", photographic film grain, natural skin texture with pores and subtle imperfections, realistic subsurface scattering, authentic depth of field, slight lens vignette, true-to-life color science, candid unposed expression, no plastic skin, no overly smooth render, no legible text, no logos, no lettering or writing on clothing, patches, caps, signs or screens, " +
+      // Piel y luz que se sienten reales: es lo que hace que el espectador crea
+      // que es una persona y no un render. Luz principal suave a 45° con
+      // sombra visible, luz de recorte en el pelo, brillo en los ojos, y la
+      // piel con lo que la piel tiene — poros, vello fino, una vena, un rubor.
+      "soft key light at 45 degrees with a visible falloff shadow on the far cheek, thin rim light on the hair, bright catchlights in both eyes, " +
+      "fine peach fuzz on the cheek edge in backlight, faint blush and slight sheen on the nose and forehead, natural under-eye texture, real lips with texture"
     : "";
 
   // Pro cinematography layer — the "this looks like a real film" production value
