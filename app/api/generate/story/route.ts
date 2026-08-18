@@ -360,6 +360,7 @@ export async function POST(req: NextRequest) {
       type EscenaMin = { scene_number?: number; narration_text?: string | null; image_prompt?: string | null; is_peak?: boolean; physical_action?: string | null };
       const esRuptura = /(ex|ex[ -]?(novio|novia|esposo|esposa|pareja)|superar|olvidar|ruptura|terminar|me (engañ|dej[oó]))/i.test(parsed.data.topic);
       const BESO = /kiss|lips|bes[oa]s?|bes[aá]ndo|embrac|hug|abraz|foreheads? (touch|press)|his (arms|hand) around her/i;
+      const RETENIDO = /no te lo puedo (decir|contar)|todav[ií]a no te lo|ac[eé]rcate y te lo|te lo (muestro|digo) (despu[eé]s|luego|ma[ñn]ana)|comenta.{0,20}parte 2|para la parte 2/i;
       const picoTemprano = (scenes: EscenaMin[]) => {
         const i = scenes.findIndex((s) => s.is_peak);
         if (i < 0 || scenes.length < 5) return null;
@@ -382,6 +383,12 @@ export async function POST(req: NextRequest) {
         //    guardia mía, y otra porque el guionista lo escribió como recuerdo.
         //    Un consejo de superar no puede mostrar el contacto que enseña a
         //    soltar. Se detecta en physical_action e image_prompt.
+        // 6) EL ÚLTIMO CONSEJO RETENIDO ("no te lo puedo decir", "acércate y te
+        //    lo muestro", "comenta para la parte 2") en un consejo: es carnada.
+        //    Medido a 30s: aparece cuando el guion se queda sin aire.
+        const retenido = esConsejo
+          ? scenes.filter((sc) => RETENIDO.test(sc.narration_text ?? "")).map((sc) => sc.scene_number ?? 0)
+          : [];
         const besoIndebido = esConsejo && esRuptura
           ? scenes.filter((sc) => BESO.test(`${sc.physical_action ?? ""} ${sc.image_prompt ?? ""}`)).map((sc) => sc.scene_number ?? 0)
           : [];
@@ -392,7 +399,7 @@ export async function POST(req: NextRequest) {
         //    y ninguna réplica nombra un paso/consejo/regla/señal, falta la
         //    respuesta que el usuario pidió.
         const sinConsejo = esConsejo && !scenes.some((sc) => MARCA_CONSEJO.test(sc.narration_text ?? ""));
-        return { largas, duplicadas, temprano, sinConsejo, besoIndebido, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length };
+        return { largas, duplicadas, temprano, sinConsejo, besoIndebido, retenido, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
@@ -402,7 +409,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -420,6 +427,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.retenido.length
+            ? ` Las escenas ${defectos.retenido.join(", ")} RETIENEN el último consejo ("no te lo puedo decir", "acércate y te lo muestro", "comenta para la parte 2"). Eso es carnada: el último consejo se DICE y se HACE dentro de este video, aunque queden pocos segundos — reemplazá la retención por el consejo dicho en primera persona y su acción.`
             : "") +
           (defectos.besoIndebido.length
             ? ` Las escenas ${defectos.besoIndebido.join(", ")} muestran un beso, abrazo o contacto con el ex (en physical_action o image_prompt). En un consejo de ruptura eso está PROHIBIDO, también como recuerdo: reemplazalo por un OBJETO (la foto en el teléfono, el suéter, la taza) o por la prueba que ella pasa a distancia. Misma ropa en todas las escenas.`
