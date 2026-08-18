@@ -20,7 +20,9 @@ export function similitudPorLinea(lineas: string[], transcripcion: string): numb
   let peor = 1;
   for (const l of lineas) {
     const g = normalizarVoz(l);
-    if (g.length < 2) continue;
+    // Una línea de UNA palabra larga ("Mírame", "Bloquéalo") también se juzga:
+    // medido, "Mílame" pasó porque el mínimo eran dos palabras.
+    if (g.length < 2 && !(g.length === 1 && g[0]!.length >= 5)) continue;
     let hit = 0; for (const w of g) if (t.has(w)) hit++;
     peor = Math.min(peor, hit / g.length);
   }
