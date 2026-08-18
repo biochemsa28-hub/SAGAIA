@@ -1043,6 +1043,8 @@ export async function assembleWithFfmpeg(params: {
     // 1) Per-scene clips (sequential — keeps memory sane on a small box).
     const clips: string[] = [];
     const boundaries: number[] = [];   // absolute start time of each scene (for SFX)
+    const duraciones: number[] = [];
+    const cambioDeLugar: boolean[] = [];
     let elapsed = 0;
     const last = params.scenes.length - 1;
     for (let i = 0; i < params.scenes.length; i++) {
@@ -1057,7 +1059,10 @@ export async function assembleWithFfmpeg(params: {
       if (c) {
         clips.push(c);
         boundaries.push(elapsed);
-        elapsed += await probeDuration(c);
+        const d = await probeDuration(c);
+        duraciones.push(d);
+        cambioDeLugar.push(Boolean(params.scenes[i]!.newLocation));
+        elapsed += d;
       }
     }
     if (!clips.length) throw new Error("No scene clips could be built");
@@ -1066,7 +1071,45 @@ export async function assembleWithFfmpeg(params: {
     const listPath = join(dir, "list.txt");
     writeFileSync(listPath, clips.map((c) => `file '${c.replace(/\\/g, "/")}'`).join("\n"));
     const concatOut = join(dir, "concat.mp4");
-    await exec(FFMPEG, ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", concatOut], { maxBuffer: 1 << 26 });
+    // ── EMPALMES CON FUNDIDO, NO CORTE SECO ───────────────────────────────
+    // Medido cuadro por cuadro en un video terminado: los cortes entre clips
+    // tenían un score de cambio de 0.37-0.53 (el resto del video 0.12-0.17),
+    // y cada clip arranca quieto y acelera. Cada empalme era "frenada → foto
+    // parecida → arranque desde cero", y eso es lo que se siente como seis
+    // clips pegados. Un cruce de 0.28 s entre clips del MISMO lugar esconde el
+    // hipo (los cuadros ya se parecen por el encadenado); en un cambio de lugar
+    // el corte es correcto y solo se suaviza 0.1 s. Fallback: el concat de
+    // siempre si el grafo falla. XFADE=off lo apaga.
+    let fundido = false;
+    if (clips.length > 1 && (process.env.XFADE ?? "on").toLowerCase() !== "off") {
+      try {
+        const D = (k: number) => (cambioDeLugar[k] ? 0.10 : 0.28);
+        const inputs = clips.flatMap((c) => ["-i", c]);
+        const f: string[] = [];
+        let acumulado = duraciones[0]!;
+        let prevV = "[0:v]", prevA = "[0:a]";
+        for (let k = 1; k < clips.length; k++) {
+          const d = Math.min(D(k), duraciones[k - 1]! / 2, duraciones[k]! / 2);
+          const offset = Math.max(0, acumulado - d);
+          f.push(`${prevV}[${k}:v]xfade=transition=fade:duration=${d.toFixed(2)}:offset=${offset.toFixed(3)}[v${k}]`);
+          f.push(`${prevA}[${k}:a]acrossfade=d=${d.toFixed(2)}:c1=tri:c2=tri[a${k}]`);
+          prevV = `[v${k}]`; prevA = `[a${k}]`;
+          acumulado = offset + duraciones[k]!;
+          // Los sfx/whoosh se colocan por límite de escena: cada fundido acorta
+          // la línea de tiempo en d, así que los límites siguientes se corren.
+          for (let j = k; j < boundaries.length; j++) boundaries[j] = boundaries[j]! - d;
+        }
+        await exec(FFMPEG, ["-y", ...inputs, "-filter_complex", f.join(";"), "-map", prevV, "-map", prevA,
+          ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-r", "30", "-ar", "48000", "-ac", "2", "-c:a", "aac", "-b:a", "192k", concatOut], { maxBuffer: 1 << 26 });
+        fundido = true;
+        console.log(`[montaje] ${clips.length} clips unidos con fundido en el empalme (${cambioDeLugar.filter(Boolean).length} cambio(s) de lugar)`);
+      } catch (e) {
+        console.warn("[montaje] fundido falló, se usa concat:", e instanceof Error ? e.message.slice(0, 160) : e);
+      }
+    }
+    if (!fundido) {
+      await exec(FFMPEG, ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", concatOut], { maxBuffer: 1 << 26 });
+    }
 
     // ¿El audio llegó hasta el final? Con -c copy, un solo segmento con distinto
     // formato de pista trunca el audio del resto sin que ffmpeg falle: el render
