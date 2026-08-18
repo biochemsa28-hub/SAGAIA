@@ -143,9 +143,33 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
   }
 
   await mark("animation");
-  const sub = await (await post("/api/videos", { project_id: job.project_id, action: "submit" })).json() as
+  // ── ENCADENADO REAL: UN BLOQUE POR VEZ ─────────────────────────────────
+  // Con chain:true la ruta encola solo el primer bloque pendiente; cuando el
+  // clip está, collect guarda su último cuadro para el siguiente y la
+  // siguiente llamada a submit lo usa como arranque. Se repite hasta que la
+  // ruta no devuelve jobs (todos los bloques tienen clip). Tope de 40 vueltas
+  // por seguridad; el pipeline "pro" (lip-sync) sigue por el camino de antes.
+  let sub = await (await post("/api/videos", { project_id: job.project_id, action: "submit", chain: true })).json() as
     { action?: string; pipeline?: string; jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
-  if (sub.action !== "skipped") {
+  if (sub.action !== "skipped" && sub.pipeline !== "pro") {
+    let vueltas = 0;
+    while (sub.jobs?.length && vueltas < 40) {
+      vueltas++;
+      const vozMal: number[] = [];
+      await pollStage(post, job, sub.jobs, undefined, vozMal);
+      if (vozMal.length) {
+        for (const n of vozMal.slice(0, 2)) {
+          console.log(`[voz] escena ${n}: la voz se apartó del guion — se pide de nuevo una vez`);
+          const re = await (await post("/api/videos", { project_id: job.project_id, action: "submit", scene_number: n })).json() as { jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
+          if (re.jobs?.length) await pollStage(post, job, re.jobs, undefined);
+        }
+      }
+      await heartbeatJob(job.id);
+      sub = await (await post("/api/videos", { project_id: job.project_id, action: "submit", chain: true })).json() as typeof sub;
+      if (sub.action === "skipped") break;
+    }
+    if (vueltas) console.log(`[chain] animación completa en ${vueltas} vuelta(s)`);
+  } else if (sub.action !== "skipped") {
     const vozMal: number[] = [];
     const motionUrls = await pollStage(post, job, sub.jobs ?? [], sub.pipeline === "pro" ? "motion" : undefined, vozMal);
     // ── LA VOZ QUE NO DIJO EL GUION SE VUELVE A PEDIR, UNA VEZ ──────────────

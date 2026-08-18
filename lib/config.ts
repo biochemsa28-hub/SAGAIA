@@ -411,6 +411,15 @@ export const BLOCK_TARGET_SECONDS = Math.min(
 // wardrobe, lighting and location carry across the whole video and it reads as
 // one continuous piece instead of six clips glued together.
 export const BLOCK_CHAIN_CONTINUITY = (process.env.BLOCK_CHAIN ?? "on").toLowerCase() !== "off";
+// ── ENCADENADO REAL ──────────────────────────────────────────────────────────
+// El encadenado de arriba apunta el clip hacia la IMAGEN generada del bloque
+// siguiente: Seedance llega "cerca", no a ella, y el montaje pega con un
+// corte. Medido cuadro por cuadro: los empalmes daban score de cambio 0.37-0.53
+// y el video se sentía como seis clips. Con CHAIN_REAL el bloque siguiente
+// ARRANCA del último cuadro real del clip anterior (mismo lugar): el empalme es
+// píxel-idéntico. Cuesta tiempo (los clips se generan uno tras otro, +4-5 min
+// por video), no dinero. Aprobado por el usuario.
+export const CHAIN_REAL = (process.env.CHAIN_REAL ?? "on").toLowerCase() !== "off";
 
 // ── NATIVE CHARACTER AUDIO ───────────────────────────────────────────────────
 // Seedance returns clips whose characters SPEAK — in Spanish, with emotion, and

@@ -12,6 +12,7 @@ import { trimClipHead } from "@/services/ffmpeg/trim";
 import { resolveProjectTier, PRO_PIPELINE, MAX_DAILY_VIDEOS, heroSceneNumbers, HOOK_BLOCK_ON, HOOK_BLOCK_SECONDS, HOOK_BLOCK_TRIM_SECONDS, SHOT_FRAMINGS, NARRATIVE_BLOCKS_ON, BLOCK_TARGET_SECONDS, NATIVE_AUDIO_ON, NATIVE_AUDIO_LANGUAGE, MAX_VIDEO_SECONDS, videoSecondsFor, esBorrador, CLIP_BUDGET } from "@/lib/config";
 import { ACCION_CLAVE } from "@/lib/ai/accion-clave";
 import { esPremisaDeConsejo } from "@/lib/ai/prompts";
+import { CHAIN_REAL } from "@/lib/config";
 import { similitudPorLinea, VOZ_MINIMA } from "@/services/quality/voz";
 import { z } from "zod";
 
@@ -25,6 +26,9 @@ const SubmitSchema = z.object({
   // PRO pipeline stage for collect ("motion" = Seedance, "lipsync" = video lip-sync).
   stage: z.enum(["motion", "lipsync"]).optional(),
   scene_number: z.number().int().positive().optional(), // regenerate a single scene
+  // Encadenado real: el worker pide UN bloque por vez; la ruta encola solo el
+  // primero pendiente y el siguiente arranca del último cuadro del anterior.
+  chain: z.boolean().optional(),
   jobs: z.array(z.object({
     scene_number: z.number(),
     request_id: z.string(),
@@ -324,6 +328,13 @@ export async function POST(req: NextRequest) {
         if (escenasConClip.size && !parsed.data.scene_number) {
           const antes = paraAnimar.length;
           paraAnimar = paraAnimar.filter((b) => !escenasConClip.has(b.leadScene));
+          // ENCADENADO REAL: un bloque por llamada. El worker vuelve a llamar
+          // cuando el clip está y este filtro ya lo salta; así el siguiente
+          // bloque puede arrancar del último cuadro real del anterior.
+          if (parsed.data.chain && CHAIN_REAL && paraAnimar.length > 1) {
+            console.log(`[chain] encadenado real: se encola 1 de ${paraAnimar.length} bloques pendientes (escena ${paraAnimar[0]!.leadScene})`);
+            paraAnimar = paraAnimar.slice(0, 1);
+          }
           if (paraAnimar.length < antes) {
             console.log(
               `[blocks] ${antes - paraAnimar.length} bloque(s) YA tienen clip y no se vuelven a pagar ` +
@@ -336,6 +347,29 @@ export async function POST(req: NextRequest) {
           detail.scenes.map((sc) => [sc.scene_number, imageBySceneId.get(sc.id)?.public_url]),
         );
         const sceneByNumber = new Map(detail.scenes.map((sc) => [sc.scene_number, sc]));
+        // Cuadros de encadenado real: el último fotograma del clip anterior,
+        // guardado por collect para la escena líder del bloque siguiente
+        // (asset "chain_frame"). Solo se usa si el lugar coincide — cruzando un
+        // cambio de escenario el modelo transformaría un cuarto en otro.
+        const chainFrameByScene = new Map<number, { url: string; desde: number }>();
+        for (const a of detail.assets ?? []) {
+          if (a.asset_type !== "chain_frame" || !a.public_url || !a.scene_id) continue;
+          const sc = detail.scenes.find((s) => s.id === a.scene_id);
+          let desde = -1;
+          try { desde = Number((JSON.parse(a.metadata ?? "{}") as { desde?: number }).desde ?? -1); } catch { /* sin metadata */ }
+          if (sc) chainFrameByScene.set(sc.scene_number, { url: a.public_url, desde });
+        }
+        const lugarDeEscena = (n: number) =>
+          ((sceneByNumber.get(n) as { location?: string | null } | undefined)?.location ?? "").trim().toLowerCase();
+        const arranqueEncadenado = (lead: number): string | undefined => {
+          if (!CHAIN_REAL) return undefined;
+          const cf = chainFrameByScene.get(lead);
+          if (!cf) return undefined;
+          const l1 = lugarDeEscena(lead), l0 = cf.desde > 0 ? lugarDeEscena(cf.desde) : "";
+          if (l1 && l0 && l1 !== l0) { console.log(`[chain] escena ${lead}: cambia de lugar respecto de ${cf.desde} — arranca de su propia imagen`); return undefined; }
+          console.log(`[chain] escena ${lead}: arranca del último cuadro real del clip de la escena ${cf.desde}`);
+          return cf.url;
+        };
 
         let blockJobs;
         if (NATIVE_AUDIO_ON) {
@@ -708,7 +742,7 @@ export async function POST(req: NextRequest) {
             return {
               ...(refsContacto?.length ? { reference_image_urls: refsContacto } : {}),
               scene_number: block.leadScene,
-              image_url: imgByScene.get(block.leadScene) ?? block.referenceImageUrl,
+              image_url: arranqueEncadenado(block.leadScene) ?? imgByScene.get(block.leadScene) ?? block.referenceImageUrl,
               // El cuadro propio del bloque no depende de `encadenar`: es su propia
               // última escena, así que la locación es correcta por construcción. La
               // comprobación de escenario solo aplica al encadenado con el bloque
@@ -1159,6 +1193,41 @@ export async function POST(req: NextRequest) {
           const transcript = NATIVE_AUDIO_ON
             ? await transcribeClip(durableUrl, NATIVE_AUDIO_LANGUAGE).catch(() => null)
             : null;
+          // ── EL ÚLTIMO CUADRO REAL, PARA QUE EL SIGUIENTE ARRANQUE AHÍ ──
+          // Se extrae del clip ya durable, se sube, y se guarda como asset
+          // "chain_frame" de la escena líder del bloque SIGUIENTE (según el
+          // mismo plan de bloques que usó submit). Si algo falla, no pasa
+          // nada: el siguiente arranca de su propia imagen, como antes.
+          if (CHAIN_REAL && NATIVE_AUDIO_ON && collectDetail?.scenes?.length) {
+            try {
+              const { execFile } = await import("node:child_process");
+              const { promisify } = await import("node:util");
+              const { tmpdir } = await import("node:os");
+              const { join } = await import("node:path");
+              const { readFileSync, unlinkSync } = await import("node:fs");
+              const run = promisify(execFile);
+              const imgBy = new Map((collectDetail.assets ?? []).filter((a) => a.asset_type === "image" && a.scene_id).map((a) => [a.scene_id, a.public_url]));
+              const plan = planNarrativeBlocks(
+                collectDetail.scenes.map((sc) => ({ scene_number: sc.scene_number, image_url: imgBy.get(sc.id) ?? null, image_prompt: sc.image_prompt, narration_text: sc.narration_text, audio_seconds: null, duration_seconds: sc.duration_seconds, speaker: sc.speaker })),
+                BLOCK_TARGET_SECONDS,
+              );
+              const idx = plan.findIndex((b) => b.leadScene === r.scene_number);
+              const siguiente = idx >= 0 ? plan[idx + 1]?.leadScene : undefined;
+              if (siguiente) {
+                const out = join(tmpdir(), `chain_${parsed.data.project_id.slice(0, 8)}_${r.scene_number}.jpg`);
+                // -sseof -0.15: el último cuadro nítido, no el fotograma final que a
+                // veces trae el fundido del propio modelo.
+                await run(process.env.FFMPEG_PATH ?? "ffmpeg", ["-y", "-loglevel", "error", "-sseof", "-0.15", "-i", durableUrl, "-frames:v", "1", "-q:v", "2", out]);
+                const { uploadBuffer } = await import("@/services/storage");
+                const up = await uploadBuffer({ buffer: readFileSync(out), ext: "jpg", contentType: "image/jpeg", folder: "chain" });
+                try { unlinkSync(out); } catch { /* ignore */ }
+                await upsertAsset({ projectId: parsed.data.project_id, sceneNumber: siguiente, assetType: "chain_frame", publicUrl: up.url, mimeType: "image/jpeg", metadata: JSON.stringify({ desde: r.scene_number }) });
+                console.log(`[chain] escena ${r.scene_number}: último cuadro guardado como arranque de la escena ${siguiente}`);
+              }
+            } catch (e) {
+              console.warn(`[chain] escena ${r.scene_number}: no se pudo extraer el último cuadro — ${e instanceof Error ? e.message.slice(0, 120) : e}`);
+            }
+          }
           // ── LA VOZ SE COMPARA CON EL GUION ─────────────────────────────
           // Medido en un video terminado: el pico emocional decía "No, mi
           // Tokeks. No. Mi Tokeks." — el audio nativo masticó "no me toques" y
