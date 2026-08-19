@@ -439,9 +439,6 @@ export async function POST(req: NextRequest) {
         // 12) TERNURA DEL INFIEL EN EL PICO. Premisa de traición y el pico es
         //     él sosteniéndole la cara / besándola / abrazándola: el infiel como
         //     galán. Medido: "no me toques" con la mano de él en su mejilla.
-        const premisaTraicion = /(engañ|infiel|amante|traici|bes[aá]ndose con|acost[aá]ndose con|mentira)/i.test(parsed.data.topic);
-        const TERNURA = /kiss|lips (meet|touch)|cup(s|ping)? (her|his) (face|jaw|cheek)|caress|strok(es|ing)|embrace|hug|holds? (her|his) face|foreheads? (touch|press|rest)|wipes? (her|his) tear/i;
-        const RUPTURA = /slap|shove|push|pull(s|ing)? (away|back|free)|step(s)? back|rips?|throws?|slams?|storms? out|turns? away|recoils?|flinch/i;
         const picoTierno = premisaTraicion
           ? scenes.filter((sc, i) => (sc.is_peak || i >= Math.floor(scenes.length * 0.6)) && TERNURA.test(sc.physical_action ?? "") && !RUPTURA.test(sc.physical_action ?? "")).map((sc) => sc.scene_number ?? 0)
           : [];
@@ -464,6 +461,14 @@ export async function POST(req: NextRequest) {
         return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
+      // Traición descubierta: la ternura del infiel hacia la traicionada en el
+      // tramo final está prohibida. Medido DOS veces en video terminado (Iván,
+      // Ramiro: la mano en la mejilla mientras ella dice "no me toques"); la
+      // primera regex era estrecha ("cups her face") y el guion lo escribió de
+      // otra forma. Ahora cubre las formas habituales de tocar una cara.
+      const premisaTraicion = /(engañ|infiel|amante|traici|bes[aá]ndose con|acost[aá]ndose con|mentira)/i.test(parsed.data.topic);
+      const TERNURA = /kiss|lips (meet|touch|brush)|cup(s|ping)? (her|his) (face|jaw|cheek|chin)|caress|strok(es|ing)|embrace|hug|holds? (her|his) (face|cheek|hand)|foreheads? (touch|press|rest)|wipes? (her|his) tear|touch(es|ing)? (her|his) (face|cheek|jaw|chin|hair|lips)|(hand|palm|fingers?|thumb) (on|to|against|reach(es|ing)? (for )?|brush(es|ing)? |cradlw+ |restw+ on )(her|his) (face|cheek|jaw|chin|hair|lips|neck)|tilts? (her|his) (chin|face)|pulls? (her|him) (close|closer|in|to him|to her|into)|leans? in (to|toward)/i;
+      const RUPTURA = /slap|shove|push|pull(s|ing)? (away|back|free)|step(s)? back|rips?|throws?|slams?|storms? out|turns? away|recoils?|flinch|swats?|knocks? (his|her) hand|jerks? (away|back)/i;
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
       const defectos = defectosDe((result.data?.scenes ?? []) as EscenaMin[]);
       // ── EL DIRECTOR lee el primer borrador entero ─────────────────────────
@@ -561,6 +566,24 @@ export async function POST(req: NextRequest) {
             .replace(/[^.]*\b(kiss\w*|lips|embrac\w*|hug\w*|his (arms|hand) around her|foreheads? (touch|press)\w*)[^.]*\./gi, " She is alone in the frame, holding her phone with his photo on the screen, about to turn it face down.")
             .replace(/\s{2,}/g, " ").trim();
         }
+      }
+      // ── CIERRE DURO: EN UNA TRAICIÓN, EL INFIEL NO CONSUELA ──────────────
+      // Si el reintento tampoco lo sacó, la acción del tramo final se reescribe
+      // a ruptura y la imagen se limpia de manos en la cara. Es el mismo patrón
+      // del consejo de ruptura: la regla se puede ignorar, el cierre no.
+      if (premisaTraicion && result.data?.scenes?.length) {
+        const esc = result.data.scenes as Array<{ scene_number?: number; physical_action?: string | null; image_prompt?: string | null; is_peak?: boolean }>;
+        const desde = Math.floor(esc.length * 0.6);
+        esc.forEach((sc, i) => {
+          if (i < desde && !sc.is_peak) return;
+          const pa = sc.physical_action ?? "";
+          if (!TERNURA.test(pa) || RUPTURA.test(pa)) return;
+          console.warn(`[escenas] escena ${sc.scene_number}: ternura del infiel tras el reintento — se reescribe a ruptura`);
+          sc.physical_action = "his hand reaches for her face and she knocks it away, stepping back | her arms cross tight, she will not let him close";
+          sc.image_prompt = (sc.image_prompt ?? "")
+            .replace(/[^.]*(cupw* (her|his) (face|jaw|cheek)|hand (on|against|to) (her|his) (cheek|face|jaw)|holdw* (her|his) face|caressw*|embracw*|hugw*|kissw*|foreheads? (touch|press)w*)[^.]*./gi, " She has just knocked his hand away and stepped back, arms crossed tight, his hand still in the air between them.")
+            .replace(/s{2,}/g, " ").trim();
+        });
       }
     }
 
