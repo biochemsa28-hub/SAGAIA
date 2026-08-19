@@ -140,6 +140,15 @@ const QUICK_IDEAS: Record<string, string[]> = {
   ],
 };
 
+// Trending del formato ESCENA: premisas VISUALES que se actúan, no historias.
+const TRENDING_ESCENA = [
+  { emoji: "💃", label: "Baile en azotea al atardecer", niche: "inspiracional", tone: "comedy", topic: "tres mujeres bailando reggaetón en una azotea al atardecer, estilo TikTok" },
+  { emoji: "🪆", label: "El muñeco que se mueve",      niche: "terror", tone: "horror", topic: "un muñeco antiguo actuando solo frente a la cámara de noche, se mueve cuando nadie lo ve" },
+  { emoji: "🪞", label: "El reflejo baila otro paso",   niche: "terror", tone: "horror", topic: "una bailarina baila tango sola en un salón vacío; en el espejo su reflejo baila otro paso" },
+  { emoji: "👨‍🍳", label: "Chef en 30 segundos",        niche: "historia", tone: "documentary", topic: "un chef monta un platillo en 30 segundos con movimientos perfectos, cámara cenital" },
+  { emoji: "🔥", label: "Transformación en el espejo",  niche: "fantasia", tone: "fantasy", topic: "una mujer se maquilla frente al espejo y con cada trazo se transforma en otra versión de sí misma" },
+];
+
 const TRENDING = [
   { emoji: "🔥", label: "Traición en familia",  niche: "drama",       tone: "drama" },
   { emoji: "💀", label: "Casa embrujada real",   niche: "terror",      tone: "horror" },
@@ -1154,8 +1163,8 @@ function NewProjectForm() {
                 <Flame className="w-3.5 h-3.5 text-orange-400" />
                 <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Último paso · el hook = el 80% de tu viral</span>
               </div>
-              <h1 className="text-xl font-extrabold text-white">Elige tu gancho de apertura</h1>
-              <p className="text-xs text-zinc-500 mt-1">Toca el que más te guste y genera tu video</p>
+              <h1 className="text-xl font-extrabold text-white">{form.format === "escena" ? "Elige tu primer plano" : "Elige tu gancho de apertura"}</h1>
+              <p className="text-xs text-zinc-500 mt-1">{form.format === "escena" ? "Lo que se VE en los primeros 2 segundos — nadie habla, la imagen detiene el scroll" : "Toca el que más te guste y genera tu video"}</p>
             </div>
           </div>
         </div>
@@ -1543,7 +1552,26 @@ function NewProjectForm() {
       {step === 0 && (
         <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 space-y-6 pb-32">
 
-          {/* Trending */}
+          {/* ¿Qué vas a crear? — el formato manda sobre todo lo que sigue:
+              una ESCENA no lleva diálogo ni ganchos hablados; un CONSEJO habla
+              a cámara. Elegirlo primero hace que cada paso se adapte. */}
+          <div>
+            <p className="text-xs font-bold text-zinc-400 mb-3">¿Qué vas a crear? <span className="text-red-400">*</span></p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {FORMAT_OPTIONS.map(fo => {
+                const activa = form.format === fo.id;
+                return (
+                  <button key={fo.id} type="button" onClick={() => set("format")(fo.id)}
+                    className={`vy-press p-4 rounded-2xl border text-left transition-all ${activa ? "bg-gradient-to-br from-fuchsia-950/60 to-zinc-900 border-fuchsia-500/70 shadow-lg" : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"}`}>
+                    <p className={`text-base font-extrabold ${activa ? "text-white" : "text-zinc-300"}`}>{fo.emoji} {fo.label}</p>
+                    <p className={`text-[11px] mt-1 leading-snug ${activa ? "text-fuchsia-300/90" : "text-zinc-600"}`}>{fo.hint}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Trending — del formato elegido */}
           <div>
             <div className="flex items-center gap-1.5 mb-2.5">
               <TrendingUp className="w-3.5 h-3.5 text-pink-400" />
@@ -1551,10 +1579,10 @@ function NewProjectForm() {
               <span className="w-1.5 h-1.5 rounded-full bg-pink-500 vy-pulse-soft" />
             </div>
             <div className="flex gap-2 flex-wrap">
-              {TRENDING.map(t => (
+              {(form.format === "escena" ? TRENDING_ESCENA : TRENDING).map(t => (
                 <button
                   key={t.label}
-                  onClick={() => { set("niche")(t.niche); set("tone")(t.tone); const ideas = QUICK_IDEAS[t.niche] ?? []; if (ideas.length) set("topic")(ideas[0] ?? ""); }}
+                  onClick={() => { set("niche")(t.niche); set("tone")(t.tone); const propia = (t as { topic?: string }).topic; if (propia) set("topic")(propia); else { const ideas = QUICK_IDEAS[t.niche] ?? []; if (ideas.length) set("topic")(ideas[0] ?? ""); } }}
                   className="vy-press flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 hover:border-pink-600/70 hover:bg-zinc-800/80 text-xs text-zinc-400 hover:text-white transition-all"
                 >
                   {t.emoji} {t.label}
@@ -1648,7 +1676,7 @@ function NewProjectForm() {
 
           {/* Tono emocional — visual: cada emoción con su cara y color */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 mb-1">Tono emocional <span className="text-zinc-600 font-normal">· se ajusta solo, cámbialo si quieres</span></p>
+            <p className="text-xs font-bold text-zinc-400 mb-1">Tono emocional <span className="text-zinc-600 font-normal">· {form.format === "escena" ? "en una escena pone la energía y la luz — aquí nadie habla" : "se ajusta solo, cámbialo si quieres"}</span></p>
             <p className="text-[10px] text-zinc-600 mb-3">¿Qué quieres que SIENTA quien lo vea? Esto guía toda la historia.</p>
             {/* Cinta horizontal: los nueve tonos en una sola fila en desktop.
                 Antes era una grilla 3x3 que estiraba la página hacia abajo y
