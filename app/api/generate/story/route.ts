@@ -18,6 +18,7 @@ import { TOPIC_MAX } from "@/lib/validators/story.schema";
 import { captureServer } from "@/lib/analytics/posthog";
 import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { corregirOrtografia } from "@/services/quality/ortografia";
+import { revisarComoDirector, notasComoCorreccion } from "@/services/quality/director";
 
 export const runtime = "nodejs";
 // Reel pacing means many more scenes per story, so generation takes longer than
@@ -456,7 +457,20 @@ export async function POST(req: NextRequest) {
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
       const defectos = defectosDe((result.data?.scenes ?? []) as EscenaMin[]);
-      if (defectos.total) {
+      // ── EL DIRECTOR lee el primer borrador entero ─────────────────────────
+      // Ritmo, dramaturgia y promesa visual: lo que las regex no ven. Sus notas
+      // entran en la MISMA regeneración que las guardias (una sola pasada extra).
+      const director = await revisarComoDirector({
+        topic: parsed.data.topic,
+        format: parsed.data.format ?? "story",
+        niche: parsed.data.niche,
+        tone: parsed.data.tone,
+        durationTarget: parsed.data.duration_target,
+        cast: (parsed.data.cast ?? []).map((c) => c.name).filter((n): n is string => Boolean(n)),
+        scenes: (result.data?.scenes ?? []) as Parameters<typeof revisarComoDirector>[0]["scenes"],
+      });
+      const notasDirector = notasComoCorreccion(director);
+      if (defectos.total || notasDirector) {
         console.warn(
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
@@ -506,12 +520,14 @@ export async function POST(req: NextRequest) {
             : "");
         const reintentoEscenas = await storyGeneratorService.generate({
           ...parsed.data,
-          additional_instructions: (instrucciones + correcciones).slice(0, 3000),
+          additional_instructions: (instrucciones + correcciones + notasDirector).slice(0, 3600),
           animation_tier: animationTier,
         });
         if (reintentoEscenas.success && reintentoEscenas.data?.scenes?.length) {
           const despues = defectosDe(reintentoEscenas.data.scenes as EscenaMin[]);
-          if (despues.total < defectos.total) {
+          // Con notas del director el reintento se acepta si no EMPEORA en
+          // defectos de forma (la mejora de ritmo no se mide con regex).
+          if (despues.total < defectos.total || (notasDirector && despues.total <= defectos.total)) {
             console.log(`[escenas] reintento aceptado: ${defectos.total} defecto(s) → ${despues.total}`);
             result.data = reintentoEscenas.data;
           } else {
