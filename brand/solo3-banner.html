@@ -1,0 +1,106 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#07080f;overflow:hidden}canvas{display:block;margin:0}</style>
+</head><body>
+<canvas id="banner" width="2560" height="1440"></canvas>
+<script>
+// Paleta contenida: UN gradiente (cian eléctrico → violeta) + blanco roto.
+// El rosa se reserva como acento mínimo (el punto de grabación).
+const A="#4de3ff", B="#7c5cff", ACC="#ff4d7d", BG="#07080f", TX="#f4f6ff", MUT="rgba(244,246,255,0.6)";
+
+function grad(ctx,x0,y0,x1,y1){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,A);g.addColorStop(1,B);return g;}
+
+// ── MARCA v3: geometría pura. V de dos trazos paralelos; el derecho ES un
+// play. Sin nodos, sin adornos. Un único acento: el punto de REC arriba.
+function mark(ctx,cx,cy,s){
+  ctx.save(); ctx.translate(cx,cy); ctx.scale(s,s);
+  // trazo izquierdo — blanco, corte diagonal limpio (paralelogramo)
+  ctx.beginPath();
+  ctx.moveTo(-58,-62); ctx.lineTo(-24,-62); ctx.lineTo(10,32); ctx.lineTo(-10,62); ctx.closePath();
+  ctx.fillStyle=TX; ctx.fill();
+  // trazo derecho — triángulo de play perfecto, gradiente, misma caída
+  ctx.beginPath();
+  ctx.moveTo(24,-62); ctx.lineTo(62,-62); ctx.lineTo(-10,62); ctx.closePath();
+  const g=grad(ctx,24,-62,-10,62);
+  ctx.fillStyle=g;
+  // glow contenido: solo en la forma de color, radio corto
+  ctx.shadowColor="rgba(124,92,255,0.55)"; ctx.shadowBlur=18; ctx.fill(); ctx.shadowBlur=0;
+  // punto REC — el único acento cálido, alineado ópticamente con el vértice
+  ctx.beginPath(); ctx.arc(50,-38,7,0,7);
+  ctx.fillStyle=ACC; ctx.shadowColor=ACC; ctx.shadowBlur=12; ctx.fill(); ctx.shadowBlur=0;
+  ctx.restore();
+}
+
+function fondo(ctx,W,H,intenso){
+  ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+  // un solo haz diagonal de color, muy contenido — profundidad sin ruido
+  const g=ctx.createLinearGradient(0,H,W,0);
+  g.addColorStop(0,"rgba(77,227,255,0)");
+  g.addColorStop(.45,`rgba(77,227,255,${intenso?0.07:0.05})`);
+  g.addColorStop(.6,`rgba(124,92,255,${intenso?0.10:0.07})`);
+  g.addColorStop(1,"rgba(124,92,255,0)");
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // viñeta suave para que el centro respire
+  const r=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.25,W/2,H/2,Math.max(W,H)*0.75);
+  r.addColorStop(0,"rgba(0,0,0,0)"); r.addColorStop(1,"rgba(0,0,0,0.5)");
+  ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+}
+
+function drawPerfil(){
+  const c=document.getElementById("perfil"),ctx=c.getContext("2d");
+  fondo(ctx,800,800,true);
+  // keyline única, hairline — nada de anillos dobles
+  ctx.beginPath(); ctx.arc(400,400,346,0,7);
+  ctx.strokeStyle="rgba(244,246,255,0.14)"; ctx.lineWidth=2; ctx.stroke();
+  // arco de acento corto (asimetría deliberada, 40°)
+  ctx.beginPath(); ctx.arc(400,400,346,-1.15,-0.45);
+  ctx.strokeStyle=grad(ctx,120,80,680,240); ctx.lineWidth=4; ctx.lineCap="round"; ctx.stroke();
+  mark(ctx,400,342,3.15);
+  // wordmark: Space Grotesk 700, tracking amplio, tamaño contenido
+  ctx.font="700 74px 'Space Grotesk', Inter, sans-serif";
+  ctx.letterSpacing="10px";
+  const t="VYNAVO", w=ctx.measureText(t).width;
+  ctx.fillStyle=TX; ctx.fillText(t,(800-w)/2,640);
+  ctx.letterSpacing="0px";
+}
+
+function drawBanner(){
+  const c=document.getElementById("banner"),ctx=c.getContext("2d");
+  const W=2560,H=1440; fondo(ctx,W,H,false);
+  const cy=H/2 - 20;
+  // lockup centrado: marca arriba, wordmark debajo — jerarquía vertical limpia
+  mark(ctx,W/2,cy-150,1.35);
+  ctx.font="700 176px 'Space Grotesk', Inter, sans-serif";
+  ctx.letterSpacing="22px";
+  const t="VYNAVO", w=ctx.measureText(t).width;
+  ctx.fillStyle=TX; ctx.fillText(t,(W-w)/2,cy+118);
+  ctx.letterSpacing="0px";
+  // hairline gradiente que separa — el único elemento decorativo
+  const lw=560;
+  const lg=grad(ctx,W/2-lw/2,0,W/2+lw/2,0);
+  ctx.fillStyle=lg; ctx.fillRect(W/2-lw/2,cy+168,lw,2);
+  // tagline: Inter 500, sereno, sin glow
+  ctx.font="500 46px Inter, sans-serif";
+  ctx.fillStyle=MUT;
+  { const tg="Microdramas con IA que la gente ve hasta el final";
+    ctx.fillText(tg,(W-ctx.measureText(tg).width)/2,cy+248); }
+  // micro-caps con tracking — sin caja, separados por puntos de color
+  ctx.font="600 27px Inter, sans-serif";
+  ctx.letterSpacing="7px";
+  { const parts=["ESCRIBE UNA FRASE","60 SEGUNDOS","TIKTOK · REELS · SHORTS"];
+    const sep=64;
+    const widths=parts.map(p=>ctx.measureText(p).width);
+    const total=widths.reduce((a,b)=>a+b,0)+sep*2;
+    let x=(W-total)/2;
+    parts.forEach((p,i)=>{
+      ctx.fillStyle="rgba(244,246,255,0.5)"; ctx.fillText(p,x,cy+330);
+      x+=widths[i];
+      if(i<2){ ctx.fillStyle=i?B:A; ctx.beginPath(); ctx.arc(x+sep/2,cy+320,4,0,7); ctx.fill(); x+=sep; }
+    });
+  }
+  ctx.letterSpacing="0px";
+}
+
+window.__ready=false;
+document.fonts.ready.then(()=>{drawBanner();window.__ready=true;});
+</script></body></html>
