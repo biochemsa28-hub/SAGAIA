@@ -1027,6 +1027,8 @@ async function buildSceneClip(
 export async function assembleWithFfmpeg(params: {
   scenes: FfScene[];
   musicUrl?: string | null;
+  /** Segundo movimiento: arranca en el clímax (escena isPeak). Ver mezcla. */
+  musicTurnUrl?: string | null;
   cta?: string | null;        // closing call-to-action card
   watermark?: boolean;        // free-plan brand mark
   niche?: string;             // drives the caption highlight color
@@ -1145,7 +1147,36 @@ export async function assembleWithFfmpeg(params: {
       const mixLabels: string[] = ["[0:a]"];
       let idx = 1;
 
-      if (params.musicUrl) {
+      // ── EL VUELCO SONORO ────────────────────────────────────────────────
+      // Con dos movimientos y una escena de clímax: la pista A se apaga 0.35 s
+      // antes del clímax (fundido de 0.4 s), silencio, y en el clímax entran a la
+      // vez el golpe y la pista B (fundido de entrada 0.3 s, un poco más fuerte).
+      // Ese medio segundo de nada antes del golpe es lo que hace que se SIENTA.
+      const idxPico = params.scenes.findIndex((s) => s.isPeak);
+      const tPico = idxPico >= 0 && boundaries[idxPico] !== undefined ? boundaries[idxPico]! : -1;
+      if (params.musicUrl && params.musicTurnUrl && tPico > 2) {
+        const mA = join(dir, "music_a.mp3"), mB = join(dir, "music_b.mp3");
+        await download(params.musicUrl, mA);
+        await download(params.musicTurnUrl, mB);
+        const tCorte = Math.max(0.5, tPico - 0.35);
+        inputs.push("-stream_loop", "-1", "-i", mA);
+        filters.push(`[${idx}:a]atrim=0:${tCorte.toFixed(2)},afade=t=out:st=${Math.max(0, tCorte - 0.4).toFixed(2)}:d=0.4,volume=0.12[musA]`);
+        mixLabels.push("[musA]"); idx++;
+        inputs.push("-stream_loop", "-1", "-i", mB);
+        const ms = Math.round(tPico * 1000);
+        filters.push(`[${idx}:a]afade=t=in:d=0.3,adelay=${ms}|${ms},volume=0.15[musB]`);
+        mixLabels.push("[musB]"); idx++;
+        // El golpe del clímax: el impact del nicho, más fuerte que el de apertura.
+        if (params.sfxImpactUrl) {
+          const hit = join(dir, "hit.mp3");
+          await download(params.sfxImpactUrl, hit);
+          inputs.push("-i", hit);
+          const oscuroPico = /terror|horror|thriller|misterio|mystery/.test((params.niche ?? "").toLowerCase());
+          filters.push(`[${idx}:a]adelay=${ms}|${ms},volume=${oscuroPico ? 0.42 : 0.24}[hit]`);
+          mixLabels.push("[hit]"); idx++;
+        }
+        console.log(`[music] vuelco sonoro en ${tPico.toFixed(1)}s: pista A hasta ${tCorte.toFixed(1)}s, silencio, golpe + pista B`);
+      } else if (params.musicUrl) {
         const music = join(dir, "music.mp3");
         await download(params.musicUrl, music);
         // EN BUCLE. La pista se pide con una duración estimada que puede quedar

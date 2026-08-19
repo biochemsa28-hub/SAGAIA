@@ -737,7 +737,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
     "total_duration_seconds": ${duration.seconds},
     "scene_count": 0,
     "voice_style": "estilo de voz específico (ej: susurro tenso, voz cálida y cercana, narrador urgente)",
-    "music_mood": "mood musical específico (ej: piano minimalista con tensión, beats urbanos, orquesta épica)"
+    "music_mood": "DOS MOVIMIENTOS separados por ' || ', escritos para ESTA historia (en inglés, para el modelo de música): ANTES del clímax || DESPUÉS del clímax. Cada uno con instrumentación, tempo y textura concretos — no un género. Ej. de forma (no lo copies): 'slow seductive jazz trio, brushed drums, muted trumpet, warm room reverb, 68 bpm || bowed metal drones, sub bass pulse, dissonant strings, no melody, 52 bpm'. La música SE DESARROLLA CON LA HISTORIA: el primer movimiento describe una PROGRESIÓN (cómo empieza y cómo va apretando hacia el clímax: 'starts as…, gradually adds…, by the end…'), y el segundo es lo que suena después del vuelco. Tiene que sonar a la ILUSIÓN primero y a la VERDAD después; en un romance sin giro, los dos movimientos son la tensión que crece y la entrega. Sin voces."
   }
 }
 

@@ -341,6 +341,7 @@ export async function POST(req: NextRequest) {
     // Auto-generate an ORIGINAL background score (ElevenLabs Music) matching the
     // niche + the story's music_mood. Off → AUTO_MUSIC=off. Never blocks the render.
     let musicUrl: string | null = null;
+    let musicTurnUrl: string | null = null;
     try {
       // La duración NO puede salir solo de durationSeconds: en las escenas de audio
       // nativo viaja sin valor a propósito —manda el clip, no una estimación— así
@@ -359,7 +360,19 @@ export async function POST(req: NextRequest) {
         }, 0),
       );
       console.log(`[music] pidiendo ${Math.round(totalDur)}s de música`);
-      musicUrl = await generateStoryMusic(detail.project.niche, detail.story?.music_mood ?? null, totalDur);
+      // ── DOS MOVIMIENTOS ────────────────────────────────────────────────
+      // El guion escribe "antes || después". La pista A cubre hasta el clímax; la
+      // B arranca EN el clímax. El ensamblador las empalma con un silencio de
+      // 0.35 s y un golpe: es el vuelco sonoro. Si el guion trajo un solo mood,
+      // se hace como siempre (una pista).
+      const [moodA, moodB] = String(detail.story?.music_mood ?? "").split("||").map((s) => s.trim());
+      musicUrl = await generateStoryMusic(detail.project.niche, moodA || null, totalDur);
+      if (moodB) {
+        try {
+          musicTurnUrl = await generateStoryMusic(detail.project.niche, moodB, Math.max(12, Math.round(totalDur * 0.45)));
+          console.log(`[music] dos movimientos: A="${(moodA ?? "").slice(0, 50)}…" B="${moodB.slice(0, 50)}…"`);
+        } catch { /* sin B se sigue con A */ }
+      }
     } catch { /* render continues without music */ }
 
     // ── RENDER ENGINE: local FFmpeg ($0, no Shotstack) — RENDER_ENGINE=ffmpeg ──
@@ -388,6 +401,7 @@ export async function POST(req: NextRequest) {
           isPeak: (s as { isPeak?: boolean }).isPeak,
         })),
         musicUrl,
+        musicTurnUrl,
         cta: detail.story?.cta ?? null,
         watermark,
         niche: detail.project.niche,
