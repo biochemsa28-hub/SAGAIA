@@ -19,6 +19,7 @@ import { captureServer } from "@/lib/analytics/posthog";
 import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { corregirOrtografia } from "@/services/quality/ortografia";
 import { revisarComoDirector, notasComoCorreccion } from "@/services/quality/director";
+import { guionEnLetras } from "@/services/quality/numeros";
 
 export const runtime = "nodejs";
 // Reel pacing means many more scenes per story, so generation takes longer than
@@ -846,6 +847,8 @@ export async function POST(req: NextRequest) {
     if (result.data?.scenes?.length) {
       const nombres = (parsed.data.cast ?? []).map((c) => c.name).filter((n): n is string => Boolean(n));
       await corregirOrtografia(result.data.scenes as Array<{ scene_number?: number; narration_text?: string | null }>, nombres);
+      // Y los NÚMEROS EN LETRAS: "1962" se pronunció "Quiño en su óxido".
+      guionEnLetras(result.data.scenes as Array<{ scene_number?: number; narration_text?: string | null }>);
     }
 
     // ── Save result + log ─────────────────────────────────────────────────────
