@@ -46,7 +46,10 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number, o
       " THIS CLIP HAS NO DIALOGUE AT ALL: nobody speaks, no voice, no voice-over, no narration, no whispering, no mouthing words." +
       " The scene is pure PERFORMANCE: the subject acts, the environment lives, and the only sound is the natural ambience of the place —" +
       " room tone, movement, cloth, footsteps, objects. NO background music, NO added sound effects, NO score (the soundtrack is added later)." +
-      " The performance carries everything: real micro-behaviour, full committed physical actions, nothing theatrical, nothing frozen."
+      " The performance carries everything: real micro-behaviour, full committed physical actions, nothing theatrical, nothing frozen." +
+      " THE ACTION FILLS THE ENTIRE CLIP: if the subject dances, they DANCE the whole time — full-body, on-beat, technically skilled movement" +
+      " (real footwork, turns, hip and shoulder isolations, arms with intention, hair and fabric reacting to every move)," +
+      " never swaying in place, never walking as a substitute for dancing, never freezing into a pose. The subject is a trained performer and it shows."
     );
   }
 

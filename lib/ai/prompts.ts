@@ -447,6 +447,7 @@ const PATRON_CONSEJO =
 const bloqueEscena = () => `
 
 ━━━ FORMATO: ESCENA (PERFORMANCE) — LA PREMISA SE ACTÚA, NO SE CUENTA ━━━
+⚠️⚠️ ESTA SECCIÓN MANDA SOBRE TODO EL RESTO DEL DOCUMENTO. Más abajo hay reglas que piden diálogo, réplicas cortas, alternancia de speakers, hook hablado y contrapunto — EN ESTE FORMATO SE IGNORAN TODAS. El tono elegido aporta SOLO atmósfera (luz, música, energía), nunca diálogo ni chistes hablados ni trama. Si al terminar tu guion más de UNA escena tiene narration_text con texto, el guion está MAL y hay que reescribirlo mudo.
 Esto NO es una historia narrada: es una ESCENA que el espectador presencia.
 REGLAS DURAS:
 1. narration_text = "" en TODAS las escenas, salvo como máximo UNA línea corta (2-6 palabras) y SOLO si la premisa pide que el sujeto hable (el muñeco que dice una frase en el clímax). PROHIBIDO el narrador, prohibido describir lo que se ve, prohibido "les voy a contar".
@@ -455,7 +456,9 @@ REGLAS DURAS:
 4. camera_move hace de narrador: la cámara se acerca a lo que importa, se queda quieta cuando algo va a pasar, y reacciona después.
 5. speaker: poné igual el nombre del sujeto en cada escena (define a quién se mira), aunque no hable.
 6. music_mood manda: en performance la música ES la mitad del video. Para baile: el género y el pulso exactos ("reggaeton beat 100 bpm, club energy"); para terror: la tensión que crece.
-7. duration_seconds por escena: 4-6s. La suma debe dar la duración pedida — acá no hay diálogo que la fije.`;
+7. duration_seconds por escena: 4-6s. La suma debe dar la duración pedida — acá no hay diálogo que la fije.
+8. ⚠️ EL SUJETO Y SU ACCIÓN SON EL VIDEO ENTERO. El sujeto de la premisa está EN CUADRO HACIENDO LA ACCIÓN en TODAS las escenas. PROHIBIDO inventar tramas, romances o personajes con arco propio que la premisa no nombra — medido: "mujer cantando en un escenario" terminó con un espectador robándole el clímax y un beso que nadie pidió. Los extras existen solo ALREDEDOR de la acción (el músico que acompaña, el público que reacciona al fondo) y NUNCA tienen el plano del pico. El pico es EL MEJOR MOMENTO DE LA ACCIÓN: el paso más difícil, el giro, la nota más alta, el movimiento imposible.
+9. ⚠️ LA ACCIÓN ES TÉCNICA Y CONTINUA, no una pose. En physical_action escribí la ejecución de verdad, con oficio: en baile, los pasos (el giro sobre un pie, el quiebre de cadera, el juego de pies rápido, los brazos que dibujan, el vestido/pelo respondiendo al movimiento), la velocidad y el remate. El cuerpo NUNCA está quieto posando: cada escena arranca ya en movimiento y termina en movimiento.`;
 
 export function esPremisaDeConsejo(input: Pick<StoryInput, "topic" | "format">): boolean {
   if (input.format === "consejo") return true;
@@ -763,7 +766,9 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
   }
 }
 
-IMPORTANTE: "scene_count" = número real de escenas. La narración de cada escena NO debe cerrarse completamente — debe haber una tensión que tire al espectador a la siguiente.`;
+IMPORTANTE: "scene_count" = número real de escenas. La narración de cada escena NO debe cerrarse completamente — debe haber una tensión que tire al espectador a la siguiente.${input.format === "escena" ? `
+━━━ RECORDATORIO FINAL — FORMATO ESCENA (esto INVALIDA cualquier regla de diálogo de arriba) ━━━
+El guion es MUDO: narration_text = \"\" en todas las escenas, salvo como máximo UNA línea corta si la premisa lo pide. Nada de sketch hablado, nada de réplicas, nada de chistes dichos: la comedia, el terror o la energía se ACTÚAN con el cuerpo, la cámara y el ambiente. El sujeto de la premisa hace SU ACCIÓN (el baile entero, con técnica real) en todas las escenas y el pico es su mejor momento. Si escribiste diálogo, borralo y contá lo mismo con physical_action.` : ""}`;
 }
 
 // ─── ANUNCIOS (UGC ads) ────────────────────────────────────────────────────────

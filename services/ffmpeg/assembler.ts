@@ -1234,7 +1234,13 @@ export async function assembleWithFfmpeg(params: {
         // música cubra el video sea cual sea su largo; amix corta con la duración
         // del primer input, así que el bucle nunca alarga el resultado.
         inputs.push("-stream_loop", "-1", "-i", music);
-        filters.push(`[${idx}:a]volume=0.12[mus]`);
+        // Sin diálogo (formato escena/performance) la música no acompaña: ES el
+        // video. Medido: a 0.12 el baile se veía sin sentirse. Con líneas
+        // habladas se queda de fondo como siempre.
+        const sinDialogo = params.scenes.every((s) => !(s.narrationText ?? "").trim());
+        const volMus = sinDialogo ? Number(process.env.MUSIC_VOL_PERFORMANCE ?? 0.4) || 0.4 : 0.12;
+        if (sinDialogo) console.log(`[audio] video sin diálogo: música a ${volMus} (protagonista)`);
+        filters.push(`[${idx}:a]volume=${volMus}[mus]`);
         mixLabels.push("[mus]");
         idx++;
       }

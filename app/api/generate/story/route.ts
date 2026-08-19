@@ -431,6 +431,11 @@ export async function POST(req: NextRequest) {
         //    dos como máximo.
         const lugares = Array.from(new Set(scenes.map((sc) => (sc.location ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()).filter(Boolean)));
         const muchosLugares = lugares.length > 2 ? lugares : [];
+        // 13) ESCENA HABLADA. El formato performance salió como sketch con 6/6
+        //     líneas: 34KB de reglas de historia le ganaron al bloque. Más de
+        //     una línea hablada en formato escena es defecto.
+        const habladas = esEscenaFmt ? scenes.filter((sc) => (sc.narration_text ?? "").trim().length > 0).map((sc) => sc.scene_number ?? 0) : [];
+        const escenaHablada = habladas.length > 1 ? habladas : [];
         // 10) LO QUE LA PREMISA PROMETE VER NO SE VE. "ve a su esposo besándose
         //     con su hermana" y el guion arranca en la pelea: el beso nunca
         //     existió en pantalla. Se busca el hecho en la escena 1 (o 2).
@@ -460,9 +465,10 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, total: (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
+      const esEscenaFmt = (parsed.data.format ?? "story") === "escena";
       // Traición descubierta: la ternura del infiel hacia la traicionada en el
       // tramo final está prohibida. Medido DOS veces en video terminado (Iván,
       // Ramiro: la mano en la mejilla mientras ella dice "no me toques"); la
@@ -491,7 +497,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -509,6 +515,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.escenaHablada.length
+            ? ` El formato es ESCENA (performance) y ${defectos.escenaHablada.length} escenas tienen diálogo. Reescribí el guion MUDO: narration_text = "" en todas (una sola línea corta permitida si la premisa la pide). Lo que hoy dicen las líneas se convierte en physical_action ejecutada: el baile con técnica real, la reacción física, la cámara. El sujeto de la premisa hace su acción en TODAS las escenas.`
             : "") +
           (defectos.picoTierno.length
             ? ` En las escenas ${defectos.picoTierno.join(", ")} el que traicionó le sostiene la cara / la besa / la abraza DESPUÉS del descubrimiento. En una traición el contacto del tramo final es RUPTURA, nunca ternura: reemplazalo por la mano que se aparta de un tirón, el empujón, la bofetada, el anillo sobre la mesa, el cuerpo que retrocede, el portazo. El infiel no consuela.`
@@ -569,6 +578,19 @@ export async function POST(req: NextRequest) {
             .replace(/\s{2,}/g, " ").trim();
         }
       }
+      // ── CIERRE DURO: ESCENA SE ENTREGA MUDA ──────────────────────────────
+      // Si el reintento tampoco lo silenció, se silencia acá: se conserva UNA
+      // línea (la del pico si existe, si no la primera) y el resto se vacía.
+      if (esEscenaFmt && result.data?.scenes?.length) {
+        const esc = result.data.scenes as Array<{ scene_number?: number; narration_text?: string | null; is_peak?: boolean }>;
+        const conTexto = esc.filter((sc) => (sc.narration_text ?? "").trim());
+        if (conTexto.length > 1) {
+          const guardar = conTexto.find((sc) => sc.is_peak) ?? conTexto[0]!;
+          for (const sc of conTexto) if (sc !== guardar) sc.narration_text = "";
+          console.warn(`[escenas] formato escena con ${conTexto.length} líneas tras el reintento — se silencia todo salvo la escena ${guardar.scene_number}`);
+        }
+      }
+
       // ── CIERRE DURO: EN UNA TRAICIÓN, EL INFIEL NO CONSUELA ──────────────
       // Si el reintento tampoco lo sacó, la acción del tramo final se reescribe
       // a ruptura y la imagen se limpia de manos en la cara. Es el mismo patrón
