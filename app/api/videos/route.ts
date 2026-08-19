@@ -367,6 +367,15 @@ export async function POST(req: NextRequest) {
           if (!cf) return undefined;
           const l1 = lugarDeEscena(lead), l0 = cf.desde > 0 ? lugarDeEscena(cf.desde) : "";
           if (l1 && l0 && l1 !== l0) { console.log(`[chain] escena ${lead}: cambia de lugar respecto de ${cf.desde} — arranca de su propia imagen`); return undefined; }
+          // Y EL MISMO SUJETO EN CUADRO. Medido en video terminado: el clip de
+          // Osvaldo arrancó del último cuadro del clip de Florencia (mismo
+          // cuarto) y el modelo la fue TRANSFORMANDO en él durante el plano. El
+          // encadenado vale cuando la misma persona sigue en cuadro; si cambia
+          // quien habla, el clip arranca de su propia imagen y el montaje pone
+          // un corte seco — que es lo que haría cualquier editor.
+          const quien = (n: number) => ((sceneByNumber.get(n) as { speaker?: string | null } | undefined)?.speaker ?? "").trim().toLowerCase();
+          const s1 = quien(lead), s0 = quien(lead - 1) || (cf.desde > 0 ? quien(cf.desde) : "");
+          if (s1 && s0 && s1 !== s0) { console.log(`[chain] escena ${lead}: cambia de sujeto (${s0} → ${s1}) — arranca de su propia imagen, corte seco`); return undefined; }
           console.log(`[chain] escena ${lead}: arranca del último cuadro real del clip de la escena ${cf.desde}`);
           return cf.url;
         };
