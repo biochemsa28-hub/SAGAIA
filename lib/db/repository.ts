@@ -901,8 +901,8 @@ export async function saveGenerationResult(params: {
   for (const scene of story.scenes) {
     await db.execute({
       sql: `INSERT INTO scenes
-        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile, sfx_prompt, speaker_look, location, environment, physical_action, is_peak)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile, sfx_prompt, speaker_look, location, environment, physical_action, is_peak, ambience)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         uuidv4(), projectId, storyId, scene.scene_number,
         scene.narration_text, scene.duration_seconds,
@@ -915,6 +915,7 @@ export async function saveGenerationResult(params: {
         scene.environment || null,
         scene.physical_action || null,
         (scene as { is_peak?: boolean }).is_peak ? 1 : 0,
+        (scene as { ambience?: string | null }).ambience || null,
       ],
     });
   }
@@ -970,6 +971,7 @@ export interface DbScene {
   speaker_look: string | null;  // cómo se ve quien habla, para que el modelo lo distinga
   location: string | null;      // dónde transcurre; decide encadenado vs corte limpio
   environment: string | null;   // qué se mueve en el ambiente (lluvia, cortina, humo)
+  ambience?: string | null;     // qué se OYE todo el tiempo (regadera, tele, cubiertos)
 }
 
 export interface DbSeoPackage {

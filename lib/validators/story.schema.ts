@@ -131,6 +131,12 @@ export const SceneSchema = z.object({
   // solo se mueve la cara se lee como una foto que habla; el mismo plano con la
   // lluvia corriendo por el vidrio detrás se lee como una toma.
   environment: recortado(100),
+  // QUÉ SE OYE TODO EL TIEMPO en ese lugar / haciendo esa actividad. En inglés.
+  // Regadera corriendo, tele de fondo, cubiertos y murmullo, lluvia. Es una
+  // CAMA continua, no un evento: el sfx_prompt es la puerta que se cierra; el
+  // ambience es la casa que suena mientras tanto. Sin esto, alguien "en la
+  // ducha" hablaba en un silencio de estudio.
+  ambience: recortado(100),
   duration_seconds: z.preprocess((v) => (typeof v === "number" ? Math.min(120, Math.max(2, Math.round(v))) : v), z.number().int().min(2).max(120)),
   image_prompt: z
     .string()

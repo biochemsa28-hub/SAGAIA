@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveRequestUserId } from "@/lib/internal-auth";
 import { getProjectDetail, updateProjectStatus, upsertAsset, getUserById } from "@/lib/db/repository";
 import { submitAssembly, checkAssembly } from "@/services/shotstack/assembler";
-import { generateStorySfx, generateSceneSfx } from "@/services/elevenlabs/sfx-generator";
+import { generateStorySfx, generateSceneSfx, generateAmbienceBeds } from "@/services/elevenlabs/sfx-generator";
 import { generateStoryMusic } from "@/services/elevenlabs/music-generator";
 import { initDb } from "@/lib/db";
 import { z } from "zod";
@@ -318,6 +318,7 @@ export async function POST(req: NextRequest) {
     // los bloques absorben escenas, así que scene_number ya no es correlativo con el
     // orden en que se ven, y usarlo como índice pondría la puerta en otra escena.
     let sceneSfx: Array<{ sceneIndex: number; url: string }> = [];
+    let sceneAmbience: Array<{ sceneIndex: number; key: string; url: string | null }> = [];
     if ((process.env.AUTO_SFX ?? "on").toLowerCase() !== "off") {
       try {
         const sfx = await generateStorySfx(detail.project.niche);
@@ -336,6 +337,19 @@ export async function POST(req: NextRequest) {
         const generados = await generateSceneSfx(pedidos);
         sceneSfx = generados.map((g) => ({ sceneIndex: g.scene_number, url: g.url }));
       } catch { /* el video se arma igual sin los sonidos de escena */ }
+
+      // Camas de ambiente: el sonido continuo del lugar/actividad, por posición
+      // en la línea de tiempo. Escenas seguidas con el mismo texto comparten la
+      // misma cama sin cortes (lo resuelve el ensamblador).
+      try {
+        const ambPorNumero = new Map(
+          (detail.scenes ?? []).map((sc) => [sc.scene_number, ((sc as { ambience?: string | null }).ambience ?? "").trim()]),
+        );
+        const textos = timeline.map((s) => ambPorNumero.get(s.sceneNumber) ?? "");
+        const camas = await generateAmbienceBeds(textos);
+        const urlPorTexto = new Map(camas.map((c) => [c.text, c.url]));
+        sceneAmbience = textos.map((t, i) => ({ sceneIndex: i, key: t, url: urlPorTexto.get(t) ?? null }));
+      } catch { /* sin camas de ambiente el video se arma igual */ }
     }
 
     // Auto-generate an ORIGINAL background score (ElevenLabs Music) matching the
@@ -408,6 +422,7 @@ export async function POST(req: NextRequest) {
         sfxWhooshUrl,
         sfxImpactUrl,
         sceneSfx,
+        sceneAmbience,
       });
       // El reporte de calidad viaja CON el video final. Es lo que convierte
       // "medimos cada video" en "aprendemos de cada video": la métrica queda

@@ -129,6 +129,40 @@ export async function generateSceneSfx(
   return listos;
 }
 
+// ── CAMAS DE AMBIENTE ─────────────────────────────────────────────────────
+// El sonido CONTINUO del lugar/actividad: la regadera mientras se baña, la tele
+// mientras la mira, los cubiertos mientras cena, la lluvia en la ventana. No es
+// un evento (eso es el sfx de escena, 1.5s): es un fondo que suena toda la
+// escena. Medido: sin él, alguien "en la ducha" hablaba en silencio de estudio
+// y el espectador oía una cosa y veía otra.
+//
+// Se genera UNA cama por texto distinto (10s; el ensamblador la repite en bucle
+// lo que haga falta) y se comparte entre escenas con el mismo texto — por eso
+// el guion repite el mismo ambience en el mismo lugar.
+export interface AmbienceBed { text: string; url: string }
+
+export async function generateAmbienceBeds(textos: Array<string | null | undefined>): Promise<AmbienceBed[]> {
+  if ((process.env.AUTO_AMBIENCE ?? "on").toLowerCase() === "off") return [];
+  const unicos = [...new Set(textos.map((t) => (t ?? "").trim()).filter((t) => t.length >= 4))];
+  const TOPE = Math.max(1, Number(process.env.MAX_AMBIENCE_BEDS ?? 4) || 4);
+  const lista = unicos.slice(0, TOPE);
+  if (lista.length < unicos.length) console.log(`[ambiente] ${unicos.length} ambientes distintos, se generan ${lista.length} (tope MAX_AMBIENCE_BEDS)`);
+  const out: AmbienceBed[] = [];
+  const LOTE = 2;
+  for (let i = 0; i < lista.length; i += LOTE) {
+    const tanda = await Promise.all(lista.slice(i, i + LOTE).map(async (t) => {
+      const clave = "amb_" + t.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 48);
+      // "seamless loop, steady, no events" — una cama no tiene golpes ni cambios;
+      // si el modelo mete un portazo a los 4s se oirá en cada vuelta del bucle.
+      const url = await generate(clave, `${t}, continuous steady ambient background sound, seamless loop, no sudden events, no music`, 10);
+      return url ? { text: t, url } : null;
+    }));
+    out.push(...tanda.filter((x): x is AmbienceBed => x !== null));
+  }
+  console.log(`[ambiente] ${out.length}/${lista.length} cama(s) de ambiente generada(s)`);
+  return out;
+}
+
 // Public: returns { whoosh, impact } public URLs (or nulls). Never throws — a null
 // just means the assembler renders without that effect.
 export async function generateStorySfx(niche: string): Promise<{ whoosh: string | null; impact: string | null }> {

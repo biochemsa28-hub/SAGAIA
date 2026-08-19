@@ -1038,6 +1038,9 @@ export async function assembleWithFfmpeg(params: {
   // dentro de `scenes` — no por scene_number, porque los bloques absorben escenas y
   // los números dejan de ser correlativos con la línea de tiempo.
   sceneSfx?: Array<{ sceneIndex: number; url: string }>;
+  // Cama de ambiente por posición en la línea de tiempo (regadera, tele, lluvia).
+  // Escenas seguidas con la misma key suenan como UNA sola cama continua.
+  sceneAmbience?: Array<{ sceneIndex: number; key: string; url: string | null }>;
 }): Promise<{ url: string; provider: "ffmpeg"; audit?: AuditoriaVideo | null }> {
   const dir = join(tmpdir(), `vynavo_${randomUUID()}`);
   mkdirSync(dir, { recursive: true });
@@ -1302,6 +1305,44 @@ export async function assembleWithFfmpeg(params: {
           mixLabels.push(`[sx${i}]`);
           idx++;
         } catch { /* un efecto que no baja no vale el render entero */ }
+      }
+
+      // ── CAMAS DE AMBIENTE: EL LUGAR SUENA TODO EL TIEMPO ──────────────────
+      // La regadera mientras se baña, la tele mientras la mira, la lluvia en la
+      // ventana. Una cama por TRAMO: escenas seguidas con el mismo ambiente se
+      // funden en un solo tramo (una entrada, una salida), así el sonido del
+      // lugar no se corta en cada plano — que es justo lo que delata el montaje.
+      // Bucle de 10s con fundidos largos; volumen bajo (0.14): es fondo, nunca
+      // compite con la voz.
+      {
+        const amb = (params.sceneAmbience ?? []).filter((a) => a.url);
+        const tramos: Array<{ desde: number; hasta: number; url: string; key: string }> = [];
+        for (const a of amb) {
+          const i = a.sceneIndex;
+          if (i < 0 || i >= boundaries.length) continue;
+          const ini = boundaries[i]!;
+          const fin = i + 1 < boundaries.length ? boundaries[i + 1]! : ini + (duraciones[i] ?? 0);
+          const ult = tramos[tramos.length - 1];
+          if (ult && ult.key === a.key && Math.abs(ult.hasta - ini) < 0.05) ult.hasta = fin;
+          else tramos.push({ desde: ini, hasta: fin, url: a.url!, key: a.key });
+        }
+        const VOL_AMB = Number(process.env.AMBIENCE_VOL ?? 0.14) || 0.14;
+        let t = 0;
+        for (const tr of tramos) {
+          const dur = tr.hasta - tr.desde;
+          if (dur < 0.8) continue;
+          try {
+            const f = join(dir, `amb_${t}.mp3`);
+            await download(tr.url, f);
+            inputs.push("-stream_loop", "-1", "-i", f);
+            const ms = Math.max(0, Math.round(tr.desde * 1000));
+            const fo = Math.max(0, dur - 0.9);
+            filters.push(`[${idx}:a]atrim=0:${dur.toFixed(2)},asetpts=PTS-STARTPTS,afade=t=in:d=0.7,afade=t=out:st=${fo.toFixed(2)}:d=0.9,adelay=${ms}|${ms},volume=${VOL_AMB}[amb${t}]`);
+            mixLabels.push(`[amb${t}]`);
+            idx++; t++;
+          } catch { /* una cama que no baja no vale el render */ }
+        }
+        if (tramos.length) console.log(`[ambiente] ${t} tramo(s) de ambiente: ${tramos.map((x) => `"${x.key}" ${x.desde.toFixed(1)}–${x.hasta.toFixed(1)}s`).join(" · ")}`);
       }
 
       // Impact on the opening beat — the "stop scrolling" punch.

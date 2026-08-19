@@ -191,6 +191,9 @@ export async function initDb(): Promise<void> {
   // que se le mandaba al modelo ocurría MIENTRAS se hablaba, y lo que hace que
   // una escena sea una escena pasa antes de la línea y después de ella.
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN physical_action TEXT");
+  // Sonido CONTINUO del lugar/actividad (regadera, tele, cubiertos, lluvia):
+  // una cama que suena toda la escena, distinta del sfx_prompt (un golpe).
+  await runMigration(db, "ALTER TABLE scenes ADD COLUMN ambience TEXT");
 
   // ── EL GUIONISTA DECLARA CUÁL ES EL PICO, EN VEZ DE QUE LO ADIVINEMOS ──────
   //
