@@ -436,6 +436,15 @@ export async function POST(req: NextRequest) {
         const premisaBeso = /\b(bes|engañ|infiel|amante|acost|abraz)/i.test(parsed.data.topic);
         const HECHO = /kiss|lips|bes[oa]|embrac|hug|abraz|in bed|entwined|caught|making out|arms around/i;
         const primeras = scenes.slice(0, 2);
+        // 12) TERNURA DEL INFIEL EN EL PICO. Premisa de traición y el pico es
+        //     él sosteniéndole la cara / besándola / abrazándola: el infiel como
+        //     galán. Medido: "no me toques" con la mano de él en su mejilla.
+        const premisaTraicion = /(engañ|infiel|amante|traici|bes[aá]ndose con|acost[aá]ndose con|mentira)/i.test(parsed.data.topic);
+        const TERNURA = /kiss|lips (meet|touch)|cup(s|ping)? (her|his) (face|jaw|cheek)|caress|strok(es|ing)|embrace|hug|holds? (her|his) face|foreheads? (touch|press|rest)|wipes? (her|his) tear/i;
+        const RUPTURA = /slap|shove|push|pull(s|ing)? (away|back|free)|step(s)? back|rips?|throws?|slams?|storms? out|turns? away|recoils?|flinch/i;
+        const picoTierno = premisaTraicion
+          ? scenes.filter((sc, i) => (sc.is_peak || i >= Math.floor(scenes.length * 0.6)) && TERNURA.test(sc.physical_action ?? "") && !RUPTURA.test(sc.physical_action ?? "")).map((sc) => sc.scene_number ?? 0)
+          : [];
         const sinLoQueVe = premisaVe && premisaBeso && scenes.length >= 3 &&
           !primeras.some((sc) => HECHO.test(`${sc.image_prompt ?? ""} ${sc.physical_action ?? ""}`));
         // 11) APODOS INVENTADOS. "Dele" por Delfina: la voz lo dice tal cual y
@@ -452,7 +461,7 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length };
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
@@ -475,7 +484,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -493,6 +502,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.picoTierno.length
+            ? ` En las escenas ${defectos.picoTierno.join(", ")} el que traicionó le sostiene la cara / la besa / la abraza DESPUÉS del descubrimiento. En una traición el contacto del tramo final es RUPTURA, nunca ternura: reemplazalo por la mano que se aparta de un tirón, el empujón, la bofetada, el anillo sobre la mesa, el cuerpo que retrocede, el portazo. El infiel no consuela.`
             : "") +
           (defectos.apodos.length
             ? ` Las líneas usan apodos o recortes de nombre inventados (${defectos.apodos.join(", ")}). Usá SIEMPRE el nombre completo del elenco; nada de diminutivos ni recortes.`
