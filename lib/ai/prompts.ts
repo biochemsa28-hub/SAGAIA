@@ -278,18 +278,20 @@ LA ESCENOGRAFÍA HABLA (el lugar ES la emoción):
 - La luz de un celular en la oscuridad = la verdad que no quieres leer
 
 ════════════════════════════════════════
-REGLA #4 — ESTRUCTURA DE RETENCIÓN (BEATS)
+REGLA #4 — ARQUITECTURA EN CUATRO ACTOS + CURVA EMOCIONAL (ESTO ES LO QUE HACE QUE SE SIENTA UNA HISTORIA)
 ════════════════════════════════════════
-El video se produce en ~6 bloques de ~10s cada uno (60s como máximo absoluto). Repartí los beats sobre ESA duración — no sobre un video largo:
+Un video que se siente "sin principio ni fin" es un video sin actos. Medido en un video terminado: escenas correctas una por una, y aun así el espectador no sabía dónde empezaba ni adónde iba. La estructura NO se reparte en segundos fijos: se reparte en PROPORCIÓN de las escenas, dure lo que dure el video. Cada escena pertenece a UN acto y lo cumple.
 
-- BEAT 0 (0–10s): GANCHO. Una imagen + frase que DETIENE el scroll. Directo al nervio, sin contexto.
-- BEAT 1 (10–20s): conflicto en marcha. Algo concreto se rompe o se revela. El contexto va aquí, en una sola línea, mientras pasa algo.
-- BEAT 2 (20–30s): escalada. Las stakes suben.
-- BEAT 3 (30–40s): GIRO que recontextualiza todo lo anterior.
-- BEAT 4 (40–50s): la consecuencia del giro. El personaje actúa distinto porque ahora sabe.
-- BEAT 5 (50–60s): CLIFFHANGER emocional. Pregunta abierta que obliga a querer la Parte 2.
+  ACTO 1 — ESTABLECER (primer ~20% de las escenas): dónde estamos, quiénes son, qué está pasando AHORA. Emoción base del género, intensidad 3 de 10 — reconocible, no explotada. La ilusión de la premisa se instala aquí como verdad (la seductora seduce de verdad; la casa es una casa; el matrimonio parece bien).
+  ACTO 2 — TENSAR (siguiente ~45%): cada escena aprieta un poco más. Sube la intensidad 4 → 7. Un DETALLE que no cuadra por escena (no la explicación, el detalle), y el otro personaje EMPUJA. Nada se resuelve, todo se acumula. Aquí NO va el giro.
+  ACTO 3 — CLÍMAX (una o dos escenas, entre el 70% y el 85%): el pico físico Y la verdad, juntos, intensidad 10. Es la escena is_peak. Ver "VUELCO" abajo.
+  ACTO 4 — CIERRE (las últimas 1-2 escenas, siempre DESPUÉS del clímax): la consecuencia — el mundo ya no es el mismo — y la última línea: la frase citable, la pregunta al espectador o el cliffhanger. Nunca termina en el clímax mismo: sin acto 4 no hay historia, hay un susto.
 
-EL GIRO VA EN EL BEAT 3, a mitad del video — NO al final. Antes estaba calibrado para los 35–50s de un formato más largo y llegaba cuando el video ya casi había terminado: el espectador se iba sin recibirlo. Después del giro TIENE que pasar algo; si el giro es la última línea, no hay historia después de la sorpresa.
+Prueba antes de cerrar el JSON: nombrá para cada escena su acto (1, 2, 3 o 4). Si el acto 3 cae antes del 70%, si no hay acto 4, o si el acto 2 no sube de intensidad escena a escena, la arquitectura está rota y hay que reordenar.
+
+CURVA EMOCIONAL — LA EMOCIÓN AL EXTREMO, O NO SIRVE. Terror es TERROR, no inquietud; amor es DESEO, no simpatía; drama es el nudo en la garganta, no la tristeza. Cada acto tiene un nivel y el modelo lo actúa: en el 1 la cara está tranquila y el cuerpo suelto; en el 2 aparecen los signos (la respiración corta, la mano que no suelta, la mirada que revisa la puerta) y crecen escena a escena; en el 3 el cuerpo entero — la garganta, los ojos, la piel, la voz que se quiebra — hace lo que el género pide al máximo; en el 4 el después: temblor, silencio, alivio o vacío. El campo "emotion" de cada escena tiene que reflejar ese número: no puede decir "miedo" en la escena 2 y "miedo" en la 7 — en la 2 es "inquietud contenida", en la 7 es "pánico total". Y la emoción se VE en image_prompt (la cara, las manos, la postura de ESE nivel), no solo se nombra.
+
+VUELCO (premisas con revelación: la seductora que es demonio, el vecino que es el asesino, el sueño que era real): en el clímax TODO cambia de golpe, en la misma escena, y el cambio tiene que ser DRÁSTICO para que se sienta: (a) la LUZ — de la cálida de la ilusión a la fría/dura de la verdad; (b) el COLOR — la paleta se invierte; (c) la CARA — la sonrisa se vuelve la boca real, los ojos cambian, la piel; (d) el SONIDO (sfx_prompt) — silencio absoluto un instante y después el golpe; (e) la CÁMARA (camera_move) — push-in violento o el plano que se tuerce; (f) el CUERPO (physical_action) — la acción que rompe la ilusión, completa. Los seis en el image_prompt/physical_action/sfx_prompt/camera_move de la escena is_peak, explícitos. Un vuelco tibio (unos ojos que brillan) es un video que promete y no paga.
 
 LA ÚLTIMA LÍNEA HABLADA VA EN EL BLOQUE FINAL. Nada de terminar el diálogo antes y dejar segundos mudos: el silencio al final desinfla todo lo anterior.
 

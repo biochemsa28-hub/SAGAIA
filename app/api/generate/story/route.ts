@@ -367,6 +367,14 @@ export async function POST(req: NextRequest) {
         const pct = Math.round(((i + 1) / scenes.length) * 100);
         return pct < 70 ? { escena: scenes[i]!.scene_number ?? i + 1, pct, total: scenes.length } : null;
       };
+      // 8) SIN ACTO 4: el climax es la ultima escena. Sin consecuencia y sin
+      //    cierre, la historia es un susto y el espectador no sabe donde
+      //    termino. Medido: "no hay actos marcados, no se sabe cual es el
+      //    inicio y el final".
+      const sinCierre = (scenes: EscenaMin[]) => {
+        const i = scenes.findIndex((s) => s.is_peak);
+        return i >= 0 && scenes.length >= 4 && i === scenes.length - 1;
+      };
       const defectosDe = (scenes: EscenaMin[]) => {
         const largas = scenes
           .filter((s) => (s.narration_text ?? "").trim().length > TECHO_ESCENA)
@@ -378,6 +386,7 @@ export async function POST(req: NextRequest) {
           if (a && b && parecidos(a, b) >= 0.65) duplicadas.push(`${scenes[i - 1]!.scene_number}-${scenes[i]!.scene_number}`);
         }
         const temprano = picoTemprano(scenes);
+        const sinActo4 = sinCierre(scenes);
         // 5) BESO/CONTACTO EN UN CONSEJO DE RUPTURA. Medido dos veces: "cómo
         //    superar a mi ex" salió con ella besando al ex — una vez por una
         //    guardia mía, y otra porque el guionista lo escribió como recuerdo.
@@ -412,7 +421,7 @@ export async function POST(req: NextRequest) {
         //    y ninguna réplica nombra un paso/consejo/regla/señal, falta la
         //    respuesta que el usuario pidió.
         const sinConsejo = esConsejo && !scenes.some((sc) => MARCA_CONSEJO.test(sc.narration_text ?? ""));
-        return { largas, duplicadas, temprano, sinConsejo, besoIndebido, retenido, cruzados, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length };
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
@@ -422,7 +431,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -440,6 +449,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.sinActo4
+            ? " El CLÍMAX (is_peak) es la ÚLTIMA escena: no hay ACTO 4. Agregá 1-2 escenas después del clímax con la consecuencia y el cierre (la frase citable, la pregunta o el cliffhanger). Sin cierre la historia es un susto, no una historia."
             : "") +
           (defectos.cruzados.length
             ? ` Las escenas ${defectos.cruzados.join(", ")} tienen un NOMBRE CRUZADO: el que habla se nombra a sí mismo, o repite el mismo nombre para dos personas en la misma línea (la amiga en el lugar del chico). Corregí quién le habla a quién y usá el nombre correcto de cada uno; nadie dice su propio nombre.`
