@@ -176,6 +176,14 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number, o
     "no mumbling, no swallowed syllables, no invented words. Proper names are read as spelled in Spanish " +
     "(each vowel sounds; 'c' before e/i sounds like 's', 'g' before e/i sounds like a soft 'h', 'j' sounds like a soft 'h'). " +
     "Natural conversational pace, slightly slower on names." +
+    // Medido en un video terminado: la primera línea (3s de texto en un clip de
+    // 6s) se dijo DOS VECES, y aparecieron un "Yo sé" y un "Emilia." que no
+    // están en ningún guion. El modelo rellena el aire que sobra con la boca de
+    // quien sea — y eso es lo que el espectador ve como "hablan cuando no les
+    // toca". El aire sobrante se llena con el cuerpo, nunca con palabras.
+    " EACH LINE IS SPOKEN EXACTLY ONCE. Never repeat a line, never add, improvise or echo words, never say a name on its own. " +
+    "When the written lines are finished, the scene continues in SILENCE — breathing, looking, a small movement — until the clip ends. " +
+    "Silence is correct; an extra word is a mistake." +
     " AUDIO: dialogue and natural room tone only — NO background music, NO added sound effects, NO score, NO stingers; " +
     "the soundtrack is added later.";
 

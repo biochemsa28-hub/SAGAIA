@@ -428,7 +428,16 @@ export async function POST(req: NextRequest) {
         //    dos como máximo.
         const lugares = Array.from(new Set(scenes.map((sc) => (sc.location ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()).filter(Boolean)));
         const muchosLugares = lugares.length > 2 ? lugares : [];
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) };
+        // 10) LO QUE LA PREMISA PROMETE VER NO SE VE. "ve a su esposo besándose
+        //     con su hermana" y el guion arranca en la pelea: el beso nunca
+        //     existió en pantalla. Se busca el hecho en la escena 1 (o 2).
+        const premisaVe = /\b(ve|vio|viendo|descubr|encuentr|encontr|sorprend|pill|cach)/i.test(parsed.data.topic);
+        const premisaBeso = /\b(bes|engañ|infiel|amante|acost|abraz)/i.test(parsed.data.topic);
+        const HECHO = /kiss|lips|bes[oa]|embrac|hug|abraz|in bed|entwined|caught|making out|arms around/i;
+        const primeras = scenes.slice(0, 2);
+        const sinLoQueVe = premisaVe && premisaBeso && scenes.length >= 3 &&
+          !primeras.some((sc) => HECHO.test(`${sc.image_prompt ?? ""} ${sc.physical_action ?? ""}`));
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
@@ -438,7 +447,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -456,6 +465,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.sinLoQueVe
+            ? " La premisa dice que alguien VE/DESCUBRE el hecho (el beso, el engaño) y el guion arranca DESPUÉS, sin mostrarlo. La ESCENA 1 tiene que MOSTRAR ese hecho entero —el beso con labios que se tocan y se quedan, los cuerpos— desde el punto de vista de quien lo descubre, con physical_action completa e image_prompt con el hecho en cuadro. La reacción viene después."
             : "") +
           (defectos.muchosLugares.length
             ? ` Hay ${defectos.muchosLugares.length} lugares distintos (${defectos.muchosLugares.join(" / ")}). Contá la MISMA historia en UN solo lugar (dos como máximo, y solo si alguien se va o pasa el tiempo): mantené el "location" con el mismo texto exacto en todas las escenas y variá el ángulo, no el sitio.`
