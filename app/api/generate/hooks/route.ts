@@ -76,7 +76,8 @@ NICHO: ${input.niche}
 TONO: ${input.tone}
 IDIOMA: ${langMap[input.language] ?? "español latinoamericano"}
 ${input.cast_names?.length ? `REPARTO (los ÚNICOS nombres que existen — si nombrás a alguien, es uno de estos, y si no hace falta nombrar, no nombres): ${input.cast_names.join(", ")}` : "SIN REPARTO TODAVÍA: no inventes nombres propios — decí \"mi esposo\", \"mi jefe\", \"mi hermana\"."}
-${input.format === "consejo" ? `
+${input.format === "escena" ? `
+⚠️ FORMATO ESCENA (performance) — cambia todo lo de arriba: acá NADIE HABLA. Los tres ganchos son EL PRIMER PLANO del video — lo que el espectador VE en los primeros 2 segundos y le impide hacer scroll. Descripción visual en español, máximo 16 palabras, presente, concreta: el sujeto, la acción y el detalle inquietante o magnético. NUNCA una línea de diálogo, nunca comillas de alguien hablando, nunca un titular. Los tres ángulos se adaptan: (1) EN CRISIS = el momento YA está pasando (el muñeco ya está girado, el baile ya está en el aire); (2) A OTRO PERSONAJE pasa a ser EL DETALLE QUE DELATA — lo pequeño que el ojo capta y no puede soltar (un dedo que se mueve, la sombra que no coincide); (3) LO QUE ADMITE pasa a ser EL ENCUADRE IMPOSIBLE — el ángulo o la composición que hace preguntarse cómo existe este video. Nacen de ESTA premisa y sus detalles.` : ""}${input.format === "consejo" ? `
 ⚠️ FORMATO CONSEJO — cambia todo lo de arriba: los tres ganchos son lo que la PROTAGONISTA le dice A CÁMARA al espectador, en primera persona, como a una amiga: la situación concreta que la trajo hasta acá, en presente. NUNCA el título del consejo ("hoy te cuento cómo superar…", "5 señales de…" — PROHIBIDO), nunca dirigido a otro personaje. Los tres ángulos se adaptan: (1) EN CRISIS = algo concreto que le está pasando AHORA con este tema — un objeto, un gesto, una hora (no una emoción abstracta); (2) A OTRO PERSONAJE pasa a ser LO QUE ELLA SE DICE — la frase que se repite para engañarse, y en la misma línea admite que no le sirve; (3) LO QUE ADMITE = lo que le da vergüenza confesar de sí misma en este tema. Máximo 14 palabras cada uno. Los tres tienen que nacer de ESTE tema y de sus detalles — inventá las frases, no uses ninguna que ya hayas visto en instrucciones.` : ""}
 
 Genera EXACTAMENTE este JSON (sin texto adicional):
@@ -85,21 +86,21 @@ Genera EXACTAMENTE este JSON (sin texto adicional):
     {
       "id": "question",
       "type": "question",
-      "type_label": "${input.format === "consejo" ? "Lo que me pasa" : "En crisis"}",
+      "type_label": "${input.format === "escena" ? "Ya está pasando" : input.format === "consejo" ? "Lo que me pasa" : "En crisis"}",
       "text": "lo que el personaje DICE reaccionando a algo que ya está pasando (máx 20 palabras)",
       "why": "por qué esta línea detiene el scroll (1 frase)"
     },
     {
       "id": "in_medias_res",
       "type": "in_medias_res",
-      "type_label": "${input.format === "consejo" ? "Lo que me digo" : "A otro personaje"}",
+      "type_label": "${input.format === "escena" ? "El detalle que delata" : input.format === "consejo" ? "Lo que me digo" : "A otro personaje"}",
       "text": "lo que el personaje LE DICE a otro, nombrándolo o reclamándole (máx 20 palabras)",
       "why": "por qué esta línea detiene el scroll (1 frase)"
     },
     {
       "id": "shocking_fact",
       "type": "shocking_fact",
-      "type_label": "${input.format === "consejo" ? "Lo que admito" : "Lo que admite"}",
+      "type_label": "${input.format === "escena" ? "El encuadre imposible" : input.format === "consejo" ? "Lo que admito" : "Lo que admite"}",
       "text": "lo que el personaje ADMITE en voz alta y le cuesta decir (máx 20 palabras)",
       "why": "por qué esta línea detiene el scroll (1 frase)"
     }

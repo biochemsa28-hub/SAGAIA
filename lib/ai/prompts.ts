@@ -567,7 +567,7 @@ la primera mitad, cambia el plano, dice la segunda. Eso además mejora el ritmo 
 un corte a mitad de confesión es más potente que un parlamento largo sostenido.
 ESTILO VISUAL: ${input.visual_style}
 PLATAFORMA: ${input.target_platform ?? "tiktok"}
-${chosenHook ? `HOOK ELEGIDO POR EL USUARIO (ÚSALO EXACTAMENTE COMO ESTÁ): "${chosenHook}"` : ""}
+${chosenHook ? (input.format === "escena" ? `APERTURA VISUAL ELEGIDA POR EL USUARIO (es lo que SE VE en el primer plano — NO es una línea hablada): "${chosenHook}" — convertila en el image_prompt y la physical_action de la escena 1; narration_text de la escena 1 sigue vacío.` : `HOOK ELEGIDO POR EL USUARIO (ÚSALO EXACTAMENTE COMO ESTÁ): "${chosenHook}"`) : ""}
 ${castLine ? `
 🚨 ELENCO YA DEFINIDO — NOMBRES OBLIGATORIOS 🚨
 ${castLine}
@@ -623,7 +623,7 @@ Para CADA ESCENA define internamente:
 
 ━━━ REQUISITOS DE GUION ━━━
 - Entre ${duration.min} y ${duration.max} escenas, ORDEN CRONOLÓGICO. NUNCA empieces por el final.
-- ${chosenHook ? `HOOK OBLIGATORIO: "${chosenHook}" — va en la escena 1, SALVO en premisas de VER/DESCUBRIR un engaño (regla #3.9): ahí la escena 1 es la ILUSIÓN (el beso, hablada por ÉL) y este gancho es la primera línea de la que descubre, en la escena 2` : "HOOK (escena 1, o escena 2 si la regla #3.9 aplica — entonces la escena 1 es la línea de amor de ÉL en el beso): frase del personaje que DETIENE el scroll en 2 segundos — directa al nervio, sin contexto previo. Una SITUACIÓN concreta que ya está pasando, dicha por quien la vive, en presente — un objeto en la mano, un gesto que acaba de hacer, una hora del día — NUNCA un titular ni una promesa (\"hoy te cuento cómo…\", \"la historia de una mujer que…\"). Inventá la de ESTA historia; nada de frases vistas en otros videos"}
+- ${chosenHook && input.format === "escena" ? `APERTURA VISUAL OBLIGATORIA (escena 1): "${chosenHook}" — se convierte en imagen y acción del primer plano, NUNCA en una línea hablada` : chosenHook ? `HOOK OBLIGATORIO: "${chosenHook}" — va en la escena 1, SALVO en premisas de VER/DESCUBRIR un engaño (regla #3.9): ahí la escena 1 es la ILUSIÓN (el beso, hablada por ÉL) y este gancho es la primera línea de la que descubre, en la escena 2` : "HOOK (escena 1, o escena 2 si la regla #3.9 aplica — entonces la escena 1 es la línea de amor de ÉL en el beso): frase del personaje que DETIENE el scroll en 2 segundos — directa al nervio, sin contexto previo. Una SITUACIÓN concreta que ya está pasando, dicha por quien la vive, en presente — un objeto en la mano, un gesto que acaba de hacer, una hora del día — NUNCA un titular ni una promesa (\"hoy te cuento cómo…\", \"la historia de una mujer que…\"). Inventá la de ESTA historia; nada de frases vistas en otros videos"}
 - RÉPLICAS CORTAS. La mayoría de las líneas tienen entre 2 y 8 palabras; una de 12 es la excepción, no la norma. El drama vertical habla en golpes: pregunta, respuesta, silencio. Medido en el video con mejor retención: 18 líneas en 38 segundos, ninguna de más de 9 palabras. Si una línea necesita explicar, es que la escena anterior no mostró.
 - UN SOLO SPEAKER POR ESCENA — nunca dos voces en el mismo narration_text. Para diálogo A↔B: escenas separadas (N habla A, N+1 habla B).
 - DIÁLOGO ACTUADO: narration_text = lo que el personaje DICE en voz alta, en primera persona. Grita, reclama, suplica, susurra, amenaza — emoción cruda. NUNCA narrador en tercera persona.
