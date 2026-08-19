@@ -17,6 +17,7 @@ import { z } from "zod";
 import { TOPIC_MAX } from "@/lib/validators/story.schema";
 import { captureServer } from "@/lib/analytics/posthog";
 import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { corregirOrtografia } from "@/services/quality/ortografia";
 
 export const runtime = "nodejs";
 // Reel pacing means many more scenes per story, so generation takes longer than
@@ -758,6 +759,13 @@ export async function POST(req: NextRequest) {
           ? `[pico] el guion declaró la escena ${declarada.scene_number} como pico`
           : `[pico] sin marca del guion; la regla reconoce ${escenas.filter((sc) => ACCION_CLAVE.test(sc.physical_action ?? "")).length} escena(s) con pico`);
       }
+    }
+
+    // ── ORTOGRAFÍA: solo erratas, antes de guardar. El texto se ACTÚA literal
+    //    ("faño" se pronunció "faño"), así que una letra mal cuesta un clip.
+    if (result.data?.scenes?.length) {
+      const nombres = (parsed.data.cast ?? []).map((c) => c.name).filter((n): n is string => Boolean(n));
+      await corregirOrtografia(result.data.scenes as Array<{ scene_number?: number; narration_text?: string | null }>, nombres);
     }
 
     // ── Save result + log ─────────────────────────────────────────────────────

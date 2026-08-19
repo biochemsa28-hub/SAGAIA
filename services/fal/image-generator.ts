@@ -3,6 +3,7 @@ import { writeFileSync, mkdirSync } from "fs";
 import { join, isAbsolute, resolve } from "path";
 import { getStyleConfig, type StyleConfig } from "./style-presets";
 import { esCollage } from "@/services/quality/collage";
+import { revisarCuadro, ordenDeCuadroLimpio } from "@/services/quality/cuadro";
 import { logPayload } from "./log-payload";
 
 export interface ImageGenerationResult {
@@ -457,6 +458,8 @@ async function generateReal(params: {
 
   let imageUrl: string | null = null;
 
+  const generarUnaVez = async (extraOrden: string): Promise<string | null> => {
+  let imageUrl: string | null = null;
   // Path A: subject-consistent — edit the reference image into this new scene.
   // Subject-agnostic wording so it preserves BOTH a recurring character's face AND
   // a user-uploaded product's exact look/branding (for ads).
@@ -480,7 +483,7 @@ async function generateReal(params: {
     const notaSet = conSet
       ? " THE LAST reference image shows THE SET where this scene happens: keep the SAME room/place — same walls, furniture, objects, colors, light source and time of day, as if shot minutes later on the same set. Only the camera angle/framing and the person's action change; do NOT redesign or redecorate the location."
       : "";
-    const refPrompt = `A completely NEW scene showing this exact moment: ${escena}. IMPORTANT: the person/product must be the SAME one from the reference image — identical face, hair, features, CLOTHING and colors, wearing exactly the same outfit as in the reference — but in this new pose, action, framing${conSet ? "" : " and location"}. Do not reuse the reference's composition.${notaSet} ${style.promptSuffix}`;
+    const refPrompt = `A completely NEW scene showing this exact moment: ${escena}. IMPORTANT: the person/product must be the SAME one from the reference image — identical face, hair, features, CLOTHING and colors, wearing exactly the same outfit as in the reference — but in this new pose, action, framing${conSet ? "" : " and location"}. Do not reuse the reference's composition.${notaSet}${extraOrden} ${style.promptSuffix}`;
     const extras = conSet
       ? [...(params.referenceImageUrls ?? []).slice(0, 2), params.setReferenceUrl!]
       : params.referenceImageUrls;
@@ -490,7 +493,7 @@ async function generateReal(params: {
 
   // Path B: plain generation (also the fallback if the reference edit failed)
   if (!imageUrl) {
-    const styledPrompt = `${prompt}, ${style.promptSuffix}`;
+    const styledPrompt = `${prompt}, ${style.promptSuffix}${extraOrden}`;
     imageUrl = await callFlux(styledPrompt, style, seed);
     if (!imageUrl) {
       console.log(`[fal.ai] Retrying scene ${sceneNumber} with softened prompt`);
@@ -506,8 +509,31 @@ async function generateReal(params: {
     const noLoraStyle: StyleConfig = { ...style, loras: [], model: "fal-ai/flux/dev", numInferenceSteps: 28 };
     imageUrl = await callFlux(`${prompt}, ${style.promptSuffix}`, noLoraStyle, seed);
   }
+  return imageUrl;
+  };
 
+  imageUrl = await generarUnaVez("");
   if (!imageUrl) throw new Error("fal.ai returned no image after retry");
+
+  // ── ÚLTIMO PASO: ¿ESTÁ ROTO EL CUADRO? ─────────────────────────────────────
+  // Una pasada de visión mira la imagen antes de darla por buena. Medido: una
+  // cara gigante translúcida sobre el salón (doble exposición) pasó todos los
+  // filtros de píxeles y se animó. Si está rota, se regenera UNA vez con la
+  // orden explícita; si la segunda también sale rota, se queda la segunda y se
+  // avisa — reintentar más solo quema dinero.
+  {
+    const v = await revisarCuadro(imageUrl, sinDescripcionDePersonaje(prompt));
+    if (!v.ok) {
+      console.warn(`[cuadro] escena ${sceneNumber} rota (${v.defecto}): ${v.motivo ?? ""} — regenerando una vez`);
+      const otra = await generarUnaVez(ordenDeCuadroLimpio(v.defecto));
+      if (otra) {
+        const v2 = await revisarCuadro(otra, sinDescripcionDePersonaje(prompt));
+        if (v2.ok) console.log(`[cuadro] escena ${sceneNumber} corregida en el segundo intento`);
+        else console.warn(`[cuadro] escena ${sceneNumber} sigue rota (${v2.defecto}): ${v2.motivo ?? ""} — se usa el segundo intento`);
+        imageUrl = otra;
+      }
+    }
+  }
 
   // Second pass — creative upscale: adds micro-detail (pores, fabric texture,
   // light grain) that Flux's base 28-step run lacks. Controlled by IMAGE_UPSCALE=on.
