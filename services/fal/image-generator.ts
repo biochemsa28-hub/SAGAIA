@@ -71,8 +71,8 @@ function softenPrompt(prompt: string): string {
     // Keep weapons — they're standard thriller iconography — just frame them
     // cinematically instead of removing them.
     .replace(/\b(knife|blade)\b/gi, "blade catching the light")
-    + ", intense atmospheric horror, palpable dread, deep shadows concealing something, "
-    + "unsettling presence just out of frame, cinematic tension, film still";
+    + ", intense atmospheric horror, palpable dread, deep shadows, cinematic tension, film still, "
+    + "only the people and objects the scene describes — no added figures";
 }
 
 async function generateMock(projectId: string, sceneNumber: number): Promise<ImageGenerationResult> {
