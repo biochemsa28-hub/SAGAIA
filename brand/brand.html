@@ -1,0 +1,104 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@800;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>body{background:#222;margin:0}canvas{display:block;margin:10px auto;max-width:95vw;border:1px solid #444}</style>
+</head><body>
+<canvas id="perfil" width="800" height="800"></canvas>
+<canvas id="banner" width="2560" height="1440"></canvas>
+<script>
+const PINK="#ff3d6e", AMBER="#ffb03d", BG="#0b0b10", TX="#f3f3f7";
+
+// ── EL LOGO: monograma "V" cuyo trazo derecho es un botón de PLAY ──────────
+// (drama + video en una sola forma; legible a 32px y a 2560px)
+function drawMark(ctx, cx, cy, s){
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s);
+  const g = ctx.createLinearGradient(-50, -60, 60, 70);
+  g.addColorStop(0, PINK); g.addColorStop(1, AMBER);
+  // trazo izquierdo de la V (blanco)
+  ctx.beginPath();
+  ctx.moveTo(-62, -60); ctx.lineTo(-28, -60); ctx.lineTo(4, 28); ctx.lineTo(-14, 62); ctx.closePath();
+  ctx.fillStyle = TX; ctx.fill();
+  // trazo derecho = triángulo de play (gradiente), apuntando abajo-derecha
+  ctx.beginPath();
+  ctx.moveTo(28, -60); ctx.lineTo(66, -60); ctx.lineTo(-14, 62); ctx.closePath();
+  ctx.fillStyle = g; ctx.fill();
+  // chispa de "acción" (la vela/el foco): punto ámbar arriba a la derecha
+  ctx.beginPath(); ctx.arc(52, -34, 9, 0, 7);
+  ctx.fillStyle = AMBER; ctx.shadowColor = AMBER; ctx.shadowBlur = 24; ctx.fill();
+  ctx.restore();
+}
+function wordmark(ctx, cx, cy, px){
+  ctx.save();
+  ctx.font = `900 ${px}px Inter, sans-serif`;
+  ctx.textBaseline = "alphabetic";
+  const t1 = "VYNA", t2 = "VO";
+  const w1 = ctx.measureText(t1).width, w2 = ctx.measureText(t2).width;
+  const x0 = cx - (w1 + w2) / 2;
+  ctx.fillStyle = TX; ctx.fillText(t1, x0, cy);
+  const g = ctx.createLinearGradient(x0 + w1, cy - px, x0 + w1 + w2, cy);
+  g.addColorStop(0, PINK); g.addColorStop(1, AMBER);
+  ctx.fillStyle = g; ctx.fillText(t2, x0 + w1, cy);
+  ctx.restore();
+  return { x0, w: w1 + w2 };
+}
+function bgGlow(ctx, W, H){
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  let r = ctx.createRadialGradient(W*0.22, H*0.1, 0, W*0.22, H*0.1, W*0.55);
+  r.addColorStop(0, "rgba(255,61,110,0.22)"); r.addColorStop(1, "rgba(255,61,110,0)");
+  ctx.fillStyle = r; ctx.fillRect(0, 0, W, H);
+  r = ctx.createRadialGradient(W*0.85, H*0.25, 0, W*0.85, H*0.25, W*0.5);
+  r.addColorStop(0, "rgba(255,176,61,0.14)"); r.addColorStop(1, "rgba(255,176,61,0)");
+  ctx.fillStyle = r; ctx.fillRect(0, 0, W, H);
+  // grano sutil
+  for (let i = 0; i < 1400; i++) {
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.02})`;
+    ctx.fillRect(Math.random()*W, Math.random()*H, 1.2, 1.2);
+  }
+}
+
+function drawPerfil(){
+  const c = document.getElementById("perfil"), ctx = c.getContext("2d");
+  bgGlow(ctx, 800, 800);
+  // anillo sutil (se ve bien en avatar circular)
+  ctx.beginPath(); ctx.arc(400, 400, 356, 0, 7);
+  ctx.strokeStyle = "rgba(255,61,110,0.35)"; ctx.lineWidth = 6; ctx.stroke();
+  drawMark(ctx, 400, 360, 3.4);
+  ctx.textAlign = "left";
+  wordmark(ctx, 400, 660, 92);
+}
+
+function drawBanner(){
+  const c = document.getElementById("banner"), ctx = c.getContext("2d");
+  const W = 2560, H = 1440;
+  bgGlow(ctx, W, H);
+  // tiras de "fotogramas" decorativas arriba y abajo (fuera del área segura)
+  ctx.fillStyle = "rgba(255,255,255,0.045)";
+  for (let x = 0; x < W; x += 150) { ctx.fillRect(x, 60, 110, 62); ctx.fillRect(x + 60, H - 122, 110, 62); }
+  // ÁREA SEGURA de YouTube: 1546×423 centrada → todo lo importante ahí
+  const cy = H / 2;
+  ctx.textAlign = "left";
+  ctx.font = "900 150px Inter, sans-serif";
+  const t1 = "VYNA", t2 = "VO";
+  const w1 = ctx.measureText(t1).width, w2 = ctx.measureText(t2).width;
+  const MARCA = 230; // ancho visual del monograma + aire
+  const total = MARCA + w1 + w2;
+  const izq = W/2 - total/2;
+  drawMark(ctx, izq + 96, cy - 40, 1.55);
+  const x0 = izq + MARCA;
+  ctx.fillStyle = TX; ctx.fillText(t1, x0, cy - 8);
+  const g = ctx.createLinearGradient(x0 + w1, cy - 130, x0 + w1 + w2, cy);
+  g.addColorStop(0, PINK); g.addColorStop(1, AMBER);
+  ctx.fillStyle = g; ctx.fillText(t2, x0 + w1, cy - 8);
+  // tagline
+  ctx.font = "700 54px 'Playfair Display', Georgia, serif";
+  ctx.fillStyle = "rgba(243,243,247,0.92)";
+  { const tg = "Microdramas con IA que la gente ve hasta el final."; ctx.fillText(tg, W/2 - ctx.measureText(tg).width/2, cy + 96); }
+  // sub
+  ctx.font = "800 34px Inter, sans-serif";
+  ctx.fillStyle = "rgba(255,176,61,0.95)";
+  { const sb = "ESCRIBE UNA FRASE  ·  60 SEGUNDOS  ·  TIKTOK · REELS · SHORTS"; ctx.fillText(sb, W/2 - ctx.measureText(sb).width/2, cy + 168); }
+}
+
+window.__ready = false;
+document.fonts.ready.then(() => { drawPerfil(); drawBanner(); window.__ready = true; });
+window.__get = (id) => document.getElementById(id).toDataURL("image/png");
+</script></body></html>

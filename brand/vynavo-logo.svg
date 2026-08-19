@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- VYNAVO — monograma: la "V" cuyo trazo derecho es un botón de PLAY.
+       Paleta: rosa #ff3d6e → ámbar #ffb03d sobre #0b0b10. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff3d6e"/>
+      <stop offset="1" stop-color="#ffb03d"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="44" fill="#0b0b10"/>
+  <g transform="translate(100,97)">
+    <path d="M -62 -60 L -28 -60 L 4 28 L -14 62 Z" fill="#f3f3f7"/>
+    <path d="M 28 -60 L 66 -60 L -14 62 Z" fill="url(#g)"/>
+    <circle cx="52" cy="-34" r="9" fill="#ffb03d"/>
+  </g>
+</svg>
