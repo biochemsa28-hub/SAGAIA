@@ -23,9 +23,9 @@ export interface StyleConfig {
 // Distinct lighting / palette / lens / mood per niche
 const NICHE_SIGNATURE: Record<string, string> = {
   terror:
-    "terrifying horror cinematography, pitch-black crushed shadows swallowing half the frame, something barely visible lurking in the darkness, cold sickly desaturated palette, heavy volumetric fog, harsh single-source low-key lighting from below, oppressive claustrophobic framing, visceral primal dread, unsettling wrongness, A24 psychological horror film still, anamorphic lens flare, heavy film grain",
+    "terrifying horror cinematography, pitch-black crushed shadows swallowing half the frame, cold sickly desaturated palette, heavy volumetric fog, harsh single-source low-key lighting, oppressive claustrophobic framing, visceral primal dread, unsettling wrongness, ONLY the people and objects the scene describes — no added figures, silhouettes or creatures, A24 psychological horror film still, anamorphic lens flare, heavy film grain",
   horror:
-    "terrifying horror cinematography, pitch-black crushed shadows swallowing half the frame, something barely visible lurking in the darkness, cold sickly desaturated palette, heavy volumetric fog, harsh single-source low-key lighting from below, oppressive claustrophobic framing, visceral primal dread, unsettling wrongness, A24 psychological horror film still, anamorphic lens flare, heavy film grain",
+    "terrifying horror cinematography, pitch-black crushed shadows swallowing half the frame, cold sickly desaturated palette, heavy volumetric fog, harsh single-source low-key lighting, oppressive claustrophobic framing, visceral primal dread, unsettling wrongness, ONLY the people and objects the scene describes — no added figures, silhouettes or creatures, A24 psychological horror film still, anamorphic lens flare, heavy film grain",
   romance:
     "stunningly attractive magnetic leads, sensual warm golden lighting caressing the skin, glowing luminous skin tones, intimate close framing with faces and bodies near each other, charged romantic tension, soft rim backlight tracing shoulders and jawline, shallow depth of field with creamy bokeh, warm amber and rose palette, silk and soft fabrics, dim candlelit ambience, 85mm portrait lens, breathtaking romantic cinematic still, palpable chemistry",
   misterio:
@@ -49,7 +49,7 @@ const NICHE_SIGNATURE: Record<string, string> = {
   // La firma por nicho es lo que hace que un chisme se vea como un chisme antes de
   // que se diga una palabra.
   thriller:
-    "relentless thriller cinematography, urgent handheld energy, cold blue-steel palette with one hot practical light, hard directional shadows, something approaching just out of frame, tight claustrophobic framing on hands and eyes, shallow depth of field, restless composition, 35mm film, high-contrast contemporary thriller still",
+    "relentless thriller cinematography, urgent handheld energy, cold blue-steel palette with one hot practical light, hard directional shadows, tension in what is off-frame (implied by the character's gaze, never drawn), tight claustrophobic framing on hands and eyes, shallow depth of field, restless composition, 35mm film, high-contrast contemporary thriller still",
   chisme:
     "candid intimate realism, everyday domestic setting with real lived-in clutter, warm practical lamplight and kitchen fluorescents, phone-video immediacy but beautifully composed, faces close to camera as if confiding, slight overexposure near the window, natural skin texture, contemporary and relatable, documentary-style still",
   confesion:

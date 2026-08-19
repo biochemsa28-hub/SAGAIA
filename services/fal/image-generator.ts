@@ -252,7 +252,10 @@ function emocionDe(prompt: string): string {
 
 export function sinDescripcionDePersonaje(prompt: string): string {
   const partes = prompt.split(",");
-  const limpias = partes.map((p) => p.replace(DESCRIPCION_DE_CUERPO, "").replace(/\s{2,}/g, " ").trim());
+  const limpias = partes.map((p) => p.replace(DESCRIPCION_DE_CUERPO, "")
+    // el rastro que deja quitar la prenda: "wearing a", "dressed in", "in a"
+    .replace(/\b(wearing|dressed in|clad in|in)\s+(a|an|the|his|her|their)?\s*$/i, "")
+    .replace(/\s{2,}/g, " ").trim());
   const util = limpias.filter((p) => p.length > 3);
   if (!util.length) return prompt;
   return (
