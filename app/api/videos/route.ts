@@ -1080,6 +1080,9 @@ export async function POST(req: NextRequest) {
       // Stage-aware checker: PRO motion → Seedance; PRO lipsync → video lip-sync;
       // otherwise talking → VEED image lip-sync; cinematic → Seedance.
       const collectDetail = await getProjectDetail(parsed.data.project_id, userId);
+      const nombresElenco = (await getProjectCast(parsed.data.project_id).catch(() => []))
+        .map((c) => ((c as { name?: string | null }).name ?? "").trim().split(/s+/)[0] ?? "")
+        .filter((n) => n.length >= 3);
       // escena → ¿la voz del clip coincide con el guion? (ver [voz] abajo)
       const vozPorEscena = new Map<number, boolean>();
       const collectUser = await getUserById(userId).catch(() => null);
@@ -1243,7 +1246,7 @@ export async function POST(req: NextRequest) {
               .filter(Boolean);
             // El puntaje es el de la PEOR línea del bloque, no el promedio: una
             // frase masticada dentro de un bloque bien dicho es un clip malo.
-            vozScore = similitudPorLinea(lineas, transcript.text);
+            vozScore = similitudPorLinea(lineas, transcript.text, nombresElenco);
             const ok = vozScore >= VOZ_MINIMA;
             vozPorEscena.set(r.scene_number, ok);
             console.log(

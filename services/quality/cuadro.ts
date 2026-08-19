@@ -15,7 +15,7 @@
 // positivo cuesta una imagen; un falso negativo cuesta un clip.
 export interface VeredictoCuadro {
   ok: boolean;
-  defecto?: "doble_exposicion" | "figura_extra" | "collage" | "texto" | "otro";
+  defecto?: "doble_exposicion" | "figura_extra" | "anatomia" | "collage" | "texto" | "otro";
   motivo?: string;
 }
 
@@ -46,10 +46,11 @@ export async function revisarCuadro(url: string, escena: string): Promise<Veredi
     "Decime SOLO si la imagen está ROTA de alguna de estas formas:\n" +
     "- doble_exposicion: una cara o cuerpo superpuesto, translúcido o fantasmal encima de otra imagen (dos capas).\n" +
     "- figura_extra: hay una persona, silueta, sombra humana, reflejo de persona o criatura que la escena NO describe, o hay MÁS personas de las que la escena nombra.\n" +
+    "- anatomia: brazos, manos o piernas DE MÁS (tres o cuatro brazos, una mano que no es de nadie), dedos fundidos o deformes, caras o cuerpos deformados. Medido: una mujer sentada en la cama con cuatro brazos.\n" +
     "- collage: paneles, viñetas, cuadrícula o varias vistas lado a lado.\n" +
     "- texto: letras, palabras o logos legibles.\n" +
     "Estilo, calidad, ángulo, expresión, ropa, luz u objetos distintos NO cuentan. Una escena de terror con la amenaza parcial (una mano, una sombra fuera de foco) que la escena SÍ describe está bien. Ante la duda respondé ok=true.\n" +
-    'Respondé SOLO este JSON: {"ok": true|false, "defecto": "doble_exposicion|figura_extra|collage|texto|otro", "motivo": "una frase"}';
+    'Respondé SOLO este JSON: {"ok": true|false, "defecto": "doble_exposicion|figura_extra|anatomia|collage|texto|otro", "motivo": "una frase"}';
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -88,5 +89,6 @@ export async function revisarCuadro(url: string, escena: string): Promise<Veredi
 export function ordenDeCuadroLimpio(defecto?: VeredictoCuadro["defecto"]): string {
   const base = " SINGLE EXPOSURE, ONE clean shot: only the people and objects the scene describes, fully opaque, NO superimposed, transparent or ghosted faces, NO extra people, silhouettes, human shadows, reflections of people or creatures, NO split panels, NO text or letters.";
   if (defecto === "doble_exposicion") return base + " If the scene asks for a close-up, frame the close-up ONLY — do not layer it over a wide shot.";
+  if (defecto === "anatomia") return base + " Correct anatomy: each person has exactly two arms, two hands with five fingers, two legs; no stray limbs; if someone is seen from behind in the foreground, show only their shoulder and head, not their arms.";
   return base;
 }
