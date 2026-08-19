@@ -139,7 +139,13 @@ function getRealismLora(visualStyle: string): Array<{ path: string; scale: numbe
 
 export function getStyleConfig(niche: string, visualStyle: string): StyleConfig {
   const sig = NICHE_SIGNATURE[niche.toLowerCase()] ?? NICHE_SIGNATURE["default"]!;
-  const mod = STYLE_MODIFIER[visualStyle.toLowerCase()] ?? STYLE_MODIFIER["default"]!;
+  // En géneros oscuros el modificador no puede pedir "vibrant saturated color
+  // grading" mientras la firma pide "cold sickly desaturated palette": eran dos
+  // órdenes de color opuestas en el mismo prompt (medido en un prompt real de
+  // terror-anime) y el modelo promediaba. Se quita la saturación en oscuros.
+  const oscuro = /terror|horror|thriller|misterio|mystery|crimen|crime/.test(niche.toLowerCase());
+  const modBase = STYLE_MODIFIER[visualStyle.toLowerCase()] ?? STYLE_MODIFIER["default"]!;
+  const mod = oscuro ? modBase.replace(/,?s*vibrant saturated color grading/i, ", restrained cold color grading") : modBase;
   // Realism LoRA stacks on top of any niche LoRA — the "more realistic" layer.
   const loras = [...getNicheLora(niche), ...getRealismLora(visualStyle)];
   const tier = getQualityTier();
