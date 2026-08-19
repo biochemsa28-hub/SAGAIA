@@ -430,6 +430,11 @@ async function generateReal(params: {
   seed?: number;
   referenceImageUrl?: string;
   referenceImageUrls?: string[];
+  // Foto de OTRA escena del mismo lugar (ya generada). Va como ÚLTIMA imagen
+  // de referencia y el prompt le dice al modelo que ese es el decorado: mismas
+  // paredes, muebles, objetos y luz. Sin esto cada plano inventaba su propia
+  // versión de "la cocina" y el video se veía como clips pegados.
+  setReferenceUrl?: string;
   emotion?: string;
   narrationText?: string;
 }): Promise<ImageGenerationResult> {
@@ -471,8 +476,15 @@ async function generateReal(params: {
     // El video que el usuario aprobó como "perfecto" tenía justamente eso: bata
     // blanca y camisa azul idénticas en los 8 planos.
     const escena = sinDescripcionDePersonaje(prompt);
-    const refPrompt = `A completely NEW scene showing this exact moment: ${escena}. IMPORTANT: the person/product must be the SAME one from the reference image — identical face, hair, features, CLOTHING and colors, wearing exactly the same outfit as in the reference — but in this new pose, action, framing and location. Do not reuse the reference's composition. ${style.promptSuffix}`;
-    imageUrl = await callReference(refPrompt, referenceImageUrl, params.referenceImageUrls);
+    const conSet = Boolean(params.setReferenceUrl);
+    const notaSet = conSet
+      ? " THE LAST reference image shows THE SET where this scene happens: keep the SAME room/place — same walls, furniture, objects, colors, light source and time of day, as if shot minutes later on the same set. Only the camera angle/framing and the person's action change; do NOT redesign or redecorate the location."
+      : "";
+    const refPrompt = `A completely NEW scene showing this exact moment: ${escena}. IMPORTANT: the person/product must be the SAME one from the reference image — identical face, hair, features, CLOTHING and colors, wearing exactly the same outfit as in the reference — but in this new pose, action, framing${conSet ? "" : " and location"}. Do not reuse the reference's composition.${notaSet} ${style.promptSuffix}`;
+    const extras = conSet
+      ? [...(params.referenceImageUrls ?? []).slice(0, 2), params.setReferenceUrl!]
+      : params.referenceImageUrls;
+    imageUrl = await callReference(refPrompt, referenceImageUrl, extras);
     if (!imageUrl) console.log(`[fal.ai] reference failed for scene ${sceneNumber}, falling back to flux`);
   }
 
@@ -532,6 +544,7 @@ export async function generateSceneImage(params: {
   seed?: number;
   referenceImageUrl?: string;
   referenceImageUrls?: string[];
+  setReferenceUrl?: string;
   emotion?: string;
   narrationText?: string;
 }): Promise<ImageGenerationResult> {
@@ -671,7 +684,7 @@ export async function generateProjectImages(params: {
   projectId: string;
   niche: string;
   visualStyle: string;
-  scenes: Array<{ scene_number: number; image_prompt: string; emotion?: string; narration_text?: string }>;
+  scenes: Array<{ scene_number: number; image_prompt: string; emotion?: string; narration_text?: string; location?: string | null }>;
   referenceImageUrl?: string;
   referenceImageUrls?: string[];   // multiple product angles → nano-banana sees them all
   sceneReferences?: Map<number, string>;
@@ -696,7 +709,23 @@ export async function generateProjectImages(params: {
   // Each scene is generated independently against its speaker's reference image.
   if (consistency && params.sceneReferences && params.sceneReferences.size > 0) {
     const refs = params.sceneReferences;
-    const out = await mapWithConcurrency(scenes, IMAGE_CONCURRENCY, async (scene) => {
+    // ── EL MISMO DECORADO EN TODAS LAS ESCENAS DE UN LUGAR ──────────────────
+    //
+    // Antes las escenas se generaban todas a la vez, cada una a ciegas de las
+    // demás: la "cocina" de la escena 2 tenía otra mesa, otra ventana y otra
+    // luz que la de la escena 4, y aunque el personaje fuera el mismo el
+    // espectador veía cortes entre lugares distintos. Ahora la PRIMERA escena
+    // de cada lugar se genera antes (define el set) y las siguientes reciben
+    // esa foto como referencia del decorado. Cuesta una ronda más de latencia,
+    // no una llamada más.
+    const claveLugar = (l?: string | null) => (l ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const lideres = new Map<string, number>();
+    for (const sc of scenes) {
+      const k = claveLugar(sc.location);
+      if (k && !lideres.has(k)) lideres.set(k, sc.scene_number);
+    }
+    const setPorLugar = new Map<string, string>();
+    const generar = async (scene: (typeof scenes)[number], setRef?: string) => {
       const ref = refs.get(scene.scene_number);
       const result = await generateSceneImage({
         prompt: scene.image_prompt,
@@ -720,11 +749,25 @@ export async function generateProjectImages(params: {
           const lista = [...otros, ...(bible ? [bible] : [])];
           return lista.length ? lista : params.referenceImageUrls;
         })(),
+        setReferenceUrl: setRef,
         emotion: scene.emotion,
         narrationText: scene.narration_text,
       });
       return { ...result, sceneNumber: scene.scene_number };
-    });
+    };
+    const setOn = (process.env.SET_REFERENCE ?? "on").toLowerCase() !== "off";
+    const esLider = (sc: (typeof scenes)[number]) => setOn && lideres.get(claveLugar(sc.location)) === sc.scene_number;
+    const primeros = scenes.filter(esLider);
+    const resto = scenes.filter((sc) => !esLider(sc));
+    const outLideres = await mapWithConcurrency(primeros, IMAGE_CONCURRENCY, async (scene) => generar(scene));
+    for (const r of outLideres) {
+      const sc = scenes.find((x) => x.scene_number === r.sceneNumber);
+      if (r.success && r.url && sc) setPorLugar.set(claveLugar(sc.location), r.url);
+    }
+    if (setOn && scenes.length) console.log(`[set] ${lideres.size} lugar(es) · ${setPorLugar.size} decorado(s) de referencia para ${resto.length} escena(s)`);
+    const outResto = await mapWithConcurrency(resto, IMAGE_CONCURRENCY, async (scene) =>
+      generar(scene, setPorLugar.get(claveLugar(scene.location))));
+    const out = [...outLideres, ...outResto];
     out.sort((a, b) => a.sceneNumber - b.sceneNumber);
     return out;
   }

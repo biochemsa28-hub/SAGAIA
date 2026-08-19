@@ -1085,26 +1085,67 @@ export async function assembleWithFfmpeg(params: {
     let fundido = false;
     if (clips.length > 1 && (process.env.XFADE ?? "on").toLowerCase() !== "off") {
       try {
-        const D = (k: number) => (cambioDeLugar[k] ? 0.10 : 0.28);
+        // ── COMO LO HARÍA UN EDITOR: FUNDIDO SOLO SI LOS CUADROS SE PARECEN ──
+        // Un fundido entre dos composiciones distintas es el efecto "telenovela":
+        // se ve de aficionado. Medido: el fundido en TODOS los empalmes hacía
+        // que el video se leyera como clips mal editados. Regla profesional:
+        //   · si el último cuadro de A y el primero de B se PARECEN (encadenado
+        //     real, mismo plano) → fundido corto (0.28 s), invisible;
+        //   · si son planos distintos → CORTE SECO, y B entra ya en movimiento:
+        //     se recortan sus primeros 0.2 s (el arranque quieto).
+        // La semejanza se mide sobre los cuadros reales (gris, 64 px): diferencia
+        // media < 18 niveles = mismo plano.
+        const semejanza = async (aPath: string, bPath: string): Promise<number> => {
+          const gris = async (path: string, desdeElFinal: boolean): Promise<Buffer | null> => {
+            try {
+              const args = desdeElFinal ? ["-sseof", "-0.08", "-i", path] : ["-i", path];
+              const { execFile } = await import("node:child_process");
+              const { promisify } = await import("node:util");
+              const run = promisify(execFile);
+              const { stdout } = await run(FFMPEG, ["-loglevel", "error", ...args, "-frames:v", "1", "-vf", "scale=64:114", "-pix_fmt", "gray", "-f", "rawvideo", "-"], { encoding: "buffer", maxBuffer: 1 << 22 });
+              return stdout as unknown as Buffer;
+            } catch { return null; }
+          };
+          const [ua, pb] = await Promise.all([gris(aPath, true), gris(bPath, false)]);
+          if (!ua || !pb || ua.length !== pb.length || !ua.length) return 999;
+          let s = 0; for (let i = 0; i < ua.length; i++) s += Math.abs(ua[i]! - pb[i]!);
+          return s / ua.length;
+        };
+        const UMBRAL_MISMO_PLANO = Number(process.env.XFADE_UMBRAL ?? 18) || 18;
+        const RECORTE_ARRANQUE = 0.2;
         const inputs = clips.flatMap((c) => ["-i", c]);
         const f: string[] = [];
         let acumulado = duraciones[0]!;
         let prevV = "[0:v]", prevA = "[0:a]";
+        let fundidos = 0, cortes = 0;
         for (let k = 1; k < clips.length; k++) {
-          const d = Math.min(D(k), duraciones[k - 1]! / 2, duraciones[k]! / 2);
-          const offset = Math.max(0, acumulado - d);
-          f.push(`${prevV}[${k}:v]xfade=transition=fade:duration=${d.toFixed(2)}:offset=${offset.toFixed(3)}[v${k}]`);
-          f.push(`${prevA}[${k}:a]acrossfade=d=${d.toFixed(2)}:c1=tri:c2=tri[a${k}]`);
+          const dif = await semejanza(clips[k - 1]!, clips[k]!);
+          const mismoPlano = dif < UMBRAL_MISMO_PLANO && !cambioDeLugar[k];
+          if (mismoPlano) {
+            const d = Math.min(0.28, duraciones[k - 1]! / 2, duraciones[k]! / 2);
+            const offset = Math.max(0, acumulado - d);
+            f.push(`${prevV}[${k}:v]xfade=transition=fade:duration=${d.toFixed(2)}:offset=${offset.toFixed(3)}[v${k}]`);
+            f.push(`${prevA}[${k}:a]acrossfade=d=${d.toFixed(2)}:c1=tri:c2=tri[a${k}]`);
+            acumulado = offset + duraciones[k]!;
+            for (let j = k; j < boundaries.length; j++) boundaries[j] = boundaries[j]! - d;
+            fundidos++;
+          } else {
+            // Corte seco: B entra recortada al arranque (entra en movimiento).
+            const rec = duraciones[k]! > 2 ? RECORTE_ARRANQUE : 0;
+            f.push(`[${k}:v]trim=start=${rec},setpts=PTS-STARTPTS[vb${k}]`);
+            f.push(`[${k}:a]atrim=start=${rec},asetpts=PTS-STARTPTS[ab${k}]`);
+            f.push(`${prevV}[vb${k}]concat=n=2:v=1:a=0[v${k}]`);
+            f.push(`${prevA}[ab${k}]concat=n=2:v=0:a=1[a${k}]`);
+            acumulado = acumulado + (duraciones[k]! - rec);
+            for (let j = k; j < boundaries.length; j++) boundaries[j] = boundaries[j]! - rec;
+            cortes++;
+          }
           prevV = `[v${k}]`; prevA = `[a${k}]`;
-          acumulado = offset + duraciones[k]!;
-          // Los sfx/whoosh se colocan por límite de escena: cada fundido acorta
-          // la línea de tiempo en d, así que los límites siguientes se corren.
-          for (let j = k; j < boundaries.length; j++) boundaries[j] = boundaries[j]! - d;
         }
         await exec(FFMPEG, ["-y", ...inputs, "-filter_complex", f.join(";"), "-map", prevV, "-map", prevA,
           ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-r", "30", "-ar", "48000", "-ac", "2", "-c:a", "aac", "-b:a", "192k", concatOut], { maxBuffer: 1 << 26 });
         fundido = true;
-        console.log(`[montaje] ${clips.length} clips unidos con fundido en el empalme (${cambioDeLugar.filter(Boolean).length} cambio(s) de lugar)`);
+        console.log(`[montaje] ${clips.length} clips: ${fundidos} empalme(s) con fundido (mismo plano) · ${cortes} corte(s) seco(s) entrando en movimiento · ${cambioDeLugar.filter(Boolean).length} cambio(s) de lugar`);
       } catch (e) {
         console.warn("[montaje] fundido falló, se usa concat:", e instanceof Error ? e.message.slice(0, 160) : e);
       }
@@ -1359,15 +1400,36 @@ export async function assembleWithFfmpeg(params: {
       }
 
       const necesitaCorte = cutAt > 0 && totalDur - cutAt > 0.4;
+      // ── EL FINAL NO CORTA DE GOLPE ──────────────────────────────────────
+      // Medido en tres videos: la última palabra a ~1 s del final y el audio a
+      // volumen pleno hasta el último cuadro (-20.7 dB en los últimos 0.3 s).
+      // Ahora: si queda menos de 1.4 s después de la última palabra, se
+      // ALARGA el final clonando el último cuadro (con el audio en silencio) y
+      // en todos los casos el audio se funde en los últimos 0.8 s. El video ya
+      // se funde a negro 0.5 s desde antes.
+      const finReal = necesitaCorte ? cutAt : totalDur;
+      const aire = finDialogo > 0 && finReal - finDialogo < 1.4 ? Math.min(1.5, 1.4 - (finReal - finDialogo) + 0.4) : 0;
+      const durFinal = finReal + aire;
       const recortado = join(dir, "tail.mp4");
       const args = ["-y", "-i", finalOut];
       if (necesitaCorte) args.push("-t", cutAt.toFixed(2));
-      args.push(
-        "-map", "0:v", "-map", "0:a?",
-        "-c:v", "copy",
-        "-af", `loudnorm=I=${LOUDNORM_LUFS}:TP=-1.5:LRA=11`,
-        ...X264_THREADS, "-c:a", "aac", "-b:a", "192k", recortado,
-      );
+      if (aire > 0) {
+        // Re-encode: clonar el último cuadro exige re-codificar el video.
+        args.push(
+          "-map", "0:v", "-map", "0:a?",
+          "-vf", `tpad=stop_mode=clone:stop_duration=${aire.toFixed(2)},fade=t=out:st=${Math.max(0, durFinal - 0.6).toFixed(2)}:d=0.6`,
+          "-af", `apad=pad_dur=${aire.toFixed(2)},afade=t=out:st=${Math.max(0, durFinal - 0.8).toFixed(2)}:d=0.8,loudnorm=I=${LOUDNORM_LUFS}:TP=-1.5:LRA=11`,
+          ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", recortado,
+        );
+        console.log(`[cola] final con aire: +${aire.toFixed(1)}s de último cuadro y fundido de audio (última palabra en ${finDialogo.toFixed(1)}s)`);
+      } else {
+        args.push(
+          "-map", "0:v", "-map", "0:a?",
+          "-c:v", "copy",
+          "-af", `afade=t=out:st=${Math.max(0, durFinal - 0.8).toFixed(2)}:d=0.8,loudnorm=I=${LOUDNORM_LUFS}:TP=-1.5:LRA=11`,
+          ...X264_THREADS, "-c:a", "aac", "-b:a", "192k", recortado,
+        );
+      }
       await exec(FFMPEG, args, { maxBuffer: 1 << 26 });
       finalOut = recortado;
       console.log(

@@ -356,6 +356,7 @@ export async function POST(req: NextRequest) {
         image_prompt: s.image_prompt ?? "",
         emotion: s.emotion ?? undefined,
         narration_text: s.narration_text ?? undefined,
+        location: s.location ?? null,
       })),
       referenceImageUrl,
       referenceImageUrls,

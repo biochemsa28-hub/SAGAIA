@@ -357,7 +357,7 @@ export async function POST(req: NextRequest) {
       //    y 22 segundos de bajada. El algoritmo paga segundos vistos; la bajada
       //    es donde se van. Umbral 70%: el prompt pide último cuarto, se tolera
       //    un poco menos antes de pagar un reintento.
-      type EscenaMin = { scene_number?: number; narration_text?: string | null; image_prompt?: string | null; is_peak?: boolean; physical_action?: string | null };
+      type EscenaMin = { scene_number?: number; narration_text?: string | null; image_prompt?: string | null; is_peak?: boolean; physical_action?: string | null; location?: string | null };
       const esRuptura = /(ex|ex[ -]?(novio|novia|esposo|esposa|pareja)|superar|olvidar|ruptura|terminar|me (engañ|dej[oó]))/i.test(parsed.data.topic);
       const BESO = /kiss|lips|bes[oa]s?|bes[aá]ndo|embrac|hug|abraz|foreheads? (touch|press)|his (arms|hand) around her/i;
       const RETENIDO = /no te lo puedo (decir|contar)|todav[ií]a no te lo|ac[eé]rcate y te lo|te lo (muestro|digo) (despu[eé]s|luego|ma[ñn]ana)|comenta.{0,20}parte 2|para la parte 2/i;
@@ -421,7 +421,13 @@ export async function POST(req: NextRequest) {
         //    y ninguna réplica nombra un paso/consejo/regla/señal, falta la
         //    respuesta que el usuario pidió.
         const sinConsejo = esConsejo && !scenes.some((sc) => MARCA_CONSEJO.test(sc.narration_text ?? ""));
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length };
+        // 9) DEMASIADOS LUGARES. Medido en video terminado: cada cambio de
+        //    lugar es un corte que se ve, y con tres o cuatro el resultado se
+        //    lee como clips pegados. Un guion de un minuto se rueda en un set,
+        //    dos como máximo.
+        const lugares = Array.from(new Set(scenes.map((sc) => (sc.location ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()).filter(Boolean)));
+        const muchosLugares = lugares.length > 2 ? lugares : [];
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
@@ -431,7 +437,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -449,6 +455,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.muchosLugares.length
+            ? ` Hay ${defectos.muchosLugares.length} lugares distintos (${defectos.muchosLugares.join(" / ")}). Contá la MISMA historia en UN solo lugar (dos como máximo, y solo si alguien se va o pasa el tiempo): mantené el "location" con el mismo texto exacto en todas las escenas y variá el ángulo, no el sitio.`
             : "") +
           (defectos.sinActo4
             ? " El CLÍMAX (is_peak) es la ÚLTIMA escena: no hay ACTO 4. Agregá 1-2 escenas después del clímax con la consecuencia y el cierre (la frase citable, la pregunta o el cliffhanger). Sin cierre la historia es un susto, no una historia."
