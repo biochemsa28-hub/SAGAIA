@@ -1,4 +1,5 @@
 "use client";
+import { mensajeLegible } from "@/lib/json-seguro";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -242,7 +243,7 @@ function ProjectDetail() {
       track("series_episode_created", { from_project: id, project_id: gen.project_id });
       router.push(`/dashboard/projects/${gen.project_id}?autostart=1`);
     } catch (err) {
-      setNextError(err instanceof Error ? err.message : "Error al crear el episodio");
+      setNextError(mensajeLegible(err, "Error al crear el episodio"));
     } finally {
       setCreatingNext(false);
     }
@@ -359,7 +360,7 @@ function ProjectDetail() {
       await cargarDna();
       toast(`🎞 "${name}" guardado — reusalo en cualquier historia`, "success");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "No se pudo guardar.", "error");
+      toast(mensajeLegible(e, "No se pudo guardar."), "error");
     }
   }
 
@@ -420,7 +421,7 @@ function ProjectDetail() {
       toast("↩ Volviste a la versión anterior", "success");
     } catch (err) {
       setHasError(true);
-      setErrorDetail(err instanceof Error ? err.message : "Error desconocido");
+      setErrorDetail(mensajeLegible(err, "Error desconocido"));
       toast("No se pudo volver atrás.", "error");
     } finally {
       setProducing(false);
@@ -506,7 +507,7 @@ function ProjectDetail() {
       fireCelebration();
       toast("🎉 ¡Escena regenerada!", "success");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error desconocido";
+      const msg = mensajeLegible(err, "Error desconocido");
       setHasError(true);
       setErrorDetail(msg);
       toast("No se pudo regenerar la escena. Ve el detalle.", "error");
@@ -553,7 +554,7 @@ function ProjectDetail() {
       toast("🎬 Tu video se está creando en segundo plano. Te avisamos cuando esté listo — ya puedes cerrar o crear otro.", "success");
       router.push("/dashboard/library");
     } catch (err) {
-      toast(err instanceof Error ? err.message : "No se pudo iniciar la producción", "error");
+      toast(mensajeLegible(err, "No se pudo iniciar la producción"), "error");
     }
   }
 
@@ -618,7 +619,7 @@ function ProjectDetail() {
       setTimeout(() => setCelebrate(false), 4500);
       return;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error desconocido";
+      const msg = mensajeLegible(err, "Error desconocido");
       setHasError(true);
       setErrorDetail(msg);
       // The worker already refunds on terminal failure. This is only a safety net

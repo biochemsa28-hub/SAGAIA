@@ -1,4 +1,5 @@
 "use client";
+import { mensajeLegible } from "@/lib/json-seguro";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { TOPIC_MAX } from "@/lib/validators/story.schema";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -565,7 +566,7 @@ function NewProjectForm() {
       if (!res.ok || !data.suggestions?.length) throw new Error(data.error ?? "No se pudieron generar ideas");
       setAiSuggestions(data.suggestions);
     } catch (err) {
-      setSuggestError(err instanceof Error ? err.message : "Error al sugerir");
+      setSuggestError(mensajeLegible(err, "Error al sugerir"));
     } finally {
       setSuggestLoading(false);
     }
@@ -648,7 +649,7 @@ function NewProjectForm() {
       setCastCharacters(chars);
       setCastingStep(true);
     } catch (err) {
-      setCastError(err instanceof Error ? err.message : "Error generando el elenco");
+      setCastError(mensajeLegible(err, "Error generando el elenco"));
     } finally {
       setCastingLoading(false);
       // En el finally, no en el camino feliz: si la llamada falla, el usuario
@@ -682,7 +683,7 @@ function NewProjectForm() {
       setSelectedHook(data.hooks[0] ?? null);
       setHookStep(true);
     } catch (err) {
-      setGenError(err instanceof Error ? err.message : "Error");
+      setGenError(mensajeLegible(err, "Error"));
     } finally {
       setHooksLoading(false);
     }
@@ -748,7 +749,7 @@ function NewProjectForm() {
       }
     } catch (err) {
       clearInterval(iv);
-      setGenError(err instanceof Error ? err.message : "Error desconocido");
+      setGenError(mensajeLegible(err, "Error desconocido"));
     } finally {
       setGenerating(false);
     }
@@ -832,7 +833,7 @@ function NewProjectForm() {
       if (tarde) { revelar(tarde); return; }
       throw new Error("La producción tardó demasiado. Revisa el proyecto en tu biblioteca.");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error desconocido";
+      const msg = mensajeLegible(err, "Error desconocido");
       setProd(p => p ? { ...p, phase: "error", error: msg } : p);
     }
   }
