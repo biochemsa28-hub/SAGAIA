@@ -1,4 +1,5 @@
 import { fal } from "@fal-ai/client";
+import { logPayload } from "./log-payload";
 import { writeFileSync, mkdirSync } from "fs";
 import { join, isAbsolute, resolve } from "path";
 import {
@@ -149,6 +150,7 @@ registrarProveedor({
           ...(p.generarAudio !== undefined ? { generate_audio: p.generarAudio } : {}),
         };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    logPayload("clip·image-to-video", VIDEO_MODEL, input as Record<string, unknown>);
     const r = await (fal.queue.submit as any)(VIDEO_MODEL, { input }) as { request_id: string };
     return r.request_id;
   },

@@ -46,7 +46,14 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number, o
   // la boca del personaje enfocado — incluida la que le hablaba a él. La única
   // forma de que reparta bien los parlamentos es decirle cómo SE VE cada uno.
   const util = lines.filter((l) => l.text?.trim());
-  const comoSeVe = (l: SpokenLine) => (l.look ?? "").trim() || (l.speaker ? `the character named ${l.speaker}` : "the character on screen");
+  // SIN ROPA EN EL LOOK. Medido: el guion decía "young man in a dark navy blue
+  // hoodie" y en las imágenes él llevaba camisa a cuadros — el modelo de video
+  // recibía una instrucción que contradecía el cuadro que tenía que animar. La
+  // ropa la dicta el cuadro; el look solo identifica a la persona.
+  const sinRopa = (s: string) => s
+    .replace(/\b(in|wearing|dressed in)\s+(a|an|the|his|her|their)?\s*(?:[\w-]+\s+){0,3}(hoodie|shirt|t-shirt|tee|blouse|top|dress|jacket|coat|sweater|cardigan|blazer|suit|uniform|apron|robe|pajamas?|pyjamas?|jeans|skirt|scarf|hat|cap)\b[^,;]*/gi, "")
+    .replace(/\s{2,}/g, " ").replace(/\s+,/g, ",").trim().replace(/[,;]$/, "");
+  const comoSeVe = (l: SpokenLine) => sinRopa((l.look ?? "").trim()) || (l.speaker ? `the character named ${l.speaker}` : "the character on screen");
 
   // DIRECCIÓN LÍNEA POR LÍNEA, no por bloque.
   //
@@ -183,7 +190,15 @@ export function buildDialogueDirection(lines: SpokenLine[], segundos?: number, o
     "small weight shifts, hands that do something real (touch hair, hold a cup, press the phone, fidget with a sleeve), " +
     "the gaze that drops for a beat and comes back, a swallow or a lip press before a hard line, an unfinished gesture. " +
     "Emotion shows in the face BEFORE the words and lingers AFTER. Nothing theatrical, nothing symmetrical, no frozen pose. " +
-    "Camera: subtle handheld micro-drift, never locked off; a slow, almost imperceptible push-in on the emotional line.";
+    // (La cámara NO se dirige acá: la dirige el guion con camera_move. Este
+    // bloque decía "handheld micro-drift, never locked off" y el guion decía
+    // "settles, never floats, then holds" — dos órdenes opuestas en el mismo
+    // prompt, medido en un prompt real de producción.)
+    // Sin arranque quieto: cada clip empieza YA en movimiento y termina sin
+    // congelarse — es lo que hace que los empalmes se lean como un solo plano
+    // y no como seis arranques.
+    "The clip STARTS already in motion — mid-breath, mid-gesture — never a static first second; " +
+    "and it ENDS still alive: the movement eases but the body never freezes into a held frame.";
   // ── A CÁMARA (consejo en primera persona) ─────────────────────────────
   // Cuando le habla al espectador: ojos AL LENTE, como a una amiga en
   // videollamada — con las pausas, la mirada que se escapa y vuelve, la media

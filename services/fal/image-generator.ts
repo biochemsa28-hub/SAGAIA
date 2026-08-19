@@ -3,6 +3,7 @@ import { writeFileSync, mkdirSync } from "fs";
 import { join, isAbsolute, resolve } from "path";
 import { getStyleConfig, type StyleConfig } from "./style-presets";
 import { esCollage } from "@/services/quality/collage";
+import { logPayload } from "./log-payload";
 
 export interface ImageGenerationResult {
   success: boolean;
@@ -150,6 +151,7 @@ async function callFlux(prompt: string, style: StyleConfig, seed?: number): Prom
       if (style.loras.length > 0) input["loras"] = style.loras;
     }
 
+    logPayload("escena·flux", style.model, input);
     const result = await fal.subscribe(style.model, { input, logs: false });
     const url = extractUrl(result);
     console.log("[fal.ai] model:", style.model, "ultra:", isProUltra, "url:", url ?? "null");
@@ -348,7 +350,9 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
       // "un solo cuadro": con varias referencias el modelo a veces devuelve
       // una grilla de paneles. Se pide explícito y se COMPRUEBA abajo.
       const unSoloCuadro = " ONE single continuous frame — NOT a collage, no split panels, no grid, no multiple views side by side.";
-      const result = await fal.subscribe(model, { input: armar(intento.imgs, intento.prompt + unSoloCuadro), logs: false });
+      const payload = armar(intento.imgs, intento.prompt + unSoloCuadro);
+      logPayload(`escena·referencia (${intento.nota})`, model, payload);
+      const result = await fal.subscribe(model, { input: payload, logs: false });
       const url = extractUrl(result);
       if (url) {
         // ── ¿SALIÓ UN COLLAGE? ─────────────────────────────────────────
@@ -798,6 +802,7 @@ const OPTION_VARIATIONS = [
 
 async function callTextToImage(prompt: string): Promise<string | null> {
   try {
+    logPayload("retrato", CHARACTER_GEN_MODEL, { prompt, num_images: 1, aspect_ratio: "9:16", enable_safety_checker: false });
     const result = await fal.subscribe(CHARACTER_GEN_MODEL, {
       input: { prompt, num_images: 1, aspect_ratio: "9:16", enable_safety_checker: false },
       logs: false,
@@ -806,6 +811,7 @@ async function callTextToImage(prompt: string): Promise<string | null> {
   } catch (e) {
     // Retry without aspect_ratio in case the model rejects that param
     try {
+      logPayload("retrato", CHARACTER_GEN_MODEL, { prompt, num_images: 1, enable_safety_checker: false });
       const result = await fal.subscribe(CHARACTER_GEN_MODEL, { input: { prompt, num_images: 1, enable_safety_checker: false }, logs: false });
       return extractUrl(result);
     } catch (err) {

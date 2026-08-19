@@ -30,6 +30,7 @@
 
 import { fal } from "@fal-ai/client";
 import { esCollage } from "@/services/quality/collage";
+import { logPayload } from "@/services/fal/log-payload";
 
 const MODELO = process.env.CHARACTER_REF_MODEL ?? "fal-ai/nano-banana/edit";
 
@@ -300,8 +301,10 @@ export async function generarCuadroDestino(opts: {
   for (const { etiqueta, prompt } of escalera(opts.accionFisica, identidad(opts.estiloVisual, opts.tono))) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payloadPico = { prompt: prompt + " ONE single continuous frame — NOT a collage, no split panels, no grid, no multiple views side by side.", image_urls: refs, num_images: 1, enable_safety_checker: false };
+      logPayload(`pico (${etiqueta})`, MODELO, payloadPico);
       const r = await (fal.subscribe as any)(MODELO, {
-        input: { prompt: prompt + " ONE single continuous frame — NOT a collage, no split panels, no grid, no multiple views side by side.", image_urls: refs, num_images: 1, enable_safety_checker: false },
+        input: payloadPico,
         logs: false,
       }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> };
       const url = (r.data ?? r)?.images?.[0]?.url;

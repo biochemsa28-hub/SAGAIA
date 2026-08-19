@@ -286,7 +286,12 @@ export const PRO_PIPELINE = (process.env.PRO_PIPELINE ?? "off").toLowerCase() ==
 // alongside that portrait. One viewpoint forces the model to invent every other
 // angle; a sheet shows it. Costs ~$0.06 per character, ONCE — reused by every
 // scene and inherited by every later episode. Disable with CHARACTER_BIBLE=off.
-export const CHARACTER_BIBLE_ON = (process.env.CHARACTER_BIBLE ?? "on").toLowerCase() !== "off";
+// APAGADA por defecto. La hoja es una GRILLA 2x2 y se pasaba como referencia
+// extra en cada escena: le enseñábamos al modelo una grilla y devolvía
+// collages (medido: tres paneles en un cuadro de un video terminado). El
+// retrato solo, más el detector de collage, sostienen la cara mejor que una
+// hoja que la contradice. CHARACTER_BIBLE=on la vuelve a activar.
+export const CHARACTER_BIBLE_ON = (process.env.CHARACTER_BIBLE ?? "off").toLowerCase() === "on";
 
 // ── EL ROL DEL PROCESO ───────────────────────────────────────────────────────
 // Producir un video ocupa la CPU durante minutos: ffmpeg codifica, quema
