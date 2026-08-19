@@ -205,7 +205,7 @@ export function getStyleConfig(niche: string, visualStyle: string): StyleConfig 
     // art direction. Without this they were the only styles receiving no quality
     // boost at all, which is why they looked flatter than the photographic ones.
     : ", theatrical anime film production quality, meticulously detailed hand-painted background art, " +
-      "layered depth with foreground framing elements, dramatic anime cinematography and camera angles, " +
+      "layered depth, dramatic anime cinematography and camera angles, " +
       "expressive emotional character acting, beautiful atmospheric lighting with bloom and light rays, " +
       "detailed hair and fabric rendering, rich color script, studio-grade key visual, breathtaking anime frame";
 

@@ -253,6 +253,43 @@ function emocionDe(prompt: string): string {
   return "A tense, dramatic expression.";
 }
 
+// "SOBRE EL HOMBRO" → PUNTO DE VISTA. Medido en dos videos seguidos: el plano
+// "over Ramiro's shoulder … Ramiro lips closed listening in soft blur" salió
+// con Ramiro de espaldas en primer término Y sentado a la mesa de frente — dos
+// Ramiros. Con retratos de referencia el modelo no puede dibujar a alguien
+// "solo de hombro": lo dibuja entero. Así que el plano se reescribe en código:
+// la cámara son los ojos de X y X no aparece; y se elimina cualquier cláusula
+// que vuelva a poner a X en cuadro como oyente borroso.
+export function replantearSobreElHombro(prompt: string): string {
+  const OTS = /\b(?:(?:medium |extreme |tight )?(?:close-?up|shot|view|angle|framing|framed|seen|looking|taken)\s+)?(?:from\s+)?(?:over|across|past|behind|from behind)\s+(\w+(?:'s)?|his|her|their)\s+(?:left |right )?shoulders?(?:\s+(?:and|with)[^,.;]*?(?:out of focus|in (?:soft )?(?:blur|focus)|blurred|foreground)[^,.;]*)?/i;
+  const m = OTS.exec(prompt);
+  if (!m) return prompt;
+  let quien = m[1]!.replace(/'s$/i, "");
+  let esNombre = !/^(his|her|their)$/i.test(quien);
+  if (!esNombre) {
+    // "from Ramiro's side over his shoulder": el nombre está justo antes.
+    const antes = prompt.slice(Math.max(0, m.index - 60), m.index);
+    const n = /([A-ZÁÉÍÓÚÑ][a-záéíóúñü]+)'s\s+(?:side|back|shoulder|point|perspective|position)\b[^,]*$/.exec(antes);
+    if (n) { quien = n[1]!; esNombre = true; }
+  }
+  const pov = esNombre
+    ? `from ${quien}'s point of view — the camera is ${quien}'s eyes, ${quien} does NOT appear in the frame`
+    : "from the listener's point of view — the camera is their eyes, they do NOT appear in the frame";
+  let out = prompt.replace(OTS, pov);
+  if (esNombre) {
+    // cláusulas que vuelven a meter a X como figura visible en el mismo cuadro
+    const re = new RegExp(`,\\s*[^,.;]*\\b${quien}\\b[^,.;]*\\b(listening|lips closed|blur|blurred|out of focus|in the (?:background|foreground)|behind|soft focus|back of (?:his|her) head|nape)\\b[^,.;]*`, "gi");
+    out = out.replace(re, "");
+    const re2 = new RegExp(`\\b${quien}(?:'s)?\\s+(?:shoulder|back|nape|head)\\b[^,.;]*(?:foreground|blur|out of focus)[^,.;]*`, "gi");
+    out = out.replace(re2, "");
+  }
+  // El oyente "en blur" ya no existe: la cámara son sus ojos.
+  out = out.replace(/,\s*[^,.;]*\b(lips closed listening|listening in (?:soft )?(?:blur|focus)|in soft blur|out of focus in the foreground)\b[^,.;]*/gi, "");
+  out = out.replace(/,\s*,/g, ",").replace(/\s{2,}/g, " ").trim();
+  if (out !== prompt) console.log(`[encuadre] "sobre el hombro" reescrito a punto de vista${esNombre ? ` de ${quien}` : ""}`);
+  return out;
+}
+
 export function sinDescripcionDePersonaje(prompt: string): string {
   const partes = prompt.split(",");
   const limpias = partes.map((p) => p.replace(DESCRIPCION_DE_CUERPO, "")
@@ -462,7 +499,14 @@ async function generateReal(params: {
   // Enrich with the scene's emotion translated into ENGLISH photographic direction.
   // (Raw Spanish emotion words and raw dialogue are NOT injected: Flux is trained on
   // English and would either ignore them or try to render the text into the frame.)
-  let prompt = params.prompt;
+  let prompt = replantearSobreElHombro(params.prompt);
+  // Si el plano pasó a punto de vista, el que mira NO está en cuadro: sus
+  // retratos de "otros en escena" no viajan (son la invitación a dibujarlo).
+  const esPOV = prompt !== params.prompt && /does NOT appear in the frame/.test(prompt);
+  const castRefs = esPOV ? [] : (params.castImageUrls ?? []);
+  const otrasRefs = esPOV
+    ? (params.referenceImageUrls ?? []).filter((u) => !(params.castImageUrls ?? []).includes(u))
+    : params.referenceImageUrls;
   const emoDirection = emotionToVisualDirection(params.emotion);
   if (emoDirection) prompt += `, ${emoDirection}`;
 
@@ -495,9 +539,9 @@ async function generateReal(params: {
       : "";
     const refPrompt = `A completely NEW scene showing this exact moment: ${escena}. IMPORTANT: the person/product must be the SAME one from the reference image — identical face, hair, features, CLOTHING and colors, wearing exactly the same outfit as in the reference — but in this new pose, action, framing${conSet ? "" : " and location"}. Do not reuse the reference's composition.${notaSet}${extraOrden} ${style.promptSuffix}`;
     const extras = conSet
-      ? [...(params.referenceImageUrls ?? []).slice(0, 2), params.setReferenceUrl!]
-      : params.referenceImageUrls;
-    imageUrl = await callReference(refPrompt, referenceImageUrl, extras, params.castImageUrls);
+      ? [...(otrasRefs ?? []).slice(0, 2), params.setReferenceUrl!]
+      : otrasRefs;
+    imageUrl = await callReference(refPrompt, referenceImageUrl, extras, castRefs);
     if (!imageUrl) {
       // CON ELENCO NO SE CAE A FLUX. Flux no tiene los retratos: dibuja a otra
       // persona, y eso ya no se arregla después. Mejor que la escena falle
