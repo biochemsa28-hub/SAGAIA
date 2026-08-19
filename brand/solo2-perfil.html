@@ -1,0 +1,136 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@800&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#05060d;overflow:hidden}canvas{display:block;margin:0}</style>
+</head><body>
+<canvas id="perfil" width="800" height="800"></canvas>
+<script>
+const CYAN="#22e0ff", VIOLET="#8b5cf6", PINK="#ff3d8e", BG="#05060d", TX="#eef2ff";
+
+function neonGrad(ctx,x0,y0,x1,y1){
+  const g=ctx.createLinearGradient(x0,y0,x1,y1);
+  g.addColorStop(0,CYAN); g.addColorStop(.5,VIOLET); g.addColorStop(1,PINK);
+  return g;
+}
+
+// ── MONOGRAMA FUTURISTA: V-play en neón + nodos de circuito ────────────────
+function drawMark(ctx,cx,cy,s){
+  ctx.save(); ctx.translate(cx,cy); ctx.scale(s,s);
+  const g=neonGrad(ctx,-70,-70,70,70);
+  // circuito: líneas que salen de la V hacia nodos (la "red neuronal")
+  ctx.strokeStyle="rgba(34,224,255,0.5)"; ctx.lineWidth=2.2;
+  const nodos=[[-78,-44],[-84,10],[80,-10],[74,44],[6,-86]];
+  const anclas=[[-45,-38],[-30,4],[42,-16],[20,36],[10,-60]];
+  nodos.forEach((n,i)=>{const a=anclas[i];
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(n[0],n[1]); ctx.stroke();
+    ctx.beginPath(); ctx.arc(n[0],n[1],4.2,0,7);
+    ctx.fillStyle=i%2?PINK:CYAN; ctx.shadowColor=i%2?PINK:CYAN; ctx.shadowBlur=14; ctx.fill(); ctx.shadowBlur=0;
+  });
+  // V izquierda: trazo neón hueco
+  ctx.lineJoin="round";
+  ctx.beginPath(); ctx.moveTo(-62,-60); ctx.lineTo(-28,-60); ctx.lineTo(4,28); ctx.lineTo(-14,62); ctx.closePath();
+  ctx.strokeStyle=CYAN; ctx.lineWidth=7; ctx.shadowColor=CYAN; ctx.shadowBlur=26; ctx.stroke();
+  ctx.fillStyle="rgba(34,224,255,0.10)"; ctx.fill();
+  // play derecha: relleno gradiente con glow
+  ctx.beginPath(); ctx.moveTo(28,-60); ctx.lineTo(66,-60); ctx.lineTo(-14,62); ctx.closePath();
+  ctx.fillStyle=g; ctx.shadowColor=PINK; ctx.shadowBlur=30; ctx.fill(); ctx.shadowBlur=0;
+  // núcleo IA: anillo + punto
+  ctx.beginPath(); ctx.arc(52,-34,11,0,7);
+  ctx.strokeStyle=TX; ctx.lineWidth=2.5; ctx.shadowColor=CYAN; ctx.shadowBlur=18; ctx.stroke();
+  ctx.beginPath(); ctx.arc(52,-34,4.5,0,7); ctx.fillStyle=CYAN; ctx.shadowBlur=20; ctx.fill();
+  ctx.restore();
+}
+
+function fondo(ctx,W,H){
+  ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+  // nebulosas de color
+  let r=ctx.createRadialGradient(W*.18,H*.12,0,W*.18,H*.12,W*.5);
+  r.addColorStop(0,"rgba(34,224,255,0.13)"); r.addColorStop(1,"rgba(34,224,255,0)");
+  ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+  r=ctx.createRadialGradient(W*.82,H*.2,0,W*.82,H*.2,W*.5);
+  r.addColorStop(0,"rgba(255,61,142,0.13)"); r.addColorStop(1,"rgba(255,61,142,0)");
+  ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+  r=ctx.createRadialGradient(W*.5,H*.95,0,W*.5,H*.95,W*.6);
+  r.addColorStop(0,"rgba(139,92,246,0.20)"); r.addColorStop(1,"rgba(139,92,246,0)");
+  ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+  // estrellas/datos
+  for(let i=0;i<W*H/6000;i++){
+    ctx.fillStyle=`rgba(238,242,255,${0.04+Math.random()*0.10})`;
+    ctx.fillRect(Math.random()*W,Math.random()*H,1.4,1.4);
+  }
+  // rejilla en perspectiva (piso holográfico)
+  const hz=H*0.72;
+  ctx.strokeStyle="rgba(139,92,246,0.16)"; ctx.lineWidth=1.4;
+  for(let i=-14;i<=14;i++){
+    ctx.beginPath(); ctx.moveTo(W/2+i*40,hz); ctx.lineTo(W/2+i*(W/9),H); ctx.stroke();
+  }
+  for(let k=0;k<8;k++){
+    const y=hz+Math.pow(k/7,1.8)*(H-hz);
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y);
+    ctx.strokeStyle=`rgba(34,224,255,${0.05+0.10*(k/7)})`; ctx.stroke();
+  }
+  // línea de horizonte con glow
+  ctx.beginPath(); ctx.moveTo(0,hz); ctx.lineTo(W,hz);
+  ctx.strokeStyle="rgba(34,224,255,0.35)"; ctx.lineWidth=2; ctx.shadowColor=CYAN; ctx.shadowBlur=16; ctx.stroke(); ctx.shadowBlur=0;
+}
+
+function texto(ctx, cx, cy, px){
+  ctx.font=`900 ${px}px Orbitron, Inter, sans-serif`;
+  const t1="VYNA", t2="VO";
+  const w1=ctx.measureText(t1).width, w2=ctx.measureText(t2).width;
+  const x0=cx-(w1+w2)/2;
+  ctx.shadowColor="rgba(34,224,255,0.8)"; ctx.shadowBlur=px*0.22;
+  ctx.fillStyle=TX; ctx.fillText(t1,x0,cy);
+  ctx.shadowColor="rgba(255,61,142,0.9)";
+  ctx.fillStyle=neonGrad(ctx,x0+w1,cy-px,x0+w1+w2,cy); ctx.fillText(t2,x0+w1,cy);
+  ctx.shadowBlur=0;
+  return {x0,w:w1+w2};
+}
+
+function drawPerfil(){
+  const c=document.getElementById("perfil"),ctx=c.getContext("2d");
+  fondo(ctx,800,800);
+  // anillo doble estilo HUD
+  ctx.beginPath(); ctx.arc(400,400,352,0,7);
+  ctx.strokeStyle="rgba(34,224,255,0.4)"; ctx.lineWidth=3; ctx.shadowColor=CYAN; ctx.shadowBlur=18; ctx.stroke(); ctx.shadowBlur=0;
+  ctx.beginPath(); ctx.arc(400,400,330,-0.6,1.1);
+  ctx.strokeStyle="rgba(255,61,142,0.55)"; ctx.lineWidth=5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(400,400,330,2.4,4.2);
+  ctx.strokeStyle="rgba(139,92,246,0.55)"; ctx.lineWidth=5; ctx.stroke();
+  drawMark(ctx,400,352,3.2);
+  texto(ctx,400,652,86);
+}
+
+function drawBanner(){
+  const c=document.getElementById("banner"),ctx=c.getContext("2d");
+  const W=2560,H=1440; fondo(ctx,W,H);
+  const cy=H/2;
+  ctx.font="900 150px Orbitron, Inter, sans-serif";
+  const t1="VYNA",t2="VO";
+  const w1=ctx.measureText(t1).width,w2=ctx.measureText(t2).width;
+  const MARCA=250, total=MARCA+w1+w2, izq=W/2-total/2;
+  drawMark(ctx,izq+100,cy-48,1.55);
+  const x0=izq+MARCA;
+  ctx.shadowColor="rgba(34,224,255,0.8)"; ctx.shadowBlur=30;
+  ctx.fillStyle=TX; ctx.fillText(t1,x0,cy);
+  ctx.shadowColor="rgba(255,61,142,0.9)";
+  ctx.fillStyle=neonGrad(ctx,x0+w1,cy-140,x0+w1+w2,cy); ctx.fillText(t2,x0+w1,cy);
+  ctx.shadowBlur=0;
+  // tagline
+  ctx.font="700 52px Inter, sans-serif";
+  ctx.fillStyle="rgba(238,242,255,0.94)";
+  { const tg="Microdramas con IA que la gente ve hasta el final.";
+    ctx.shadowColor="rgba(139,92,246,0.6)"; ctx.shadowBlur=14;
+    ctx.fillText(tg,W/2-ctx.measureText(tg).width/2,cy+92); ctx.shadowBlur=0; }
+  // sub tipo HUD
+  ctx.font="800 33px Orbitron, Inter, sans-serif";
+  { const sb="ESCRIBE UNA FRASE · 60 SEGUNDOS · TIKTOK · REELS · SHORTS";
+    const w=ctx.measureText(sb).width, x=W/2-w/2, y=cy+164;
+    ctx.strokeStyle="rgba(34,224,255,0.35)"; ctx.lineWidth=1.5;
+    ctx.strokeRect(x-36,y-44,w+72,66);
+    ctx.fillStyle="rgba(34,224,255,0.06)"; ctx.fillRect(x-36,y-44,w+72,66);
+    ctx.fillStyle=CYAN; ctx.shadowColor=CYAN; ctx.shadowBlur=12; ctx.fillText(sb,x,y); ctx.shadowBlur=0; }
+}
+
+window.__ready=false;
+document.fonts.ready.then(()=>{drawPerfil();window.__ready=true;});
+</script></body></html>
