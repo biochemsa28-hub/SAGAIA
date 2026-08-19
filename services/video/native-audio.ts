@@ -39,7 +39,16 @@ export interface SpokenLine {
 // middle of camera instructions it gets treated as description and paraphrased.
 export function buildDialogueDirection(lines: SpokenLine[], segundos?: number, opts?: { aCamara?: boolean }): string {
   const spoken = lines.map((l) => l.text?.trim()).filter((t): t is string => Boolean(t));
-  if (!spoken.length) return "";
+  // ESCENA MUDA (formato performance): sin esto, un clip con generate_audio y
+  // sin líneas INVENTA una voz en off. Medido: el muñeco salió narrado.
+  if (!spoken.length) {
+    return (
+      " THIS CLIP HAS NO DIALOGUE AT ALL: nobody speaks, no voice, no voice-over, no narration, no whispering, no mouthing words." +
+      " The scene is pure PERFORMANCE: the subject acts, the environment lives, and the only sound is the natural ambience of the place —" +
+      " room tone, movement, cloth, footsteps, objects. NO background music, NO added sound effects, NO score (the soundtrack is added later)." +
+      " The performance carries everything: real micro-behaviour, full committed physical actions, nothing theatrical, nothing frozen."
+    );
+  }
 
   // Un NOMBRE no identifica a nadie dentro de una imagen. Medido en un video real:
   // con "Valeria dice X. Después Renata dice Y", el modelo puso las dos líneas en

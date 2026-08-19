@@ -14,7 +14,7 @@ const BodySchema = z.object({
   language: z.string().default("es"),
   duration_target: z.string().default("60s"),
   // "consejo": los ganchos son la primera línea A CÁMARA, en primera persona.
-  format: z.enum(["story", "ad", "consejo"]).optional(),
+  format: z.enum(["story", "ad", "consejo", "escena"]).optional(),
   // Los nombres del reparto YA elegido. Sin esto el gancho inventaba nombres
   // ("Mariana", "Alejandro") que no existían en el elenco, y el guionista los
   // heredaba: la misma fuente de nombres fantasma que ya cerramos en el guion.

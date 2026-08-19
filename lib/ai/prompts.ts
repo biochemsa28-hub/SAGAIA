@@ -439,6 +439,24 @@ REGLAS ABSOLUTAS:
 const PATRON_CONSEJO =
   /^\s*(¿?\s*)?(c[oó]mo|qu[eé] (hacer|decir|pasa)|por ?qu[eé]|cu[aá]les? (son|es)|\d+\s+(se[ñn]ales|formas|maneras|razones|errores|cosas|pasos|trucos|tips|consejos|h[aá]bitos|frases)|se[ñn]ales de|razones (por|para)|la (forma|manera) de|deja de|aprend[eé] a|how to|why|what to do|signs (that|of)|\d+\s+(signs|ways|reasons|mistakes|things|steps|tips|habits))(?=\s|$|[?:,¿])/iu;
 
+// ── FORMATO ESCENA (performance) ────────────────────────────────────────────
+// La premisa SE ACTÚA, no se cuenta. Medido en video terminado: "el muñeco
+// actuando solo frente a la cámara" salió como un narrador CONTANDO al muñeco
+// ("Ezequiel, el muñeco, dijo algo aterrador…") — todo hablado, nada actuado.
+// Sirve igual para "mujeres bailando estilo TikTok": puro performance.
+const bloqueEscena = () => `
+
+━━━ FORMATO: ESCENA (PERFORMANCE) — LA PREMISA SE ACTÚA, NO SE CUENTA ━━━
+Esto NO es una historia narrada: es una ESCENA que el espectador presencia.
+REGLAS DURAS:
+1. narration_text = "" en TODAS las escenas, salvo como máximo UNA línea corta (2-6 palabras) y SOLO si la premisa pide que el sujeto hable (el muñeco que dice una frase en el clímax). PROHIBIDO el narrador, prohibido describir lo que se ve, prohibido "les voy a contar".
+2. TODO pasa por physical_action (el cuerpo, escrito completo y ejecutable), environment (lo que se mueve), ambience (lo que se oye TODO el tiempo: el cuarto, la estática, la música del baile) y sfx_prompt (el evento: el crujido, la cabeza que gira). Estos campos llevan el peso que en una historia lleva el diálogo — escribilos RICOS.
+3. La curva emocional existe igual, sin palabras: cada plano ESCALA sobre el anterior (más cerca, más raro, más rápido), hay un plano de quiebre (is_peak) donde pasa LO MÁS GRANDE, y un plano de cierre.
+4. camera_move hace de narrador: la cámara se acerca a lo que importa, se queda quieta cuando algo va a pasar, y reacciona después.
+5. speaker: poné igual el nombre del sujeto en cada escena (define a quién se mira), aunque no hable.
+6. music_mood manda: en performance la música ES la mitad del video. Para baile: el género y el pulso exactos ("reggaeton beat 100 bpm, club energy"); para terror: la tensión que crece.
+7. duration_seconds por escena: 4-6s. La suma debe dar la duración pedida — acá no hay diálogo que la fije.`;
+
 export function esPremisaDeConsejo(input: Pick<StoryInput, "topic" | "format">): boolean {
   if (input.format === "consejo") return true;
   if (input.format === "ad") return false;
@@ -488,8 +506,9 @@ export function buildUserPrompt(input: StoryInput): string {
     .replace(/\[ELENCO DISEÑADO\]:.*/g, "")
     .trim();
   const consejo = esPremisaDeConsejo(input) ? bloqueConsejo(duration.seconds) : "";
+  const escena = input.format === "escena" ? bloqueEscena() : "";
 
-  return `${langInstruction}${consejo}
+  return `${langInstruction}${consejo}${escena}
 
 ━━━ PROYECTO ━━━
 NICHO: ${input.niche}${input.sub_niche ? ` › ${input.sub_niche}` : ""}

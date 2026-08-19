@@ -48,7 +48,7 @@ export interface CastingInput {
   visual_style: string;
   max_characters?: number;
   /** "consejo": la protagonista le habla a cámara al espectador; los demás solo si la premisa los nombra. */
-  format?: "story" | "ad" | "consejo";
+  format?: "story" | "ad" | "consejo" | "escena";
 }
 
 // ─── Prompts ────────────────────────────────────────────────────────────────

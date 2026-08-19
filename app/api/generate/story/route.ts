@@ -51,7 +51,7 @@ const BodySchema = z.object({
   // "borrador" salta el modelo de video — el 82,5% del costo — para poder juzgar
   // la historia antes de pagar el render caro. Ausente = estreno.
   quality: z.enum(["borrador", "estreno"]).optional(),
-  format: z.enum(["story", "ad", "consejo"]).optional(), // "ad" = UGC advertising video · "consejo" = la historia demuestra la respuesta
+  format: z.enum(["story", "ad", "consejo", "escena"]).optional(), // "ad" = UGC advertising video · "consejo" = la historia demuestra la respuesta
   reference_image_url: z.string().url().optional(), // user-uploaded product/creative image
   reference_image_urls: z.array(z.string().url()).max(4).optional(), // multiple product angles
   // Series wiring — set when this project continues another one ("Parte N").
@@ -280,7 +280,8 @@ export async function POST(req: NextRequest) {
     //
     // El prompt ahora lleva un presupuesto de caracteres, pero una instrucción no es
     // una garantía: acá se MIDE. A ~14 caracteres por segundo en español.
-    if (result.data?.scenes?.length) {
+    const esEscena = (parsed.data.format ?? "story") === "escena";
+    if (result.data?.scenes?.length && !esEscena) {
       const chars = result.data.scenes.reduce((n, s) => n + (s.narration_text ?? "").trim().length, 0);
       const segundos = Math.round(chars / CHARS_PER_SECOND);
       const pedidos = videoSecondsFor(parsed.data.duration_target);

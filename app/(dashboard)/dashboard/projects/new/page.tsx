@@ -219,7 +219,7 @@ interface FormState {
   target_platform: string; additional_instructions: string;
   // "story" = microdrama; "consejo" = la historia DEMUESTRA la respuesta a una
   // premisa tipo "cómo superar a mi ex" y la dice en voz alta al final.
-  format: "story" | "consejo";
+  format: "story" | "consejo" | "escena";
 }
 const DEFAULTS: FormState = {
   niche: "", sub_niche: "", topic: "", tone: "",
@@ -233,6 +233,7 @@ const FORMAT_OPTIONS: Array<{ id: FormState["format"]; emoji: string; label: str
   // Escrito para quien acaba de llegar: qué VA A VER, no cómo lo hacemos.
   { id: "story",   emoji: "🎬", label: "Una historia",  hint: "Personajes, un giro y un momento que nadie olvida. Lo que más se comparte." },
   { id: "consejo", emoji: "💡", label: "Un consejo",    hint: "Respondes a un \"¿cómo…?\" con una historia que lo demuestra. Ej: cómo superar a tu ex." },
+  { id: "escena",  emoji: "🎭", label: "Una escena",    hint: "La premisa se ACTÚA, casi sin palabras: el muñeco que se mueve solo, un baile, una transformación. Puro performance." },
 ];
 
 // Recharge modal — shown when a step returns 402 (out of NAVOS). Captures the sale
@@ -1876,7 +1877,7 @@ function NewProjectForm() {
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
                 <p className="text-[11px] text-zinc-500 mb-0.5">Vas a producir</p>
                 <p className="text-sm text-zinc-200">
-                  <span className="font-extrabold text-white">{form.format === "consejo" ? "Un consejo" : "Una historia"}</span>
+                  <span className="font-extrabold text-white">{form.format === "consejo" ? "Un consejo" : form.format === "escena" ? "Una escena" : "Una historia"}</span>
                   {" · "}<span className="font-bold">{seg} segundos</span>
                   {" · "}<span className="font-bold">{calidad === "borrador" ? "para verla primero" : "lista para publicar"}</span>
                 </p>

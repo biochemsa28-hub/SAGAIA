@@ -59,7 +59,7 @@ export const StoryInputSchema = z.object({
   // how-to/advice premise — "cómo superar a mi ex" ends with her closing the
   // door, not opening it. Same pipeline; the ad is a different script brain,
   // consejo is a layer on top of the story brain.
-  format: z.enum(["story", "ad", "consejo"]).default("story"),
+  format: z.enum(["story", "ad", "consejo", "escena"]).default("story"),
   // "borrador" salta el modelo de video — el 82,5% del costo — para poder juzgar
   // la historia antes de pagar el render caro. Ausente = estreno.
   quality: z.enum(["borrador", "estreno"]).optional(),
@@ -85,7 +85,9 @@ export const SceneSchema = z.object({
   // línea corta tumbaba el guion ENTERO (medido: 2 de 6 generaciones a 60s).
   // Es la misma familia que is_peak y cast.role: un dato auxiliar no puede
   // invalidar una generación que cuesta créditos.
-  narration_text: z.string().trim().min(1),
+  // En formato "escena" (performance) las escenas pueden ser MUDAS: la
+  // premisa se actúa, no se cuenta. Vacío = nadie habla en este plano.
+  narration_text: z.string().trim(),
   // WHO speaks this scene's narration (a cast member's name). Optional so older
   // stories without attribution still validate.
   speaker: recortado(60),
