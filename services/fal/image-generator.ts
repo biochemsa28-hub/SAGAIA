@@ -267,7 +267,11 @@ export function sinDescripcionDePersonaje(prompt: string): string {
   );
 }
 
-async function callReference(prompt: string, referenceUrl: string, extraImages?: string[]): Promise<string | null> {
+// castImages: retratos de los OTROS personajes en cuadro. Se conservan en TODOS
+// los reintentos — medido en el video de la hermana: el reintento "solo el
+// retrato" tiraba los retratos de los demás y el modelo los inventó (Malena
+// pelirroja, Adrián de saco, la esposa con jeans rotos) en la última escena.
+async function callReference(prompt: string, referenceUrl: string, extraImages?: string[], castImages?: string[]): Promise<string | null> {
   const model = process.env.CHARACTER_REF_MODEL ?? "fal-ai/nano-banana/edit";
   // nano-banana / gemini edit models take an `image_urls` ARRAY; flux-kontext
   // takes a single `image_url`. Send the right shape for the configured model.
@@ -290,14 +294,15 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   const intentos: Array<{ imgs: string[]; prompt: string; nota: string }> = [
     { imgs: allImages, prompt, nota: `${allImages.length} imagen(es)` },
   ];
-  if (allImages.length > 1) intentos.push({ imgs: [referenceUrl], prompt, nota: "solo el retrato" });
+  const conElenco = [referenceUrl, ...(castImages ?? [])].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 4);
+  if (allImages.length > conElenco.length) intentos.push({ imgs: conElenco, prompt, nota: conElenco.length > 1 ? "solo los retratos del elenco" : "solo el retrato" });
   // Tercer intento: el mismo plano, descrito sin los términos que disparan la
   // moderación. Un 422 que aparece en UNA escena y no en las otras casi siempre
   // es el prompt, no la configuración — y perder la cara del personaje por una
   // palabra es el peor cambio posible. La escena se conserva: lo que cambia es
   // cómo se nombra el vestuario.
   const suave = suavizarParaModeracion(prompt);
-  if (suave !== prompt) intentos.push({ imgs: [referenceUrl], prompt: suave, nota: "prompt reformulado" });
+  if (suave !== prompt) intentos.push({ imgs: conElenco, prompt: suave, nota: "prompt reformulado" });
 
   // ÚLTIMO INTENTO: la escena SIN describir al personaje.
   //
@@ -316,7 +321,7 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   // medias es infinitamente mejor que uno con otra persona adentro.
   const soloEscena = sinDescripcionDePersonaje(prompt);
   if (soloEscena !== prompt) {
-    intentos.push({ imgs: [referenceUrl], prompt: soloEscena, nota: "sin describir al personaje" });
+    intentos.push({ imgs: conElenco, prompt: soloEscena, nota: "sin describir al personaje" });
   }
 
   // ── EL MÍNIMO: la cara y nada más ────────────────────────────────────────
@@ -338,9 +343,11 @@ async function callReference(prompt: string, referenceUrl: string, extraImages?:
   // Un plano pobre con la cara correcta se salva en el montaje. Una cara
   // equivocada no se salva nunca.
   intentos.push({
-    imgs: [referenceUrl],
+    imgs: conElenco,
     prompt:
-      "Portrait of the exact person in the reference image: identical face, hair and clothing. " +
+      (conElenco.length > 1
+        ? "The exact people in the reference images, standing together: identical faces, hair and clothing. "
+        : "Portrait of the exact person in the reference image: identical face, hair and clothing. ") +
       `${emocionDe(prompt)} Vertical 9:16, cinematic, shallow depth of field, plain dark background.`,
     nota: "solo la cara (último recurso)",
   });
@@ -436,6 +443,9 @@ async function generateReal(params: {
   // paredes, muebles, objetos y luz. Sin esto cada plano inventaba su propia
   // versión de "la cocina" y el video se veía como clips pegados.
   setReferenceUrl?: string;
+  // Retratos de los otros personajes en cuadro (subconjunto de referenceImageUrls)
+  // — sobreviven a todos los reintentos de la referencia.
+  castImageUrls?: string[];
   emotion?: string;
   narrationText?: string;
 }): Promise<ImageGenerationResult> {
@@ -487,8 +497,18 @@ async function generateReal(params: {
     const extras = conSet
       ? [...(params.referenceImageUrls ?? []).slice(0, 2), params.setReferenceUrl!]
       : params.referenceImageUrls;
-    imageUrl = await callReference(refPrompt, referenceImageUrl, extras);
-    if (!imageUrl) console.log(`[fal.ai] reference failed for scene ${sceneNumber}, falling back to flux`);
+    imageUrl = await callReference(refPrompt, referenceImageUrl, extras, params.castImageUrls);
+    if (!imageUrl) {
+      // CON ELENCO NO SE CAE A FLUX. Flux no tiene los retratos: dibuja a otra
+      // persona, y eso ya no se arregla después. Mejor que la escena falle
+      // limpia (la puerta de continuidad la marca y el worker la redibuja).
+      const sinFlux = (process.env.CAST_NO_FLUX ?? "on").toLowerCase() !== "off";
+      if (sinFlux) {
+        console.warn(`[fal.ai] reference failed for scene ${sceneNumber} — con elenco NO se cae a flux; la escena queda para redibujar`);
+        return null;
+      }
+      console.log(`[fal.ai] reference failed for scene ${sceneNumber}, falling back to flux`);
+    }
   }
 
   // Path B: plain generation (also the fallback if the reference edit failed)
@@ -571,6 +591,7 @@ export async function generateSceneImage(params: {
   referenceImageUrl?: string;
   referenceImageUrls?: string[];
   setReferenceUrl?: string;
+  castImageUrls?: string[];
   emotion?: string;
   narrationText?: string;
 }): Promise<ImageGenerationResult> {
@@ -776,6 +797,7 @@ export async function generateProjectImages(params: {
           return lista.length ? lista : params.referenceImageUrls;
         })(),
         setReferenceUrl: setRef,
+        castImageUrls: params.sceneExtraRefs?.get(scene.scene_number) ?? [],
         emotion: scene.emotion,
         narrationText: scene.narration_text,
       });

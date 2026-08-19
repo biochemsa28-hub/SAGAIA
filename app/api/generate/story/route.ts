@@ -437,7 +437,21 @@ export async function POST(req: NextRequest) {
         const primeras = scenes.slice(0, 2);
         const sinLoQueVe = premisaVe && premisaBeso && scenes.length >= 3 &&
           !primeras.some((sc) => HECHO.test(`${sc.image_prompt ?? ""} ${sc.physical_action ?? ""}`));
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) };
+        // 11) APODOS INVENTADOS. "Dele" por Delfina: la voz lo dice tal cual y
+        //     suena a error. Se busca en las líneas una palabra con mayúscula que
+        //     sea recorte (3+ letras) de un nombre del elenco sin ser el nombre.
+        const nombresElenco = (parsed.data.cast ?? []).map((c) => (c.name ?? "").trim().split(/s+/)[0] ?? "").filter((n) => n.length >= 4);
+        const apodos: string[] = [];
+        if (nombresElenco.length) {
+          for (const sc of scenes) {
+            const palabras = (sc.narration_text ?? "").match(/[A-ZÁÉÍÓÚÑ][a-záéíóúñü]{2,}/g) ?? [];
+            for (const p of palabras) {
+              const esRecorte = nombresElenco.some((n) => n.toLowerCase() !== p.toLowerCase() && n.toLowerCase().startsWith(p.toLowerCase()) && p.length >= 3 && p.length < n.length);
+              if (esRecorte && !apodos.includes(p)) apodos.push(p);
+            }
+          }
+        }
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, total: largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
@@ -447,7 +461,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -465,6 +479,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.apodos.length
+            ? ` Las líneas usan apodos o recortes de nombre inventados (${defectos.apodos.join(", ")}). Usá SIEMPRE el nombre completo del elenco; nada de diminutivos ni recortes.`
             : "") +
           (defectos.sinLoQueVe
             ? " La premisa dice que alguien VE/DESCUBRE el hecho (el beso, el engaño) y el guion arranca DESPUÉS, sin mostrarlo. La ESCENA 1 tiene que MOSTRAR ese hecho entero —el beso con labios que se tocan y se quedan, los cuerpos— desde el punto de vista de quien lo descubre, con physical_action completa e image_prompt con el hecho en cuadro. La reacción viene después."

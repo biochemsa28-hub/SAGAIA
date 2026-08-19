@@ -524,7 +524,11 @@ function buildAssContent(
       const p = chunks[i - 1]!;
       chunks.splice(i - 1, 2, { words: [...p.words, ...c.words], start: p.start, end: c.end });
     } else {
-      i++;
+      // Es el ÚNICO cartel del segmento y no tiene con quién fusionarse: la
+      // línea completa vive en el clip siguiente. Medido: "¿QUÉ" solo durante
+      // dos segundos y después "¿QUÉ SOY YO PARA TI?" entero. Se descarta —
+      // mejor un tramo sin cartel que un cartel que no dice nada.
+      chunks.splice(i, 1);
     }
   }
 

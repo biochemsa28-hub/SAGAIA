@@ -114,8 +114,10 @@ async function revisarCaras(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (FACE_GATE === "off" || !apiKey || imagenes.length < 2) return null;
 
-  // Tope de gasto: con 8 miniaturas ya se ve si el reparto se sostiene.
-  const lote = imagenes.slice(0, 8);
+  // Antes 8: la deriva apareció en la escena 14 de 14 (Malena pelirroja, Adrián
+  // de saco) y la puerta no la miró. A 384px cada miniatura son ~300 tokens:
+  // 16 imágenes siguen costando centavos.
+  const lote = imagenes.slice(0, Math.max(8, Number(process.env.FACE_GATE_MAX ?? 16) || 16));
   const b64 = await Promise.all(lote.map((im, i) => miniatura(dir, im.url, i)));
   const utiles = lote
     .map((im, i) => ({ ...im, data: b64[i] }))
@@ -133,8 +135,10 @@ async function revisarCaras(
       "Estas imágenes son fotogramas de UN MISMO microdrama. Los personajes deben ser las mismas " +
       "personas en todas.\n\n" +
       "Decime si algún personaje CAMBIA DE PERSONA entre imágenes: otra cara, otra edad, otro color " +
-      "o largo de pelo, otro tono de piel. Cambios de ropa, de peinado, de luz, de ángulo o de " +
-      "expresión NO cuentan — solo si claramente es OTRO ser humano.\n\n" +
+      "o largo de pelo, otro tono de piel. TAMBIÉN cuenta si un personaje aparece con ROPA CLARAMENTE " +
+      "DISTINTA en una imagen (otra prenda o color: camisa azul en diez imágenes y saco negro en una) — " +
+      "en este video la ropa no cambia nunca. Cambios de peinado leve, de luz, de ángulo o de " +
+      "expresión NO cuentan.\n\n" +
       "Ante la duda, respondé que es consistente: marcar de más obliga a regenerar un video que " +
       "estaba bien.\n\n" +
       'Respondé SOLO este JSON: {"consistente": true|false, "imagenes_raras": [números], "motivo": "una frase"}',
@@ -171,7 +175,7 @@ async function revisarCaras(
     return {
       scenes: escenas.length ? escenas : utiles.map((u) => u.scene),
       message:
-        `Un personaje cambia de persona entre escenas${escenas.length ? ` (${escenas.join(", ")})` : ""}. ` +
+        `Un personaje cambia de persona o de ropa entre escenas${escenas.length ? ` (${escenas.join(", ")})` : ""}. ` +
         `${veredicto.motivo ?? ""} Animar así produce un video donde el protagonista tiene dos caras.`,
     };
   } catch (e) {
