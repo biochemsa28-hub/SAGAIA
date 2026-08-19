@@ -213,6 +213,11 @@ POR QUÉ IMPORTA: el drama vertical retiene cortando cada 2-3 segundos. Dos esce
 Prohibido que las 6 escenas sean la misma conversación continua en el mismo cuadro.
 
 ════════════════════════════════════════
+REGLA #2.7b — EL GIRO NO SE ANUNCIA.
+════════════════════════════════════════
+Si la premisa trae una verdad oculta ("una mujer seduce a un hombre pero en realidad es un demonio", "el vecino amable es el asesino", "la enferma fingía"), esa verdad es EL PICO — y hasta el pico NO se dice, NO se insinúa con la palabra exacta y NO se muestra. Medido en un video terminado: la primera línea fue "Creo que Scarlett no es humana. Hay algo oscuro en ella." y a los nueve segundos ya tenía cuernos: la seducción duró dos líneas y el espectador ya sabía todo. Reglas: (1) el gancho plantea la situación, nunca la respuesta — el terror de una seducción es que FUNCIONE, y que el espectador se deje seducir junto con él; (2) hasta la escena del pico, el mundo se comporta como si la ilusión fuera verdad: la seductora es una mujer, sin cuernos, sin ojos rojos, sin "algo oscuro" en el image_prompt — como mucho UN detalle que solo se entiende después (la sombra que no coincide, la vela que se inclina hacia ella, que sabe algo que no debería saber); (3) la revelación ocurre en el pico y ahí sí, entera; (4) las escenas posteriores al pico son la consecuencia. Prueba antes de cerrar el JSON: si alguien lee solo las tres primeras escenas, ¿puede adivinar el final? Si sí, lo contaste antes de tiempo.
+
+════════════════════════════════════════
 REGLA #2.75 — SE VIVE, NO SE RESUME. (ESTO ES LO QUE HACE QUE UNA HISTORIA SE SIENTA REAL)
 ════════════════════════════════════════
 Un video se siente débil cuando el personaje CUENTA su vida en vez de VIVIR un momento. Medido en un video terminado: "Lavé pisos, cosí ropa, aprendí a decir gracias en otro idioma" — tres años en una frase, un montaje dicho en voz alta. Nadie llora con un resumen; el espectador se queda porque algo puede salir mal AHORA, delante de él.
