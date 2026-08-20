@@ -287,7 +287,12 @@ Un video que se siente "sin principio ni fin" es un video sin actos. Medido en u
   ACTO 1 — ESTABLECER (primer ~20% de las escenas): dónde estamos, quiénes son, qué está pasando AHORA. Emoción base del género, intensidad 3 de 10 — reconocible, no explotada. La ilusión de la premisa se instala aquí como verdad (la seductora seduce de verdad; la casa es una casa; el matrimonio parece bien).
   ACTO 2 — TENSAR (siguiente ~45%): cada escena aprieta un poco más. Sube la intensidad 4 → 7. Un DETALLE que no cuadra por escena (no la explicación, el detalle), y el otro personaje EMPUJA. Nada se resuelve, todo se acumula. Aquí NO va el giro.
   ACTO 3 — CLÍMAX (una o dos escenas, entre el 70% y el 85%): el pico físico Y la verdad, juntos, intensidad 10. Es la escena is_peak. Ver "VUELCO" abajo.
-  ACTO 4 — CIERRE (las últimas 1-2 escenas, siempre DESPUÉS del clímax): la consecuencia — el mundo ya no es el mismo — y la última línea: la frase citable, la pregunta al espectador o el cliffhanger. Nunca termina en el clímax mismo: sin acto 4 no hay historia, hay un susto.
+  ACTO 4 — CIERRE (las últimas 1-2 escenas, siempre DESPUÉS del clímax): la consecuencia — el mundo ya no es el mismo — y el BUCLE DE CURIOSIDAD, que tiene DOS piezas obligatorias:
+  (a) CIERRE PARTICIPATIVO: la última línea hablada obliga al espectador a JUGAR, con uno de estos cuatro tipos — DECISIÓN ("¿tú abrirías el segundo sobre?"), PREDICCIÓN ("¿quién crees que miente?"), DETECCIÓN ("¿lo viste? volvé a mirar"), JUICIO ("¿quién tiene la culpa acá?"). Nacida de ESTA historia, con sus objetos y nombres — nunca un "¿qué opinas?" genérico. El comentario es una jugada, no un favor.
+  (b) NUEVO MISTERIO CON RAZÓN NARRATIVA: en el último plano APARECE un objeto o hecho nuevo y concreto que abre la parte 2 (la cinta con su nombre escrita antes de que naciera, el segundo sobre, la foto fechada tres meses atrás con el dueño muerto hace 17 años). "Sígueme para la parte 2" no es un misterio; un OBJETO en cuadro sí. El image_prompt del último plano lo muestra.
+  Nunca termina en el clímax mismo: sin acto 4 no hay historia, hay un susto.
+
+PISTA SEMBRADA (el mecanismo del re-watch): en el PRIMER TERCIO del guion, UN objeto visible en cuadro sin subrayar — está en el image_prompt de una escena temprana, nadie lo comenta — que el VUELCO recontextualiza. Y una línea del cierre puede señalarlo sin explicarlo del todo (la forma: "todos miraban la foto; nadie miró la fecha del recibo"). El espectador que entendió vuelve a ver el video para encontrarla — el re-watch es la métrica que más paga. Regla de honestidad: la pista TIENE que estar de verdad en el cuadro temprano (el sistema pone en imagen los objetos nombrados), y el giro tiene que funcionar aunque el espectador no la haya visto — la pista premia, nunca es requisito para entender.
 
 Prueba antes de cerrar el JSON: nombrá para cada escena su acto (1, 2, 3 o 4). Si el acto 3 cae antes del 70%, si no hay acto 4, o si el acto 2 no sube de intensidad escena a escena, la arquitectura está rota y hay que reordenar.
 
@@ -355,7 +360,7 @@ REGLA #7 — VALIDACIÓN FINAL (REESCRIBE SI FALLA ALGUNA)
 ☑ Sumaste los caracteres de TODOS los narration_text y llegan al presupuesto de duración
 ☑ NINGÚN narration_text individual pasa de 200 caracteres — si uno se pasa, partilo en dos escenas
 ☑ El giro recontextualiza lo anterior (ganas de re-ver)
-☑ El cliffhanger provoca "necesito la Parte 2"
+☑ El cliffhanger provoca "necesito la Parte 2" — y es un OBJETO/hecho concreto en el último plano, con cierre participativo (decisión/predicción/detección/juicio)
 ☑ Se siente REAL: "esto me puede pasar a mí"
 ☑ Cada escena tiene locación concreta y nombrada en el image_prompt
 
@@ -728,7 +733,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
   "story": {
     "hook": "${chosenHook ?? "línea de diálogo del personaje en la escena 1 que detiene el scroll (máx 20 palabras)"}",
     "full_narrative": "resumen de la trama en 1-2 frases (solo referencia interna, sé breve)",
-    "cta": "tease de continuación corto y urgente para el final (máx 8 palabras, ej: 'Comenta PARTE 2 para seguir' o 'Esto apenas comienza…') — aparece como texto en pantalla al final"
+    "cta": "LA JUGADA del espectador, quemada en pantalla al final (máx 12 palabras): una pregunta de DECISIÓN, PREDICCIÓN, DETECCIÓN o JUICIO nacida de ESTA historia y sus objetos/nombres, + la promesa de parte 2. La forma (inventá la tuya con TU historia): '¿Tú abrirías el sobre? Parte 2.' / '¿Quién miente aquí? Parte 2 mañana.' PROHIBIDO el genérico 'Comenta parte 2 si quieres saber…': el comentario tiene que ser una jugada, no un favor"
   },
   "scenes": [
     {

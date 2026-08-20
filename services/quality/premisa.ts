@@ -45,7 +45,7 @@ export async function evaluarPremisa(params: {
     (esEscena
       ? "7. identificacion: ¿el espectador quiere SER o VER eso (satisfacción visual, destreza, morbo)?\n8. debate: ¿provoca compartir o comentar ('¿viste eso?')?\n"
       : "7. identificacion: ¿el espectador piensa 'esto podría pasarme' o 'conozco a alguien así'?\n8. debate: ¿hay ambigüedad moral que divida opiniones en los comentarios?\n") +
-    "\nDespués escribí DOS reescrituras de ESTA premisa (no otra historia) que suban los ejes flojos, usando la fórmula PERSONA + DESEO + ANOMALÍA + CONSECUENCIA + SECRETO + REVERSAL. " +
+    "\nDespués escribí DOS reescrituras de ESTA premisa (no otra historia) que suban los ejes flojos, usando la fórmula PERSONA NORMAL + DESEO + CONTRADICCIÓN IMPOSIBLE + CONSECUENCIA + SECRETO + REVERSAL. La CONTRADICCIÓN IMPOSIBLE es el corazón: dos hechos verificables que no pueden ser verdad a la vez (el dueño lleva 17 años muerto / la foto de la caja es de hace 3 meses) — más fuerte que una simple anomalía. " +
     "Cada una en 1-2 frases, en español neutro, lista para pegar. La primera fiel a la premisa original; la segunda más agresiva para redes. " +
     (esEscena ? "El formato es ESCENA (performance sin diálogo): las reescrituras describen lo que SE VE, no una trama hablada. " : "") +
     "En 60 segundos cabe UN vuelco: no metas dos giros.\n" +

@@ -69,7 +69,8 @@ export async function revisarComoDirector(params: {
     "4. CUERPOS: ¿el mismo gesto dura más de 2 escenas seguidas? ¿La acción física es coherente con la situación (al que acaban de pillar no le toca acariciar a la esposa)?\n" +
     "5. CUADRO Y VOZ: en cada escena, ¿quien habla es el sujeto del cuadro y los demás escuchan (boca cerrada)? ¿Alguna escena pone en primer plano al que NO habla?\n" +
     "6. LUGAR: ¿cambia de lugar sin necesidad?\n" +
-    (esConsejo ? "7. CONSEJO: ¿los consejos son reales, concretos y vividos (no dictados)? ¿Se entregan todos, sin carnada?\n" : "") +
+    "7. BUCLE DE CURIOSIDAD: ¿la última línea obliga a jugar (decisión/predicción/detección/juicio nacida de esta historia) o es un '¿qué opinas?' genérico? ¿El último plano muestra un objeto/hecho NUEVO que abre la parte 2, o el cierre es solo 'sígueme'? Si hay pista sembrada temprana, ¿el vuelco la usa?\n" +
+    (esConsejo ? "8. CONSEJO: ¿los consejos son reales, concretos y vividos (no dictados)? ¿Se entregan todos, sin carnada?\n" : "") +
     "Criterio: ante la duda, APROBÁ — una nota de más obliga a regenerar un guion que estaba bien. Máximo 5 notas, las más importantes, cada una ejecutable por el guionista en una reescritura.\n" +
     'Respondé SOLO este JSON: {"aprobado": true|false, "puntaje": 1-10, "resumen": "una frase", "notas": [{"escena": N, "nota": "qué cambiar, concreto"}]}';
 
