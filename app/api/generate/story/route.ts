@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { storyGeneratorService } from "@/services/openai/story-generator";
 import {
-  createProject, saveGenerationResult, updateProjectStatus,
+  createProject, saveGenerationResult, upsertGenome, updateProjectStatus,
   deductCredits, createApiLog, setProjectCharacter, getUserById, setProjectCast,
   refundCreditForProject,
 } from "@/lib/db/repository";
@@ -887,6 +887,16 @@ export async function POST(req: NextRequest) {
 
     // ── Save result + log ─────────────────────────────────────────────────────
     if (projectId && result.data) {
+      void upsertGenome({
+        projectId, userId: userId ?? "mock",
+        premisa: parsed.data.topic, formato: parsed.data.format ?? "story",
+        nicho: parsed.data.niche, tono: parsed.data.tone,
+        estilo: parsed.data.visual_style ?? null, duracion: parsed.data.duration_target,
+        mecanicas: (result.data as { production_notes?: { mecanicas?: string[] } }).production_notes?.mecanicas ?? null,
+        hook: (result.data as { story?: { hook?: string } }).story?.hook ?? null,
+        cta: (result.data as { story?: { cta?: string } }).story?.cta ?? null,
+        escenas: result.data.scenes?.length ?? null,
+      });
       await saveGenerationResult({
         projectId,
         story: result.data,

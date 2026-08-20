@@ -248,6 +248,9 @@ const HOOK_META: Record<string, { icon: string; color: string; bg: string; borde
   question:      { icon: "❓", color: "text-blue-300",   bg: "bg-blue-950/50",   border: "border-blue-700/50" },
   in_medias_res: { icon: "⚡", color: "text-orange-300", bg: "bg-orange-950/50", border: "border-orange-700/50" },
   shocking_fact: { icon: "💥", color: "text-red-300",    bg: "bg-red-950/50",    border: "border-red-700/50" },
+  contradiction:     { icon: "🧩", color: "text-fuchsia-300", bg: "bg-fuchsia-950/50", border: "border-fuchsia-700/50" },
+  incomplete_action: { icon: "⏸️", color: "text-amber-300",   bg: "bg-amber-950/50",   border: "border-amber-700/50" },
+  strange_object:    { icon: "🗝️", color: "text-violet-300",  bg: "bg-violet-950/50",  border: "border-violet-700/50" },
 };
 
 interface FormState {

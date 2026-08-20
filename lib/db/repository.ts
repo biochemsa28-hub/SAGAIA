@@ -873,6 +873,35 @@ export async function getProjectById(id: string, userId: string): Promise<DbProj
 
 // ─── Stories + Scenes + SEO (save full generation result) ─────────────────────
 
+// ── Genoma: captura el ADN creativo del proyecto (upsert, no falla nunca) ──
+export async function upsertGenome(params: {
+  projectId: string; userId: string;
+  premisa?: string | null; formato?: string | null; nicho?: string | null;
+  tono?: string | null; estilo?: string | null; duracion?: string | null;
+  arquetipo?: string | null; scorePremisa?: number | null;
+  mecanicas?: string[] | null; hook?: string | null; cta?: string | null;
+  escenas?: number | null;
+}): Promise<void> {
+  const db = getDb();
+  try {
+    await db.execute({
+      sql: `INSERT INTO video_genome (project_id, user_id, premisa, formato, nicho, tono, estilo, duracion, arquetipo, score_premisa, mecanicas, hook, cta, escenas, actualizado)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(project_id) DO UPDATE SET
+              premisa=COALESCE(excluded.premisa, premisa), formato=COALESCE(excluded.formato, formato),
+              nicho=COALESCE(excluded.nicho, nicho), tono=COALESCE(excluded.tono, tono),
+              estilo=COALESCE(excluded.estilo, estilo), duracion=COALESCE(excluded.duracion, duracion),
+              arquetipo=COALESCE(excluded.arquetipo, arquetipo), score_premisa=COALESCE(excluded.score_premisa, score_premisa),
+              mecanicas=COALESCE(excluded.mecanicas, mecanicas), hook=COALESCE(excluded.hook, hook),
+              cta=COALESCE(excluded.cta, cta), escenas=COALESCE(excluded.escenas, escenas), actualizado=datetime('now')`,
+      args: [params.projectId, params.userId, params.premisa ?? null, params.formato ?? null, params.nicho ?? null,
+        params.tono ?? null, params.estilo ?? null, params.duracion ?? null, params.arquetipo ?? null,
+        params.scorePremisa ?? null, params.mecanicas ? JSON.stringify(params.mecanicas) : null,
+        params.hook ?? null, params.cta ?? null, params.escenas ?? null],
+    });
+  } catch (e) { console.warn("[genoma] no se pudo guardar:", e instanceof Error ? e.message.slice(0, 120) : e); }
+}
+
 export async function saveGenerationResult(params: {
   projectId: string;
   story: StoryOutput;

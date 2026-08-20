@@ -44,13 +44,20 @@ leyendo un anuncio en lugar de viviendo una escena.
 ✅ "Tomás. Tomás, despertate. Hay alguien en el cuarto de la nena."
    → un personaje, hablándole a otro, dentro del momento
 
-TRES ÁNGULOS (uno por hook, los tres SIEMPRE en forma de diálogo hablado):
+SEIS ÁNGULOS (uno por hook, los seis SIEMPRE en forma de diálogo hablado —
+tipos psicológicos DISTINTOS, no seis variantes del mismo):
 1. EN CRISIS: la línea arranca con la situación ya ocurriendo. El personaje
    reacciona a algo que el espectador todavía no vio.
 2. A OTRO PERSONAJE: le habla a alguien —lo nombra, lo interpela, le reclama—
    y en esa frase se entiende qué pasó.
 3. LO QUE ADMITE: el personaje dice en voz alta algo que le cuesta, y eso solo
    abre la pregunta de por qué.
+4. CONTRADICCIÓN IMPOSIBLE: la línea junta dos hechos que no pueden ser verdad
+   a la vez ("lleva muerto diecisiete años… y me acaba de llamar").
+5. ACCIÓN INCOMPLETA: el personaje está a MITAD de hacer algo irreversible y
+   la línea lo congela ahí ("no cuelgues… si cuelgo, no sé qué hace").
+6. OBJETO EXTRAÑO: la línea gira sobre un objeto concreto que no debería
+   existir/estar ahí ("¿por qué hay un cuchillo en la cuna, Tomás?").
 
 REGLAS:
 - Máximo 20 palabras
@@ -102,6 +109,27 @@ Genera EXACTAMENTE este JSON (sin texto adicional):
       "type": "shocking_fact",
       "type_label": "${input.format === "escena" ? "El encuadre imposible" : input.format === "consejo" ? "Lo que admito" : "Lo que admite"}",
       "text": "lo que el personaje ADMITE en voz alta y le cuesta decir (máx 20 palabras)",
+      "why": "por qué esta línea detiene el scroll (1 frase)"
+    },
+    {
+      "id": "contradiction",
+      "type": "contradiction",
+      "type_label": "${input.format === "escena" ? "Lo imposible en cuadro" : "Contradicción imposible"}",
+      "text": "la línea que junta dos hechos que no pueden ser verdad a la vez (máx 20 palabras)",
+      "why": "por qué esta línea detiene el scroll (1 frase)"
+    },
+    {
+      "id": "incomplete_action",
+      "type": "incomplete_action",
+      "type_label": "${input.format === "escena" ? "La acción a medio hacer" : "Acción incompleta"}",
+      "text": "el personaje a mitad de algo irreversible, congelado ahí (máx 20 palabras)",
+      "why": "por qué esta línea detiene el scroll (1 frase)"
+    },
+    {
+      "id": "strange_object",
+      "type": "strange_object",
+      "type_label": "${input.format === "escena" ? "El objeto que no va" : "Objeto extraño"}",
+      "text": "la línea que gira sobre un objeto concreto que no debería estar ahí (máx 20 palabras)",
       "why": "por qué esta línea detiene el scroll (1 frase)"
     }
   ]

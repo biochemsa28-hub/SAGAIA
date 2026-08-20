@@ -194,6 +194,43 @@ export async function initDb(): Promise<void> {
   // Sonido CONTINUO del lugar/actividad (regadera, tele, cubiertos, lluvia):
   // una cama que suena toda la escena, distinta del sfx_prompt (un golpe).
   await runMigration(db, "ALTER TABLE scenes ADD COLUMN ambience TEXT");
+  // ── VIRAL GENOME v0 ──────────────────────────────────────────────────────
+  // Cada video publicado deja de ser una anécdota y se vuelve un punto de
+  // datos: el ADN creativo (qué llevaba) + las métricas reales (qué pasó).
+  // El ADN se captura solo al generar; las métricas las anota el dueño cuando
+  // publica. A los ~30 registros empieza la correlación: qué mecánicas,
+  // arquetipos y hooks retienen DE VERDAD. Este dataset es el moat.
+  await runMigration(db, `CREATE TABLE IF NOT EXISTS video_genome (
+    project_id    TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    user_id       TEXT NOT NULL,
+    premisa       TEXT,
+    formato       TEXT,
+    nicho         TEXT,
+    tono          TEXT,
+    estilo        TEXT,
+    duracion      TEXT,
+    arquetipo     TEXT,          -- del Motor de Premisas
+    score_premisa REAL,          -- /100 del Motor
+    mecanicas     TEXT,          -- JSON: las 2 del Arsenal
+    hook          TEXT,
+    cta           TEXT,
+    escenas       INTEGER,
+    -- métricas reales, anotadas a mano tras publicar (NULL = sin publicar)
+    plataforma    TEXT,
+    url_publicada TEXT,
+    vistas        INTEGER,
+    ret_3s        REAL,          -- % que pasa el segundo 3
+    completion    REAL,          -- % que llega al final
+    rewatch       REAL,          -- reproducciones/vistas (>1 = re-watch)
+    likes         INTEGER,
+    comentarios   INTEGER,
+    compartidos   INTEGER,
+    guardados     INTEGER,
+    seguidores    INTEGER,       -- nuevos seguidores atribuidos
+    notas         TEXT,
+    publicado_en  TEXT,
+    actualizado   TEXT DEFAULT (datetime('now'))
+  )`);
 
   // ── EL GUIONISTA DECLARA CUÁL ES EL PICO, EN VEZ DE QUE LO ADIVINEMOS ──────
   //
