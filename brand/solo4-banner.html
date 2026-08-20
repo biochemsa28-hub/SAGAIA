@@ -57,6 +57,28 @@ function fondo(ctx,W,H,intenso){
   ctx.fillStyle=r;ctx.fillRect(0,0,W,H);
 }
 
+
+// ── Wordmark C: VYNA▶O — el play sustituye a la segunda V ──────────────────
+function wordmarkPlay(ctx,cx,cy,px,track){
+  ctx.font=`700 ${px}px "Space Grotesk", Inter, sans-serif`;
+  ctx.letterSpacing=`${track}px`;
+  const t1="VYNA", t2="O";
+  const w1=ctx.measureText(t1).width;
+  const playW=px*0.72, gap=px*0.10;
+  const w2=ctx.measureText(t2).width;
+  const total=w1+gap+playW+gap+w2;
+  const x0=cx-total/2;
+  ctx.fillStyle=TX;ctx.fillText(t1,x0,cy);
+  const pxx=x0+w1+gap;
+  const g=grad(ctx,pxx,cy-px,pxx+playW,cy);
+  ctx.fillStyle=g;
+  ctx.beginPath();
+  ctx.moveTo(pxx,cy-px*0.72);ctx.lineTo(pxx+playW*0.92,cy-px*0.36);ctx.lineTo(pxx,cy);ctx.closePath();ctx.fill();
+  ctx.fillStyle=TX;ctx.fillText(t2,pxx+playW+gap,cy);
+  ctx.letterSpacing="0px";
+  return total;
+}
+
 function drawPerfil(){
   const c=document.getElementById("perfil"),ctx=c.getContext("2d");
   fondo(ctx,800,800,true);
@@ -65,11 +87,7 @@ function drawPerfil(){
   ctx.beginPath();ctx.arc(400,400,346,-1.15,-0.45);
   ctx.strokeStyle=grad(ctx,120,80,680,240);ctx.lineWidth=4;ctx.lineCap="round";ctx.stroke();
   mark(ctx,400,330,2.55);
-  ctx.font="700 74px 'Space Grotesk', Inter, sans-serif";
-  ctx.letterSpacing="10px";
-  const t="VYNAVO", w=ctx.measureText(t).width;
-  ctx.fillStyle=TX;ctx.fillText(t,(800-w)/2,662);
-  ctx.letterSpacing="0px";
+  wordmarkPlay(ctx,400,662,74,10);
 }
 
 function drawBanner(){
@@ -77,11 +95,7 @@ function drawBanner(){
   const W=2560,H=1440;fondo(ctx,W,H,false);
   const cy=H/2-20;
   mark(ctx,W/2,cy-170,1.2);
-  ctx.font="700 176px 'Space Grotesk', Inter, sans-serif";
-  ctx.letterSpacing="22px";
-  const t="VYNAVO", w=ctx.measureText(t).width;
-  ctx.fillStyle=TX;ctx.fillText(t,(W-w)/2,cy+128);
-  ctx.letterSpacing="0px";
+  wordmarkPlay(ctx,W/2,cy+128,176,22);
   const lw=560;
   ctx.fillStyle=grad(ctx,W/2-lw/2,0,W/2+lw/2,0);
   ctx.fillRect(W/2-lw/2,cy+178,lw,2);
