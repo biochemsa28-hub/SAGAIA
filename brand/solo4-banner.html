@@ -101,11 +101,11 @@ function drawBanner(){
   ctx.fillRect(W/2-lw/2,cy+178,lw,2);
   ctx.font="500 46px Inter, sans-serif";
   ctx.fillStyle=MUT;
-  { const tg="Microdramas con IA que la gente ve hasta el final";
+  { const tg="De una frase a un video que atrapa hasta el final";
     ctx.fillText(tg,(W-ctx.measureText(tg).width)/2,cy+258); }
   ctx.font="600 27px Inter, sans-serif";
   ctx.letterSpacing="7px";
-  { const parts=["ESCRIBE UNA FRASE","60 SEGUNDOS","TIKTOK · REELS · SHORTS"];
+  { const parts=["HISTORIAS","CONSEJOS","ESCENAS · ANUNCIOS"];
     const sep=64;
     const widths=parts.map(p=>ctx.measureText(p).width);
     const total=widths.reduce((a,b)=>a+b,0)+sep*2;
