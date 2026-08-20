@@ -458,6 +458,20 @@ function NewProjectForm() {
   // misterio+fantasía) eran imposibles de armar en ese orden. El auto-ajuste
   // solo aplica mientras el usuario no haya tocado la cinta de tonos.
   const [toneTouched, setToneTouched] = useState(() => Boolean(searchParams.get("tone")));
+  // Motor de Premisas Virales — puntúa la semilla antes de gastar en guion.
+  type EvalPremisa = { total: number; ejes: Array<{ eje: string; puntaje: number; nota: string }>; veredicto: string; mejoras: string[] };
+  const [evalPremisa, setEvalPremisa] = useState<EvalPremisa | null>(null);
+  const [evaluando, setEvaluando] = useState(false);
+  async function medirPotencial() {
+    if (!form.topic.trim() || evaluando) return;
+    setEvaluando(true); setEvalPremisa(null);
+    try {
+      const r = await fetch("/api/generate/premisa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: form.topic, format: form.format, niche: form.niche, tone: form.tone }) });
+      if (r.ok) setEvalPremisa(await r.json() as EvalPremisa);
+      else setGenError("No se pudo evaluar la premisa — intenta de nuevo.");
+    } catch (e) { setGenError(mensajeLegible(e, "No se pudo evaluar la premisa")); }
+    finally { setEvaluando(false); }
+  }
   // Las instrucciones adicionales viven plegadas hasta que alguien las pida.
   const [notasAbiertas, setNotasAbiertas] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -1779,11 +1793,16 @@ function NewProjectForm() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-extrabold text-white">{form.format === "escena" ? "Describe lo que se va a ver" : form.format === "consejo" ? "¿Qué pregunta vas a responder?" : "Describe tu historia"} <span className="text-red-400">*</span></p>
-              {nichoIdeas.length > 0 && (
-                <button onClick={nextIdea} className={`flex items-center gap-1 text-xs ${theme.accent} hover:opacity-80 transition-opacity`}>
-                  <RefreshCw className="w-3 h-3" /> Inspirarme
+              <div className="flex items-center gap-3">
+                <button onClick={medirPotencial} disabled={!form.topic.trim() || evaluando} className="flex items-center gap-1 text-xs text-fuchsia-300 hover:text-fuchsia-200 disabled:opacity-40 transition-opacity">
+                  {evaluando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />} {evaluando ? "Midiendo…" : "Medir potencial viral"}
                 </button>
-              )}
+                {nichoIdeas.length > 0 && (
+                  <button onClick={nextIdea} className={`flex items-center gap-1 text-xs ${theme.accent} hover:opacity-80 transition-opacity`}>
+                    <RefreshCw className="w-3 h-3" /> Inspirarme
+                  </button>
+                )}
+              </div>
             </div>
             <textarea
               value={form.topic}
@@ -1813,6 +1832,36 @@ function NewProjectForm() {
               )}
             </div>
           </div>
+
+          {/* Motor de Premisas: radar de 8 ejes + 2 reescrituras adoptables.
+              FASE 1: aconseja, nunca bloquea — el botón de generar sigue vivo
+              con cualquier puntaje. */}
+          {evalPremisa && (
+            <div className="rounded-2xl border border-fuchsia-500/25 bg-zinc-900/80 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className={`text-2xl font-extrabold ${evalPremisa.total >= 7.5 ? "text-emerald-300" : evalPremisa.total >= 5.5 ? "text-amber-300" : "text-pink-400"}`}>{evalPremisa.total.toFixed(1)}<span className="text-sm text-zinc-500">/10</span></span>
+                <p className="text-xs text-zinc-400 leading-snug flex-1">{evalPremisa.veredicto}</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5">
+                {evalPremisa.ejes.map((e) => (
+                  <div key={e.eje} title={e.nota}>
+                    <div className="flex justify-between text-[10px] text-zinc-500 mb-0.5"><span className="capitalize">{e.eje === "identificacion" ? "identificación" : e.eje === "emocion" ? "emoción" : e.eje}</span><span className="font-bold text-zinc-300">{e.puntaje}</span></div>
+                    <div className="h-1 rounded-full bg-zinc-800"><div className={`h-1 rounded-full ${e.puntaje >= 7 ? "bg-emerald-400" : e.puntaje >= 5 ? "bg-amber-400" : "bg-pink-500"}`} style={{ width: `${e.puntaje * 10}%` }} /></div>
+                  </div>
+                ))}
+              </div>
+              {evalPremisa.mejoras.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Así sube — toca para usar</p>
+                  {evalPremisa.mejoras.map((m, i) => (
+                    <button key={i} onClick={() => { set("topic")(m.slice(0, TOPIC_MAX)); setEvalPremisa(null); }} className="vy-press w-full text-left text-xs text-zinc-300 leading-snug p-3 rounded-xl bg-zinc-800/60 border border-zinc-700 hover:border-fuchsia-500/60">
+                      <span className="font-bold text-fuchsia-300 mr-1.5">{i === 0 ? "Fiel" : "Agresiva"} →</span>{m}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* El formato YA se eligió en el paso 1 — repetir el selector acá era
               decidir lo mismo dos veces. Queda un chip con lo elegido (y volver
