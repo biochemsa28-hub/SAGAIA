@@ -1,0 +1,110 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#07080f;overflow:hidden}canvas{display:block;margin:0}</style>
+</head><body>
+<canvas id="perfil" width="800" height="800"></canvas>
+<script>
+const A="#4de3ff", B="#7c5cff", ACC="#ff4d7d", BG="#07080f", TX="#f4f6ff", MUT="rgba(244,246,255,0.6)";
+function grad(ctx,x0,y0,x1,y1){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,A);g.addColorStop(1,B);return g;}
+
+// ── LA BURBUJA v final: historia + play ─────────────────────────────────────
+// Una burbuja de diálogo (los microdramas son historias que se CUENTAN) cuyo
+// interior es una pantalla con un play. El punto REC arriba a la derecha es el
+// único acento cálido. Cola integrada a la esquina — gesto de "te lo cuento".
+function mark(ctx,cx,cy,s){
+  ctx.save();ctx.translate(cx,cy);ctx.scale(s,s);
+  const g=grad(ctx,-86,-80,86,90);
+  // cuerpo con cola integrada (un solo path — se lee limpia a 32px)
+  ctx.beginPath();
+  ctx.moveTo(-52,-76); ctx.lineTo(52,-76);
+  ctx.arcTo(86,-76,86,-42,34);
+  ctx.lineTo(86,22);
+  ctx.arcTo(86,56,52,56,34);
+  ctx.lineTo(0,56);
+  ctx.lineTo(-30,96);            // la cola: habla hacia abajo-izquierda
+  ctx.lineTo(-26,56);
+  ctx.lineTo(-52,56);
+  ctx.arcTo(-86,56,-86,22,34);
+  ctx.lineTo(-86,-42);
+  ctx.arcTo(-86,-76,-52,-76,34);
+  ctx.closePath();
+  ctx.fillStyle=g;
+  ctx.shadowColor="rgba(124,92,255,0.5)";ctx.shadowBlur=20;ctx.fill();ctx.shadowBlur=0;
+  // pantalla interior
+  ctx.beginPath();
+  ctx.roundRect(-70,-60,140,100,24);
+  ctx.fillStyle=BG;ctx.fill();
+  // play — centrado ÓPTICO (un pelo a la derecha del centro geométrico)
+  ctx.beginPath();
+  ctx.moveTo(-16,-32);ctx.lineTo(30,-10);ctx.lineTo(-16,12);ctx.closePath();
+  ctx.fillStyle=TX;ctx.fill();
+  // REC
+  ctx.beginPath();ctx.arc(52,-44,8,0,7);
+  ctx.fillStyle=ACC;ctx.shadowColor=ACC;ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0;
+  ctx.restore();
+}
+
+function fondo(ctx,W,H,intenso){
+  ctx.fillStyle=BG;ctx.fillRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,H,W,0);
+  g.addColorStop(0,"rgba(77,227,255,0)");
+  g.addColorStop(.45,`rgba(77,227,255,${intenso?0.07:0.05})`);
+  g.addColorStop(.6,`rgba(124,92,255,${intenso?0.10:0.07})`);
+  g.addColorStop(1,"rgba(124,92,255,0)");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const r=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.25,W/2,H/2,Math.max(W,H)*0.75);
+  r.addColorStop(0,"rgba(0,0,0,0)");r.addColorStop(1,"rgba(0,0,0,0.5)");
+  ctx.fillStyle=r;ctx.fillRect(0,0,W,H);
+}
+
+function drawPerfil(){
+  const c=document.getElementById("perfil"),ctx=c.getContext("2d");
+  fondo(ctx,800,800,true);
+  ctx.beginPath();ctx.arc(400,400,346,0,7);
+  ctx.strokeStyle="rgba(244,246,255,0.14)";ctx.lineWidth=2;ctx.stroke();
+  ctx.beginPath();ctx.arc(400,400,346,-1.15,-0.45);
+  ctx.strokeStyle=grad(ctx,120,80,680,240);ctx.lineWidth=4;ctx.lineCap="round";ctx.stroke();
+  mark(ctx,400,330,2.55);
+  ctx.font="700 74px 'Space Grotesk', Inter, sans-serif";
+  ctx.letterSpacing="10px";
+  const t="VYNAVO", w=ctx.measureText(t).width;
+  ctx.fillStyle=TX;ctx.fillText(t,(800-w)/2,662);
+  ctx.letterSpacing="0px";
+}
+
+function drawBanner(){
+  const c=document.getElementById("banner"),ctx=c.getContext("2d");
+  const W=2560,H=1440;fondo(ctx,W,H,false);
+  const cy=H/2-20;
+  mark(ctx,W/2,cy-170,1.2);
+  ctx.font="700 176px 'Space Grotesk', Inter, sans-serif";
+  ctx.letterSpacing="22px";
+  const t="VYNAVO", w=ctx.measureText(t).width;
+  ctx.fillStyle=TX;ctx.fillText(t,(W-w)/2,cy+128);
+  ctx.letterSpacing="0px";
+  const lw=560;
+  ctx.fillStyle=grad(ctx,W/2-lw/2,0,W/2+lw/2,0);
+  ctx.fillRect(W/2-lw/2,cy+178,lw,2);
+  ctx.font="500 46px Inter, sans-serif";
+  ctx.fillStyle=MUT;
+  { const tg="Microdramas con IA que la gente ve hasta el final";
+    ctx.fillText(tg,(W-ctx.measureText(tg).width)/2,cy+258); }
+  ctx.font="600 27px Inter, sans-serif";
+  ctx.letterSpacing="7px";
+  { const parts=["ESCRIBE UNA FRASE","60 SEGUNDOS","TIKTOK · REELS · SHORTS"];
+    const sep=64;
+    const widths=parts.map(p=>ctx.measureText(p).width);
+    const total=widths.reduce((a,b)=>a+b,0)+sep*2;
+    let x=(W-total)/2;
+    parts.forEach((p,i)=>{
+      ctx.fillStyle="rgba(244,246,255,0.5)";ctx.fillText(p,x,cy+340);
+      x+=widths[i];
+      if(i<2){ctx.fillStyle=i?B:A;ctx.beginPath();ctx.arc(x+sep/2,cy+330,4,0,7);ctx.fill();x+=sep;}
+    });
+  }
+  ctx.letterSpacing="0px";
+}
+
+window.__ready=false;
+document.fonts.ready.then(()=>{drawPerfil();window.__ready=true;});
+</script></body></html>
