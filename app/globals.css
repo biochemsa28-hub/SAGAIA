@@ -152,3 +152,39 @@
 .vy-thinscroll::-webkit-scrollbar-track { background: transparent; }
 .vy-thinscroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 99px; }
 .vy-thinscroll::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+/* ═══ REBRAND v3 — capa de startup de alto nivel ══════════════════════════════
+   La paleta vive en tailwind.config.ts (zinc azulado, violeta #7c5cff, cian
+   #4de3ff, acento REC #ff4d7d). Acá va lo que las clases no cubren: el fondo
+   aurora, la tipografía display, selección, foco y vidrio. */
+
+/* Fondo aurora: dos resplandores fijos MUY sutiles que dan profundidad sin
+   ruido. Fijos (no scrollean) para que el contenido flote sobre ellos. */
+body {
+  background-color: #07080f;
+  background-image:
+    radial-gradient(900px 520px at 12% -8%, rgba(77, 227, 255, 0.055), transparent 62%),
+    radial-gradient(1100px 640px at 92% 4%, rgba(124, 92, 255, 0.075), transparent 62%),
+    radial-gradient(1000px 700px at 50% 112%, rgba(124, 92, 255, 0.05), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Titulares con carácter propio (Space Grotesk), sin tocar cada componente. */
+h1, h2 { font-family: var(--font-display), Inter, sans-serif; letter-spacing: -0.015em; }
+
+/* Selección y foco con la marca — el detalle que separa un template de un producto. */
+::selection { background: rgba(124, 92, 255, 0.45); color: #f4f6ff; }
+:focus-visible { outline: 2px solid rgba(77, 227, 255, 0.7); outline-offset: 2px; border-radius: 6px; }
+
+/* Scrollbar acorde al fondo nuevo. */
+* { scrollbar-color: #242a44 transparent; }
+*::-webkit-scrollbar-thumb { background: #242a44; }
+*::-webkit-scrollbar-thumb:hover { background: #3a4060; }
+
+/* Vidrio de marca para cabeceras y paneles con blur. */
+.vy-glass { background: rgba(12, 14, 24, 0.66); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(124, 92, 255, 0.12); }
+
+/* El botón primario (gradiente violeta→rosa en toda la app) gana profundidad. */
+.vy-press { transition: transform .14s ease, box-shadow .18s ease, filter .18s ease; }
+.vy-press:hover { filter: brightness(1.06); }
+.vy-press:active { transform: scale(.985); }
