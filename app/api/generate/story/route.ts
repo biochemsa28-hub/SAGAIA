@@ -436,6 +436,13 @@ export async function POST(req: NextRequest) {
         //     una línea hablada en formato escena es defecto.
         const habladas = esEscenaFmt ? scenes.filter((sc) => (sc.narration_text ?? "").trim().length > 0).map((sc) => sc.scene_number ?? 0) : [];
         const escenaHablada = habladas.length > 1 ? habladas : [];
+        // 14) PROPORCIÓN 70/30 EN ESCENA. Medido: "tres mujeres bailando" salió
+        //     con la mitad de los planos en caras de susto. Un plano es de
+        //     REACCIÓN si su acción es mirar/taparse/quedarse quieto en vez de
+        //     ejecutar la acción de la premisa.
+        const REACCION = /\b(stares?|staring|frozen|freezes?|motionless|stands? (completely )?still|hands? (cover|fly to|over) (her|his|their) mouth|covers? (her|his) mouth|shocked|gasps?|mouths? (open|agape)|wide[- ]eyed|leans? over (the )?(wall|ledge|railing)|looks? (down|over|back) (at|in) (horror|shock|disbelief)|points? (at|toward)|backs? away|recoils?)\b/i;
+        const planosReaccion = esEscenaFmt ? scenes.filter((sc) => REACCION.test(sc.physical_action ?? "") && !/(danc|spin|twirl|jump|run|leap|roll|step|kick|turn(s|ing)? on|footwork|hips?|choreo)/i.test(sc.physical_action ?? "")).map((sc) => sc.scene_number ?? 0) : [];
+        const demasiadaReaccion = esEscenaFmt && scenes.length >= 4 && planosReaccion.length > Math.max(2, Math.floor(scenes.length * 0.3)) ? planosReaccion : [];
         // 10) LO QUE LA PREMISA PROMETE VER NO SE VE. "ve a su esposo besándose
         //     con su hermana" y el guion arranca en la pelea: el beso nunca
         //     existió en pantalla. Se busca el hecho en la escena 1 (o 2).
@@ -465,7 +472,7 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, total: (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, total: (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const esEscenaFmt = (parsed.data.format ?? "story") === "escena";
@@ -497,7 +504,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -515,6 +522,9 @@ export async function POST(req: NextRequest) {
               `deja ${defectos.temprano.total - defectos.temprano.escena} escenas de bajada después del momento más fuerte. ` +
               "Movelo al ÚLTIMO CUARTO del guion (nunca antes del 75%), dejando UNA escena después, máximo dos, para reacción y cliffhanger. " +
               "Lo que hoy pasa después del pico se comprime o se corta."
+            : "") +
+          (defectos.demasiadaReaccion.length
+            ? ` Las escenas ${defectos.demasiadaReaccion.join(", ")} son de REACCIÓN (mirar, taparse la boca, quedarse quieto) y superan el 30% del guion. La acción de la premisa ocupa como mínimo el 70% de los planos, ejecutándose con técnica; la reacción o el giro solo los 2 últimos. Reemplazá las reacciones sobrantes por la acción en su mejor momento.`
             : "") +
           (defectos.escenaHablada.length
             ? ` El formato es ESCENA (performance) y ${defectos.escenaHablada.length} escenas tienen diálogo. Reescribí el guion MUDO: narration_text = "" en todas (una sola línea corta permitida si la premisa la pide). Lo que hoy dicen las líneas se convierte en physical_action ejecutada: el baile con técnica real, la reacción física, la cámara. El sujeto de la premisa hace su acción en TODAS las escenas.`
