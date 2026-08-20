@@ -1778,7 +1778,7 @@ function NewProjectForm() {
           {/* Topic */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-zinc-400">Describe tu historia <span className="text-red-400">*</span></p>
+              <p className="text-sm font-extrabold text-white">{form.format === "escena" ? "Describe lo que se va a ver" : form.format === "consejo" ? "¿Qué pregunta vas a responder?" : "Describe tu historia"} <span className="text-red-400">*</span></p>
               {nichoIdeas.length > 0 && (
                 <button onClick={nextIdea} className={`flex items-center gap-1 text-xs ${theme.accent} hover:opacity-80 transition-opacity`}>
                   <RefreshCw className="w-3 h-3" /> Inspirarme
@@ -1788,15 +1788,15 @@ function NewProjectForm() {
             <textarea
               value={form.topic}
               onChange={e => set("topic")(e.target.value)}
-              rows={4}
+              rows={5}
               // El navegador no puede dejar escribir algo que el servidor va a
               // rechazar: antes se podía pegar una premisa larga, esperar la
               // generación entera y recibir un error de validación. El límite
               // vive en el esquema y se importa — no se copia, para que no
               // vuelva a haber dos números distintos.
               maxLength={TOPIC_MAX}
-              placeholder="Ej: Una mujer descubre que su marido lleva doble vida y decide vengarse de forma inesperada…"
-              className={`w-full bg-zinc-900 border rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all resize-none ${
+              placeholder={form.format === "escena" ? "Ej: un muñeco antiguo actuando solo frente a la cámara de noche, se mueve cuando nadie lo ve…" : form.format === "consejo" ? "Ej: ¿cómo saber si tu pareja te miente?" : "Ej: Una mujer descubre que su marido lleva doble vida y decide vengarse de forma inesperada…"}
+              className={`w-full bg-zinc-900 border rounded-2xl px-4 py-4 text-base text-white placeholder-zinc-600 focus:outline-none transition-all resize-none ${
                 errors.topic ? "border-red-700" : `border-zinc-800 focus:${theme.border}`
               }`}
             />
@@ -1814,33 +1814,19 @@ function NewProjectForm() {
             </div>
           </div>
 
-          {/* Formato — historia o consejo. La premisa "cómo superar a mi ex" salía
-              como reconciliación (lo contrario de superar): el motor tenía un solo
-              molde. En "consejo" la historia demuestra la respuesta y la dice. */}
-          <div>
-            <p className="text-xs font-bold text-zinc-400 mb-3">¿Qué quieres contar?</p>
-            <div className="grid grid-cols-2 gap-2">
-              {FORMAT_OPTIONS.map(f => {
-                const activa = form.format === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => set("format")(f.id)}
-                    className={`vy-press p-3 rounded-xl border text-left transition-all ${
-                      activa ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
-                    }`}
-                  >
-                    <p className={`text-sm font-extrabold ${activa ? "text-white" : "text-zinc-300"}`}>{f.emoji} {f.label}</p>
-                    <p className={`text-[10px] mt-0.5 leading-tight ${activa ? theme.accent : "text-zinc-600"}`}>{f.hint}</p>
-                  </button>
-                );
-              })}
-            </div>
+          {/* El formato YA se eligió en el paso 1 — repetir el selector acá era
+              decidir lo mismo dos veces. Queda un chip con lo elegido (y volver
+              atrás si se quiere cambiar) + el aviso inteligente cuando la
+              premisa suena a otro formato. */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-xs text-zinc-300">
+              Estás creando: <span className="font-extrabold text-white">{FORMAT_OPTIONS.find(x => x.id === form.format)?.emoji} {FORMAT_OPTIONS.find(x => x.id === form.format)?.label ?? "Una historia"}</span>
+            </span>
+            <button type="button" onClick={() => setStep(0)} className="text-[11px] text-fuchsia-300 hover:text-fuchsia-200 underline underline-offset-2">cambiar</button>
             {form.format === "story" && /^\s*¿?\s*(c[oó]mo|qu[eé] hacer|por ?qu[eé]|\d+\s+(señales|formas|razones|errores|cosas|pasos|trucos|tips|hábitos|frases)|señales de|deja de|how to|why)(?=\s|$|[?:,¿])/i.test(form.topic) && (
-              <p className="text-[10px] text-amber-300/80 mt-2">
-                Tu idea suena a un consejo — lo vamos a contar como una historia que <span className="font-bold">demuestra la respuesta</span> y la dice al final. Si es lo que buscas, elige "Un consejo".
-              </p>
+              <button type="button" onClick={() => set("format")("consejo")} className="text-[11px] px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/40 text-amber-300 hover:bg-amber-500/20">
+                💡 Tu idea suena a consejo — tocá para cambiarla a "Un consejo"
+              </button>
             )}
           </div>
 
@@ -1860,7 +1846,7 @@ function NewProjectForm() {
                   <button
                     key={d.id}
                     onClick={() => set("duration_target")(d.id)}
-                    className={`vy-press relative p-3 rounded-xl border text-left transition-all ${
+                    className={`vy-press relative p-4 rounded-xl border text-left transition-all ${
                       activa ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
                     }`}
                   >
@@ -1870,7 +1856,7 @@ function NewProjectForm() {
                       </span>
                     )}
                     <p className={`text-sm font-extrabold ${activa ? "text-white" : "text-zinc-300"}`}>{d.label}</p>
-                    <p className={`text-[10px] mt-0.5 leading-tight ${activa ? theme.accent : "text-zinc-600"}`}>{d.hint}</p>
+                    <p className={`text-[11px] mt-1 leading-snug ${activa ? theme.accent : "text-zinc-600"}`}>{d.hint}</p>
                     {/* El costo se ve ANTES de generar, cambia con la duración, y
                         sale del precio que el SERVIDOR va a cobrar. */}
                     {navosPor60s !== null && (
@@ -1915,7 +1901,7 @@ function NewProjectForm() {
                   <button
                     key={q.id}
                     onClick={() => setCalidad(q.id)}
-                    className={`vy-press p-3 rounded-xl border text-left transition-all ${
+                    className={`vy-press p-4 rounded-xl border text-left transition-all ${
                       activa ? `bg-gradient-to-br ${theme.card} ${theme.border} shadow-lg` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
                     }`}
                   >
