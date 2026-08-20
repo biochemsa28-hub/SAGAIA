@@ -190,6 +190,34 @@ const PLATFORM_THUMB: Record<string, { ratio: string; tint: string; icon: string
 
 // When the user picks a niche, pre-select the matching emotion so they don't have to
 // choose the same genre twice (they can still override). Removes the nicho/tono overlap.
+// ── UNIVERSO → EMOCIONES QUE TIENEN SENTIDO ─────────────────────────────────
+// Antes el tono mostraba las 11 emociones para cualquier universo (Terror +
+// Chisme, Historia + Romance…): ruido que producía combos sin sentido. Cada
+// universo ofrece SOLO sus emociones compatibles; la primera es la natural.
+const TONOS_DEL_UNIVERSO: Record<string, string[]> = {
+  terror:        ["horror", "thriller", "mystery", "fantasy"],
+  romance:       ["romance", "drama", "comedy", "confesion", "chisme"],
+  misterio:      ["mystery", "thriller", "horror", "documentary"],
+  inspiracional: ["inspirational", "drama", "confesion", "comedy"],
+  fantasia:      ["fantasy", "romance", "horror", "comedy"],
+  historia:      ["documentary", "mystery", "inspirational", "drama"],
+};
+
+// La CONSOLA HABLA: qué siente el espectador con cada emoción, en una frase.
+const SENTIRA: Record<string, string> = {
+  horror: "miedo físico que no se olvida", thriller: "taquicardia hasta el final",
+  mystery: "una pregunta que no lo suelta", romance: "el pecho apretado",
+  drama: "un nudo en la garganta", comedy: "risa que se comparte",
+  inspirational: "piel de gallina y orgullo", documentary: "“no sabía esto”",
+  fantasy: "asombro de otro mundo", chisme: "un secreto que necesita contar",
+  confesion: "algo demasiado íntimo",
+};
+const FORMATO_FRASE: Record<string, string> = {
+  story: "una historia con giro y clímax",
+  consejo: "un consejo contado a cámara que demuestra la respuesta",
+  escena: "una escena que se ACTÚA — casi sin palabras, puro performance",
+};
+
 const NICHE_DEFAULT_TONE: Record<string, string> = {
   terror:       "horror",
   romance:      "romance",
@@ -1602,7 +1630,7 @@ function NewProjectForm() {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => { set("niche")(n.id); set("sub_niche")(""); setIdeaIdx(0); const dt = NICHE_DEFAULT_TONE[n.id]; if (dt && !toneTouched) set("tone")(dt); }}
+                    onClick={() => { set("niche")(n.id); set("sub_niche")(""); setIdeaIdx(0); const compat = TONOS_DEL_UNIVERSO[n.id] ?? []; if (!compat.includes(form.tone) || !toneTouched) set("tone")(compat[0] ?? NICHE_DEFAULT_TONE[n.id] ?? form.tone); }}
                     className={`vy-press relative overflow-hidden rounded-2xl border text-left transition-all duration-300 group ${
                       active
                         ? `bg-gradient-to-br ${t.card} ${t.selected} shadow-2xl scale-[1.03] z-10`
@@ -1682,8 +1710,8 @@ function NewProjectForm() {
                 Antes era una grilla 3x3 que estiraba la página hacia abajo y
                 dejaba los costados vacíos — justo al revés de cómo se lee una
                 pantalla ancha. */}
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2">
-              {TONES.map(t => {
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {TONES.filter(t => (TONOS_DEL_UNIVERSO[form.niche] ?? TONES.map(x => x.id)).includes(t.id)).map(t => {
                 const v = TONE_VISUAL[t.id] ?? { emoji: "🎬", sub: "", active: theme.pill };
                 const active = form.tone === t.id;
                 return (
@@ -1704,6 +1732,22 @@ function NewProjectForm() {
               })}
             </div>
             {errors.tone && <p className="text-xs text-red-400 mt-1.5">{errors.tone}</p>}
+          </div>
+
+          {/* ── LA CONSOLA HABLA ─────────────────────────────────────────────
+              Lectura en vivo del combo: qué se va a producir y qué va a sentir
+              quien lo vea. Es el "sentido" de las tres decisiones juntas. */}
+          <div className="rounded-2xl border border-fuchsia-500/25 bg-gradient-to-r from-zinc-900 via-zinc-900 to-violet-950/40 px-4 py-3.5 flex items-start gap-3">
+            <span className="mt-0.5 w-2 h-2 rounded-full bg-fuchsia-400 vy-pulse-soft shrink-0" />
+            <p className="text-[13px] leading-relaxed text-zinc-300">
+              <span className="font-bold text-white">Vas a producir</span>{" "}
+              {FORMATO_FRASE[form.format] ?? FORMATO_FRASE.story} en el universo{" "}
+              <span className="font-bold text-fuchsia-300">{NICHOS.find((n) => n.id === form.niche)?.label ?? form.niche}</span>
+              {form.sub_niche ? <> · <span className="text-violet-300">{form.sub_niche}</span></> : null}
+              {". "}Quien lo vea va a sentir{" "}
+              <span className="font-bold text-pink-300">{SENTIRA[form.tone] ?? "la emoción que elijas"}</span>.
+              {form.format === "escena" ? " La cámara y el cuerpo cuentan todo; la música manda." : form.format === "consejo" ? " La protagonista le habla al espectador como a una amiga." : " Gancho en 2 segundos, giro que no se anuncia y clímax en el último cuarto."}
+            </p>
           </div>
         </div>
       )}
