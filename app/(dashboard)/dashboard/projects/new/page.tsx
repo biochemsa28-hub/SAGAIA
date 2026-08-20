@@ -459,7 +459,7 @@ function NewProjectForm() {
   // solo aplica mientras el usuario no haya tocado la cinta de tonos.
   const [toneTouched, setToneTouched] = useState(() => Boolean(searchParams.get("tone")));
   // Motor de Premisas Virales — puntúa la semilla antes de gastar en guion.
-  type EvalPremisa = { total: number; ejes: Array<{ eje: string; puntaje: number; nota: string }>; veredicto: string; mejoras: string[] };
+  type EvalPremisa = { total: number; ejes: Array<{ eje: string; puntaje: number; nota: string }>; veredicto: string; mejoras: string[]; arquetipo?: string };
   const [evalPremisa, setEvalPremisa] = useState<EvalPremisa | null>(null);
   const [evaluando, setEvaluando] = useState(false);
   async function medirPotencial() {
@@ -1839,7 +1839,8 @@ function NewProjectForm() {
           {evalPremisa && (
             <div className="rounded-2xl border border-fuchsia-500/25 bg-zinc-900/80 p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <span className={`text-2xl font-extrabold ${evalPremisa.total >= 7.5 ? "text-emerald-300" : evalPremisa.total >= 5.5 ? "text-amber-300" : "text-pink-400"}`}>{evalPremisa.total.toFixed(1)}<span className="text-sm text-zinc-500">/10</span></span>
+                <span className={`text-2xl font-extrabold ${evalPremisa.total >= 75 ? "text-emerald-300" : evalPremisa.total >= 55 ? "text-amber-300" : "text-pink-400"}`}>{Math.round(evalPremisa.total)}<span className="text-sm text-zinc-500">/100</span></span>
+                {evalPremisa.arquetipo && <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/40 text-violet-300 capitalize">{evalPremisa.arquetipo.replace(/_/g, " ")}</span>}
                 <p className="text-xs text-zinc-400 leading-snug flex-1">{evalPremisa.veredicto}</p>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5">

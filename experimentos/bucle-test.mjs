@@ -11,3 +11,4 @@ console.log("\n— PRIMER TERCIO (buscar pista sembrada en image_prompt):");
 primeras.forEach(s => console.log(`#${s.scene_number}: ${(s.image_prompt??"").slice(0,150)}`));
 console.log("\n— ÚLTIMAS 3 ESCENAS:");
 sc.slice(-3).forEach(s => console.log(`#${s.scene_number}${s.is_peak?" ★":""} [${s.speaker}] «${s.narration_text}»\n   img: ${(s.image_prompt??"").slice(0,170)}`));
+console.log("\nmecanicas:", JSON.stringify(r.data.mecanicas ?? null), "| cta:", r.data.cta ?? "-");

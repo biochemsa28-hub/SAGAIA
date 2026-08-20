@@ -217,6 +217,9 @@ export const ProductionNotesSchema = z.object({
   scene_count: z.number().int().positive(),
   voice_style: z.string(),
   music_mood: z.string(),
+  // Las 2 mecánicas del ARSENAL que el guion declara ejecutar (regla #3.95).
+  // El Director las verifica; se guardan para correlacionar con retención.
+  mecanicas: z.array(z.string()).max(4).optional(),
 });
 
 export const StoryOutputSchema = z.object({

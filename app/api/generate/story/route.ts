@@ -497,6 +497,7 @@ export async function POST(req: NextRequest) {
         durationTarget: parsed.data.duration_target,
         cast: (parsed.data.cast ?? []).map((c) => c.name).filter((n): n is string => Boolean(n)),
         scenes: (result.data?.scenes ?? []) as Parameters<typeof revisarComoDirector>[0]["scenes"],
+        mecanicas: (result.data as { mecanicas?: string[] } | undefined)?.mecanicas,
       });
       const notasDirector = notasComoCorreccion(director);
       if (defectos.total || notasDirector) {

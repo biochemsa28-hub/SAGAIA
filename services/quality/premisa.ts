@@ -13,11 +13,21 @@
 // opinión). El puntaje se guarda con el proyecto para correlacionar después.
 export interface EjePremisa { eje: string; puntaje: number; nota: string }
 export interface EvaluacionPremisa {
-  total: number;                 // promedio 0-10, una décima
+  total: number;                 // ponderado 0-100 (pesos de productor, no promedio plano)
   ejes: EjePremisa[];
   veredicto: string;             // una frase honesta
   mejoras: string[];             // 2 reescrituras listas para usar
+  arquetipo?: string;            // qué tipo de premisa es (misterio_de_objeto, dilema_moral…)
 }
+
+// Pesos del Viral Addiction Score: el gancho y la curiosidad valen el doble que
+// el resto — son los primeros 3 segundos. Suman 100.
+const PESOS: Record<string, number> = {
+  gancho: 20, curiosidad: 20, conflicto: 10, apuesta: 10,
+  emocion: 10, vuelco: 12, identificacion: 9, debate: 9,
+};
+
+const ARQUETIPOS = "misterio_de_objeto, dilema_moral, investigacion, supervivencia, romance_prohibido, competencia, secreto_familiar, experimento_social, venganza, identidad_oculta, casa_o_lugar_extraño, desaparicion";
 
 const EJES = ["gancho", "curiosidad", "conflicto", "apuesta", "emocion", "vuelco", "identificacion", "debate"] as const;
 
@@ -49,7 +59,8 @@ export async function evaluarPremisa(params: {
     "Cada una en 1-2 frases, en español neutro, lista para pegar. La primera fiel a la premisa original; la segunda más agresiva para redes. " +
     (esEscena ? "El formato es ESCENA (performance sin diálogo): las reescrituras describen lo que SE VE, no una trama hablada. " : "") +
     "En 60 segundos cabe UN vuelco: no metas dos giros.\n" +
-    'Respondé SOLO este JSON: {"ejes": [{"eje": "gancho", "puntaje": N, "nota": "..."}, ...los 8...], "veredicto": "una frase honesta de productor", "mejoras": ["...", "..."]}';
+    `También clasificá la premisa en UN arquetipo: ${ARQUETIPOS}.\n` +
+    'Respondé SOLO este JSON: {"ejes": [{"eje": "gancho", "puntaje": N, "nota": "..."}, ...los 8...], "veredicto": "una frase honesta de productor", "arquetipo": "una_clave", "mejoras": ["...", "..."]}';
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -73,10 +84,11 @@ export async function evaluarPremisa(params: {
       .filter((e) => (EJES as readonly string[]).includes(e.eje))
       .slice(0, 8);
     if (ejes.length < 6) { console.warn("[premisa] respuesta incompleta — se ignora"); return null; }
-    const total = Math.round((ejes.reduce((a, e) => a + e.puntaje, 0) / ejes.length) * 10) / 10;
+    // Ponderado /100: cada eje 0-10 × su peso /10. Ejes ausentes no puntúan.
+    const total = Math.round(ejes.reduce((a, e) => a + e.puntaje * ((PESOS[e.eje] ?? 10) / 10), 0));
     const mejoras = (Array.isArray(v.mejoras) ? v.mejoras : []).map((x) => String(x).slice(0, 420)).filter(Boolean).slice(0, 2);
-    const out: EvaluacionPremisa = { total, ejes, veredicto: String(v.veredicto ?? "").slice(0, 200), mejoras };
-    console.log(`[premisa] ${total}/10 · ${out.veredicto}`);
+    const out: EvaluacionPremisa = { total, ejes, veredicto: String(v.veredicto ?? "").slice(0, 200), mejoras, arquetipo: typeof (v as { arquetipo?: string }).arquetipo === "string" ? (v as { arquetipo?: string }).arquetipo : undefined };
+    console.log(`[premisa] ${total}/100 · ${out.arquetipo ?? "?"} · ${out.veredicto}`);
     return out;
   } catch (e) {
     console.warn("[premisa] error:", e instanceof Error ? e.message.slice(0, 120) : e);
