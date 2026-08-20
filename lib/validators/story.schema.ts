@@ -60,6 +60,10 @@ export const StoryInputSchema = z.object({
   // door, not opening it. Same pipeline; the ad is a different script brain,
   // consejo is a layer on top of the story brain.
   format: z.enum(["story", "ad", "consejo", "escena"]).default("story"),
+  // ¿PARA QUIÉN ES? Modula velocidad narrativa y complejidad, no el tema:
+  // el mismo drama se corta distinto para scroll nocturno que para quien
+  // consume historias largas. Opcional: sin él, ritmo estándar.
+  audience: z.enum(["scroll_rapido", "drama_lovers", "historias_reales", "jovenes_nocturnos"]).optional(),
   // "borrador" salta el modelo de video — el 82,5% del costo — para poder juzgar
   // la historia antes de pagar el render caro. Ausente = estreno.
   quality: z.enum(["borrador", "estreno"]).optional(),
@@ -220,6 +224,8 @@ export const ProductionNotesSchema = z.object({
   // Las 2 mecánicas del ARSENAL que el guion declara ejecutar (regla #3.95).
   // El Director las verifica; se guardan para correlacionar con retención.
   mecanicas: z.array(z.string()).max(4).optional(),
+  // La onda emocional declarada (4 tramos, uno por acto). El Director la audita.
+  curva_emocional: z.string().max(120).optional(),
 });
 
 export const StoryOutputSchema = z.object({

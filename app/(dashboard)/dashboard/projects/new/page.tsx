@@ -257,6 +257,7 @@ interface FormState {
   niche: string; sub_niche: string; topic: string; tone: string;
   duration_target: string; language: string; visual_style: string;
   target_platform: string; additional_instructions: string;
+  audience: "" | "scroll_rapido" | "drama_lovers" | "historias_reales" | "jovenes_nocturnos";
   // "story" = microdrama; "consejo" = la historia DEMUESTRA la respuesta a una
   // premisa tipo "cómo superar a mi ex" y la dice en voz alta al final.
   format: "story" | "consejo" | "escena";
@@ -267,7 +268,17 @@ const DEFAULTS: FormState = {
   visual_style: "cinematic", target_platform: "tiktok",
   additional_instructions: "",
   format: "story",
+  audience: "",
 };
+
+// ¿Para quién es? — modula ritmo y complejidad del guion, no el tema.
+const AUDIENCIAS_UI: Array<{ id: FormState["audience"]; emoji: string; label: string; hint: string }> = [
+  { id: "",                  emoji: "🌐", label: "Todos",             hint: "Ritmo estándar del género" },
+  { id: "scroll_rapido",     emoji: "⚡", label: "Scroll rápido",     hint: "18-24 · TikTok · líneas cortas, revelación antes del s. 15" },
+  { id: "drama_lovers",      emoji: "🎭", label: "Noveleros",         hint: "25-40 · toleran construcción, emoción sostenida" },
+  { id: "historias_reales",  emoji: "📰", label: "Historias reales",  hint: "30-50 · Facebook/YT · verosimilitud y causa-efecto" },
+  { id: "jovenes_nocturnos", emoji: "🌙", label: "Nocturnos",         hint: "18-28 · 11pm · atmósfera densa, sonido protagonista" },
+];
 
 const FORMAT_OPTIONS: Array<{ id: FormState["format"]; emoji: string; label: string; hint: string }> = [
   // Escrito para quien acaba de llegar: qué VA A VER, no cómo lo hacemos.
@@ -782,7 +793,7 @@ function NewProjectForm() {
       const res = await fetch("/api/generate/story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, additional_instructions: extraInstructions, character_id: characterId ?? undefined, animation_tier: tier, quality: calidad, cast: castPayload }),
+        body: JSON.stringify({ ...form, audience: form.audience || undefined, additional_instructions: extraInstructions, character_id: characterId ?? undefined, animation_tier: tier, quality: calidad, cast: castPayload }),
       });
       clearInterval(iv);
       if (res.status === 402) {
@@ -1881,6 +1892,23 @@ function NewProjectForm() {
                 💡 Tu idea suena a consejo — tocá para cambiarla a "Un consejo"
               </button>
             )}
+          </div>
+
+          {/* ¿Para quién es? — la audiencia modula el RITMO del guion */}
+          <div>
+            <p className="text-xs font-bold text-zinc-400 mb-3">¿Para quién es? <span className="text-zinc-600 font-normal">· ajusta el ritmo, no el tema</span></p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {AUDIENCIAS_UI.map(a => {
+                const activa = form.audience === a.id;
+                return (
+                  <button key={a.id || "todos"} type="button" onClick={() => set("audience")(a.id)}
+                    className={`vy-press p-3 rounded-xl border text-left transition-all ${activa ? "bg-gradient-to-br from-fuchsia-950/60 to-zinc-900 border-fuchsia-500/70 shadow-lg" : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"}`}>
+                    <p className={`text-sm font-extrabold ${activa ? "text-white" : "text-zinc-300"}`}>{a.emoji} {a.label}</p>
+                    <p className={`text-[10px] mt-0.5 leading-tight ${activa ? "text-fuchsia-300/90" : "text-zinc-600"}`}>{a.hint}</p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Duración — vive junto a la historia porque es parte de ella: cuántas

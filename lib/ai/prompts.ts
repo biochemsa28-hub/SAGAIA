@@ -527,8 +527,15 @@ export function buildUserPrompt(input: StoryInput): string {
     .trim();
   const consejo = esPremisaDeConsejo(input) ? bloqueConsejo(duration.seconds) : "";
   const escena = input.format === "escena" ? bloqueEscena() : "";
+  const AUDIENCIAS: Record<string, string> = {
+    scroll_rapido: "AUDIENCIA: scroll rápido (18-24, TikTok, consumo impulsivo). Ritmo: líneas de 2-6 palabras, ningún plano sin información nueva, revelación parcial ANTES del segundo 15, cero explicaciones — lo que no se entiende por la imagen, se corta.",
+    drama_lovers: "AUDIENCIA: amantes del drama (25-40, ven novelas, toleran construcción). Ritmo: se permite UNA escena de respiro que construya la relación antes del conflicto; las réplicas pueden llegar a 10 palabras; la emoción se sostiene un plano más antes de cortar.",
+    historias_reales: "AUDIENCIA: historias reales (30-50, Facebook/YouTube, alta tolerancia narrativa). Ritmo: detalles concretos y verosímiles (fechas, cantidades, lugares), causa-efecto clara, el giro necesita estar JUSTIFICADO con las pistas — esta audiencia castiga lo inverosímil en comentarios.",
+    jovenes_nocturnos: "AUDIENCIA: nocturnos buscando estimulación (18-28, 11pm-2am, misterio/terror). Ritmo: atmósfera densa desde el plano 1, sonido protagonista, pausas que incomodan, la amenaza siempre más cerca — pueden tolerar 2-3 segundos de quietud si la tensión los llena.",
+  };
+  const audiencia = input.audience && AUDIENCIAS[input.audience] ? `\n${AUDIENCIAS[input.audience]}\n` : "";
 
-  return `${langInstruction}${consejo}${escena}
+  return `${langInstruction}${consejo}${escena}${audiencia}
 
 ━━━ PROYECTO ━━━
 NICHO: ${input.niche}${input.sub_niche ? ` › ${input.sub_niche}` : ""}
@@ -780,6 +787,7 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
     "scene_count": 0,
     "voice_style": "estilo de voz específico (ej: susurro tenso, voz cálida y cercana, narrador urgente)",
     "mecanicas": ["exactamente DOS claves del ARSENAL (regla #3.95) que este guion ejecuta de verdad, ej: [\"ironia_dramatica\", \"contador\"]"],
+    "curva_emocional": "la emoción DOMINANTE de cada acto, separadas por ' → ' (4 tramos, una o dos palabras cada uno, en español). Ej de forma: 'curiosidad → tensión → shock → duelo con pregunta'. Es el diseño A PROPÓSITO de la onda tensión-liberación-tensión: dos tramos seguidos con la misma emoción = la curva está plana y hay que reordenar escenas",
     "music_mood": "DOS MOVIMIENTOS separados por ' || ', escritos para ESTA historia (en inglés, para el modelo de música): ANTES del clímax || DESPUÉS del clímax. Cada uno con instrumentación, tempo y textura concretos — no un género. Ej. de forma (no lo copies): 'slow seductive jazz trio, brushed drums, muted trumpet, warm room reverb, 68 bpm || bowed metal drones, sub bass pulse, dissonant strings, no melody, 52 bpm'. La música SE DESARROLLA CON LA HISTORIA: el primer movimiento describe una PROGRESIÓN (cómo empieza y cómo va apretando hacia el clímax: 'starts as…, gradually adds…, by the end…'), y el segundo es lo que suena después del vuelco. Tiene que sonar a la ILUSIÓN primero y a la VERDAD después; en un romance sin giro, los dos movimientos son la tensión que crece y la entrega. Sin voces."
   }
 }

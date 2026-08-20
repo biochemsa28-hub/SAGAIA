@@ -117,6 +117,9 @@ function ProjectDetail() {
   // El plan de rodaje arranca plegado: es para quien quiere dirigir, no ruido
   // para quien solo quiere su video.
   const [verPlan, setVerPlan] = useState(false);
+  // Vista de mesa: el guion entero como tabla TIEMPO|LÍNEA|VISUAL|SONIDO|EMOCIÓN
+  // para revisarlo de un vistazo ANTES de producir — la lectura de director.
+  const [verTabla, setVerTabla] = useState(false);
   const [dnaGuardados, setDnaGuardados] = useState<MotionDnaUI[]>([]);
   const [hasError, setHasError] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
@@ -973,8 +976,44 @@ function ProjectDetail() {
                   >
                     {verPlan ? "Ocultar plan" : "🎬 Ver plan de rodaje"}
                   </button>
+                  <button
+                    onClick={() => setVerTabla(v => !v)}
+                    className="shrink-0 text-[11px] px-2.5 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:border-fuchsia-500/60 hover:text-white transition-colors ml-2"
+                  >
+                    {verTabla ? "Ocultar tabla" : "📋 Guion como tabla"}
+                  </button>
                 </div>
 
+                {verTabla && (
+                  <div className="overflow-x-auto rounded-xl border border-zinc-800 mb-3">
+                    <table className="w-full text-[11px] leading-snug">
+                      <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider text-[9px]">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left">T</th>
+                          <th className="px-2 py-1.5 text-left">Línea</th>
+                          <th className="px-2 py-1.5 text-left">Visual</th>
+                          <th className="px-2 py-1.5 text-left">Sonido</th>
+                          <th className="px-2 py-1.5 text-left">Emoción</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/70">
+                        {(() => { let t = 0; return scenes.map((sc) => {
+                          const x = sc as unknown as { duration_seconds?: number | null; narration_text?: string | null; image_prompt?: string | null; physical_action?: string | null; sfx_prompt?: string | null; ambience?: string | null; emotion?: string | null; speaker?: string | null; is_peak?: number | boolean };
+                          const ini = t; const dur = Number(x.duration_seconds ?? 5) || 5; t += dur;
+                          return (
+                            <tr key={`tbl-${sc.id}`} className={x.is_peak ? "bg-pink-950/20" : undefined}>
+                              <td className="px-2 py-1.5 text-zinc-500 whitespace-nowrap align-top">{ini}–{t}s{x.is_peak ? " ★" : ""}</td>
+                              <td className="px-2 py-1.5 text-zinc-200 align-top min-w-[140px]">{x.speaker ? <span className="text-fuchsia-300 font-bold">{x.speaker}: </span> : null}{(x.narration_text ?? "").trim() || <span className="text-zinc-600">(mudo)</span>}</td>
+                              <td className="px-2 py-1.5 text-zinc-400 align-top min-w-[180px]">{(x.physical_action ?? x.image_prompt ?? "").slice(0, 110)}</td>
+                              <td className="px-2 py-1.5 text-zinc-500 align-top min-w-[120px]">{[x.ambience, x.sfx_prompt].filter(Boolean).join(" · ").slice(0, 80) || "—"}</td>
+                              <td className="px-2 py-1.5 text-zinc-400 align-top capitalize">{x.emotion ?? "—"}</td>
+                            </tr>
+                          );
+                        }); })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 {verPlan && (
                   <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 divide-y divide-zinc-800/70 mb-2">
                     <p className="px-3 py-2 text-[10px] text-zinc-500">
@@ -1000,6 +1039,7 @@ function ProjectDetail() {
                         <span className="text-[9px] text-zinc-600 w-full mt-0.5">Toca uno para aplicarlo a TODAS las escenas.</span>
                       </div>
                     )}
+
                     {scenes.map((sc) => {
                       const s = sc as unknown as { camera_move?: string | null; emotion?: string | null; environment?: string | null };
                       return (
