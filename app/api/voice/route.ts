@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
         .map((a) => sceneNumById.get(a.scene_id!))
         .filter((n): n is number => typeof n === "number")
     );
-    const scenesToVoice = detail.scenes.filter((s) => !existingAudio.has(s.scene_number));
+    // ESCENAS MUDAS NO SE NARRAN. Medido en un borrador de formato escena
+    // (performance sin diálogo): todas las narration_text vienen vacías, el TTS
+    // recibía texto vacío y el job entero moría con "Falló la voz". Una escena
+    // sin texto no es un error: es silencio a propósito — se salta.
+    const scenesToVoice = detail.scenes.filter((s) => !existingAudio.has(s.scene_number) && (s.narration_text ?? "").trim().length > 0);
 
     // All scenes already voiced → nothing to spend.
     if (!scenesToVoice.length) {
