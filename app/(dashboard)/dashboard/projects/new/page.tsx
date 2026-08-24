@@ -195,7 +195,7 @@ const PLATFORM_THUMB: Record<string, { ratio: string; tint: string; icon: string
 // Chisme, Historia + Romance…): ruido que producía combos sin sentido. Cada
 // universo ofrece SOLO sus emociones compatibles; la primera es la natural.
 const TONOS_DEL_UNIVERSO: Record<string, string[]> = {
-  terror:        ["horror", "thriller", "mystery", "fantasy"],
+  terror:        ["horror", "thriller", "mystery", "confesion", "fantasy"],
   romance:       ["romance", "drama", "comedy", "confesion", "chisme"],
   misterio:      ["mystery", "thriller", "horror", "documentary"],
   inspiracional: ["inspirational", "drama", "confesion", "comedy"],
