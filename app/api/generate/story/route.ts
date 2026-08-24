@@ -18,6 +18,7 @@ import { TOPIC_MAX } from "@/lib/validators/story.schema";
 import { captureServer } from "@/lib/analytics/posthog";
 import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
 import { corregirOrtografia } from "@/services/quality/ortografia";
+import { tratamientoVisual } from "@/services/quality/cinematografo";
 import { revisarComoDirector, notasComoCorreccion } from "@/services/quality/director";
 import { guionEnLetras } from "@/services/quality/numeros";
 
@@ -220,9 +221,18 @@ export async function POST(req: NextRequest) {
     // ── Generate ──────────────────────────────────────────────────────────────
     // Pass the EFFECTIVE tier so the prompt can skip fields this tier won't use
     // (Ken Burns ignores animation_prompt → generating it is pure latency).
+    // ── EL CINEMATÓGRAFO (solo formato escena): piensa la premisa COMO SE VE
+    //    antes del guionista — especies con nombre, la cámara que narra, el
+    //    sonido pegado al micrófono, la pista visible. El tratamiento entra
+    //    como instrucciones y el guionista lo obedece plano a plano.
+    let tratamiento = "";
+    if ((parsed.data.format ?? "story") === "escena") {
+      const t = await tratamientoVisual({ topic: parsed.data.topic, niche: parsed.data.niche, tone: parsed.data.tone, durationTarget: parsed.data.duration_target });
+      if (t) tratamiento = "\n[TRATAMIENTO VISUAL DEL DIRECTOR DE FOTOGRAFÍA — obedecelo plano a plano]\n" + t;
+    }
     const result = await storyGeneratorService.generate({
       ...parsed.data,
-      additional_instructions: instrucciones || undefined,
+      additional_instructions: ((instrucciones || "") + tratamiento).slice(0, 4600) || undefined,
       animation_tier: animationTier,
     });
     const durationMs = Date.now() - t0;
