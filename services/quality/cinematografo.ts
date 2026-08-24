@@ -32,7 +32,7 @@ export async function tratamientoVisual(params: {
     "1. CONCRETÁ LO GENÉRICO: nada de 'bichos', 'cosas', 'un lugar' — especies con nombre, objetos con material y estado, el detalle que se puede dibujar. Lo genérico sale como mancha.\n" +
     "2. LA CÁMARA NARRA: decí explícitamente los 2-3 movimientos clave (el push-in al detalle revelador, el plano que se queda quieto, el macro). ¿Dónde está la cámara cuando el espectador entiende?\n" +
     "3. EL SONIDO ÍNTIMO: qué se oye TODO el tiempo y qué suena PEGADO al micrófono en el momento clave (la textura sonora que produce la emoción física: el crujido, el roce, el goteo).\n" +
-    "4. LA IRONÍA/EL CONTRASTE: si el espectador sabe algo que el personaje no, decí en qué plano exacto se le muestra al espectador y cómo el personaje sigue sin saberlo.\n" +
+    "4. LA IRONÍA/EL CONTRASTE: si el espectador sabe algo que el personaje no, decí en qué plano exacto se le muestra al espectador y cómo el personaje sigue sin saberlo. Y decilo EXPLÍCITO: la cara del personaje lleva la emoción de SU realidad (deleite, calma) en TODOS los planos — el horror es del espectador y vive en luz/encuadre/sonido, nunca en su expresión.\n" +
     "5. LA PISTA VISIBLE: un objeto en cuadro desde el principio (etiqueta, foto, marca) que cobra sentido con el giro.\n" +
     "6. LA PROGRESIÓN: de lo normal a lo imposible en pasos — qué se ve en el primer tercio, qué en el medio, qué en el clímax visual, y el último plano que abre la parte 2.\n" +
     "Escribí el tratamiento en español, directo, sin numerar con títulos — como notas de un DF a su equipo. NADA de diálogo. Máximo 180 palabras.";

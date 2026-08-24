@@ -361,7 +361,7 @@ export async function POST(req: NextRequest) {
       const ESCALERA = [
         "SHOT SPEC: wide establishing shot from across the room, the subject small within the full space",
         "SHOT SPEC: medium shot at subject level, waist-up, subject filling half the frame",
-        "SHOT SPEC: overhead top-down macro of the key object (the plate/hands) FILLING the entire frame, subject face NOT visible",
+        "SHOT SPEC: overhead top-down macro of the key object (the plate/hands) FILLING the entire frame, subject face NOT visible, the object BRIGHTLY and clearly lit in crisp sharp focus with every detail readable — never swallowed by shadow",
         "SHOT SPEC: extreme close-up of the face — lips, chin and jaw filling the frame",
         "SHOT SPEC: low angle from table height looking up at the subject, foreground objects large and out of focus",
         "SHOT SPEC: profile shot from the side, subject in the right third, negative space left",
