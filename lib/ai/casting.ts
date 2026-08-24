@@ -89,7 +89,8 @@ export function buildCastingUserPrompt(input: CastingInput): string {
 
 ━━━ PREMISA ━━━
 NICHO: ${input.niche}${input.sub_niche ? ` › ${input.sub_niche}` : ""}
-HISTORIA: ${input.topic}${input.format === "consejo" ? `
+HISTORIA: ${input.topic}${input.format === "escena" ? `
+FORMATO: ESCENA (performance SIN diálogo). Acá LA CÁMARA ES EL TESTIGO: el espectador ve lo que el personaje no sabe — PROHIBIDO inventar testigos, vecinas, amigos o cualquier personaje que "descubra" o "vea" algo: ese rol lo cumple la cámara, gratis y más fuerte. El elenco son SOLO los sujetos que la premisa nombra ejecutando la acción; una premisa de un solo sujeto ("una mujer que come…", "un muñeco que se mueve…") lleva UN personaje, y punto. Extras de fondo (público, un músico) solo si la premisa los pide, sin arco propio. Medido dos veces: "mujer que come insectos" salió con una vecina-testigo inventada que la premisa nunca pidió.` : ""}${input.format === "consejo" ? `
 FORMATO: CONSEJO EN PRIMERA PERSONA. La protagonista le habla A CÁMARA al espectador y cuenta lo que aprendió; su "role" lo dice ("la que te cuenta a cámara cómo se dio cuenta"). Los demás personajes SOLO si la premisa los nombra o los implica de forma inequívoca ("mi esposo", "mi jefe", "mi suegra"): son contra quienes se demuestra el consejo. Si la premisa es sobre ella misma ("cómo tener confianza en mí misma", "cómo manejar mi ansiedad") el elenco es UNA persona — nadie la salva, no inventes pareja ni antagonista.` : ""}
 TONO: ${input.tone}
 ESTILO VISUAL: ${input.visual_style}
