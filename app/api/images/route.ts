@@ -384,7 +384,28 @@ export async function POST(req: NextRequest) {
       ];
       const lugarDe = (s: { location?: string | null }) => (s.location ?? "").trim().toLowerCase();
       let corrida = 0;
+      // ── ZOOM CONTINUO (proyectos mudos de acercamiento) ───────────────────
+      // El dolly-in de las películas: cada plano estrictamente MÁS CERCA que el
+      // anterior, mismo eje de cámara, hasta el clímax — y el último plano
+      // vuelve al encuadre inicial para cerrar el loop. La escalera fija
+      // (ancho→medio→cenital→...) rompería el acercamiento, así que cuando la
+      // premisa muda pide acercarse, manda esta progresión en su lugar.
+      const PASOS_ZOOM = [
+        "wide establishing shot from across the room, the subject small and centered",
+        "medium-wide shot, the subject from the knees up",
+        "medium shot at subject level, waist-up",
+        "medium close-up, chest and head filling the frame",
+        "extreme close-up — the face filling the entire frame",
+      ];
+      const zoomContinuo = proyectoMudo && targetScenes.length >= 4 &&
+        /acerc|zoom|aproxim|hacia (su|la) (o[ií]do|cara|nuca|espalda)|un solo plano|dolly|push[- ]?in/i.test(detail.project.topic ?? "");
+      const especZoom = (idx: number, total: number) => {
+        if (idx === total - 1) return " SHOT SPEC: wide shot from across the room, IDENTICAL camera position and framing to the FIRST shot — the loop closes where it began. This framing is MANDATORY.";
+        const k = Math.min(PASOS_ZOOM.length - 1, Math.round((idx * (PASOS_ZOOM.length - 1)) / Math.max(1, total - 2)));
+        return ` SHOT SPEC: ${PASOS_ZOOM[k]}, SAME camera axis and angle as the previous shot — one continuous slow approach, each shot strictly CLOSER than the last, never further. This framing is MANDATORY and overrides any other framing described.`;
+      };
       const especDePlano = (idx: number) => {
+        if (zoomContinuo) return especZoom(idx, targetScenes.length);
         if (proyectoMudo) return " " + ESCALERA[idx % ESCALERA.length] + ". This framing is MANDATORY and overrides any other framing described.";
         corrida = idx > 0 && lugarDe(targetScenes[idx]!) === lugarDe(targetScenes[idx - 1]!) ? corrida + 1 : 0;
         if (corrida === 0) return "";
