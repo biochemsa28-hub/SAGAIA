@@ -350,16 +350,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
+      // ── ESCALERA DE PLANOS (proyectos mudos / performance) ────────────────
+      // Medido dos veces: en formato escena (un personaje, mismo cuarto, foto
+      // del set) nano-banana CONVERGE — las escenas 1, 3 y 4 salieron casi
+      // idénticas aunque el guion pedía encuadres distintos. El texto del
+      // guionista pierde contra la gravedad de las referencias; una espec de
+      // plano DISTINTA y explícita por escena, al final del prompt (recencia),
+      // no pierde.
+      const proyectoMudo = (detail.scenes ?? []).every((sc) => !(sc.narration_text ?? "").trim());
+      const ESCALERA = [
+        "SHOT SPEC: wide establishing shot from across the room, the subject small within the full space",
+        "SHOT SPEC: medium shot at subject level, waist-up, subject filling half the frame",
+        "SHOT SPEC: overhead top-down macro of the key object (the plate/hands) FILLING the entire frame, subject face NOT visible",
+        "SHOT SPEC: extreme close-up of the face — lips, chin and jaw filling the frame",
+        "SHOT SPEC: low angle from table height looking up at the subject, foreground objects large and out of focus",
+        "SHOT SPEC: profile shot from the side, subject in the right third, negative space left",
+      ];
+      const especDePlano = (idx: number) => proyectoMudo
+        ? " " + ESCALERA[idx % ESCALERA.length] + ". This framing is MANDATORY and overrides any other framing described."
+        : "";
+
     const results = await generateProjectImages({
       projectId: parsed.data.project_id,
       niche: detail.project.niche,
       visualStyle: detail.project.visual_style,
-      scenes: targetScenes.map((s) => ({
+
+      scenes: targetScenes.map((s, idx) => ({
         scene_number: s.scene_number,
         image_prompt: s.image_prompt ?? "",
         emotion: s.emotion ?? undefined,
         narration_text: s.narration_text ?? undefined,
-        image_prompt_extra: parsed.data.variar ? " COMPLETELY DIFFERENT SHOT than any previous frame of this scene: change the camera DISTANCE decisively (if it was a medium shot, go extreme close-up macro on the key object or hands, or a wide shot from a corner), change the angle (low, high, or over-the-object), and shift the subject off-center. Same person, same room, same light — different composition." : undefined,
+        image_prompt_extra: (especDePlano(idx) + (parsed.data.variar ? " COMPLETELY DIFFERENT SHOT than any previous frame of this scene: change the camera DISTANCE decisively, change the angle, and shift the subject off-center. Same person, same room, same light — different composition." : "")) || undefined,
         location: s.location ?? null,
       })),
       referenceImageUrl,
