@@ -83,7 +83,7 @@ export async function revisarComoDirector(params: {
     "\n\nGUION:\n" + guion + "\n\n" +
     EL_NIVEL +
     "LISTA DE CHEQUEO (marcá solo lo que falla, con la escena y la corrección concreta):\n" +
-    "1. PROMESA VISUAL: lo que la premisa promete ver (el beso, el engaño, la transformación, el objeto) ¿se VE en cuadro y se sostiene los segundos que necesita, o solo se menciona? Si la premisa es de descubrir/ver algo: ¿la escena 1 es la ilusión (el hecho, hablado por quien lo comete) y la revelación llega en la escena 2?\n" +
+    "1. PROMESA VISUAL: lo que la premisa promete ver (el beso, el engaño, la transformación, el objeto) ¿se VE en cuadro y se sostiene los segundos que necesita, o solo se menciona? Si la premisa promete un ACTO físico (comer, besar, bailar, transformarse): ¿al menos DOS escenas lo congelan A LA MITAD del gesto (la mordida, la masticación, el giro) y escala — o el guion solo sostiene el objeto, lo acerca y lo CUENTA? Sostener, acercar y contar NO es ver: eso es promesa incumplida y es tu nota más importante. Si la premisa es de descubrir/ver algo: ¿la escena 1 es la ilusión (el hecho, hablado por quien lo comete) y la revelación llega en la escena 2?\n" +
     "2. RITMO: ¿corre demasiado rápido (todo pasa en las primeras 3 escenas, no hay aire antes del golpe) o se arrastra (3+ escenas sin que cambie nada)? ¿Hay una escena de respiro antes del pico?\n" +
     "3. CURVA: ¿cada acto escala? ¿El pico está en el último cuarto y es el momento físico más grande? ¿Hay cierre después del pico?\n" +
     "4. CUERPOS: ¿el mismo gesto dura más de 2 escenas seguidas? ¿La acción física es coherente con la situación (al que acaban de pillar no le toca acariciar a la esposa)?\n" +

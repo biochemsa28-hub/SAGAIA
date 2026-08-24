@@ -796,7 +796,11 @@ Devuelve ÚNICAMENTE este JSON válido (sin markdown, sin texto antes/después):
   }
 }
 
-IMPORTANTE: "scene_count" = número real de escenas. La narración de cada escena NO debe cerrarse completamente — debe haber una tensión que tire al espectador a la siguiente.${input.format === "escena" ? `
+IMPORTANTE: "scene_count" = número real de escenas. La narración de cada escena NO debe cerrarse completamente — debe haber una tensión que tire al espectador a la siguiente.
+
+━━━ DOS LEYES FINALES — valen para TODO formato y le ganan a cualquier regla de arriba ━━━
+1. ELENCO DE UNO: si el ELENCO tiene UN solo personaje, NINGUNA escena mete otro cuerpo humano en cuadro — nadie a quien besar, abrazar, tocar o mirar; ni manos ajenas, ni siluetas, ni el reflejo de OTRA persona. El contrapunto dramático es la CÁMARA (le habla al espectador de frente), un OBJETO que escala, o su propio reflejo. Si escribiste a alguien más en physical_action o image_prompt, borralo y reescribí la escena con el personaje SOLO.
+2. EL ACTO PROMETIDO: el acto físico central de la premisa (comer, besar, bailar, transformarse, pelear) se VE ejecutándose A MITAD DEL GESTO en al menos DOS escenas, y escala — la primera vez contenida, la última desatada. Sostener el objeto, acercarlo a la boca, mirarlo o CONTARLO en una línea NO cuenta como verlo: la boca mastica, el cuerpo baila, la piel cambia EN CÁMARA. Si la premisa promete un acto y ninguna escena lo congela a la mitad, el video promete y no cumple.${input.format === "escena" ? `
 ━━━ RECORDATORIO FINAL — FORMATO ESCENA (esto INVALIDA cualquier regla de diálogo de arriba) ━━━
 El guion es MUDO: narration_text = \"\" en todas las escenas, salvo como máximo UNA línea corta si la premisa lo pide. Nada de sketch hablado, nada de réplicas, nada de chistes dichos: la comedia, el terror o la energía se ACTÚAN con el cuerpo, la cámara y el ambiente. El sujeto de la premisa hace SU ACCIÓN (el baile entero, con técnica real) en todas las escenas y el pico es su mejor momento. PROPORCIÓN 70/30: mínimo el 70% de los planos muestran la acción ejecutándose; la reacción o el giro, solo los 2 últimos. Cada image_prompt congela MITAD DE MOVIMIENTO (la pierna en el aire, el giro a medio hacer), nunca una pose quieta. Si escribiste diálogo, borralo y contá lo mismo con physical_action.` : ""}`;
 }

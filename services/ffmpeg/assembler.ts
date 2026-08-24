@@ -538,7 +538,14 @@ function buildAssContent(
     const next = chunks[i + 1];
     const words = c.words.map((g) => g.word.toUpperCase().replace(/[{}\\]/g, "").replace(/^[…]+|[…]+$/g, "").trim()).filter(Boolean);
     if (!words.length) continue;
-    const text = words.join(" ");
+    // Signos españoles desparejados: el corte de carteles parte «¿Y no sientes
+    // nada... raro?» y un cartel queda «¿Y NO SIENTES NADA» — abierto sin
+    // cerrar (medido en video terminado). Se balancea el cartel, no la frase.
+    let text = words.join(" ");
+    if (text.includes("¿") && !text.includes("?")) text += "?";
+    else if (/\?/.test(text) && !text.includes("¿")) text = "¿" + text;
+    if (text.includes("¡") && !text.includes("!")) text += "!";
+    else if (/!/.test(text) && !text.includes("¡")) text = "¡" + text;
     // Hold the caption until the next one starts (max +0.35s) so there are no gaps
     // and it never lags behind the voice.
     const end = next ? Math.min(next.start, c.end + 0.35) : c.end + 0.25;

@@ -170,8 +170,12 @@ export async function POST(req: NextRequest) {
     // Vive fuera del bloque porque hace falta MÁS ABAJO, para saber qué otros
     // personajes están en cuadro en cada escena.
     let withPortrait: Awaited<ReturnType<typeof getProjectCast>> = [];
+    // Tamaño real del elenco (con o sin retrato): decide el respaldo "una sola
+    // persona en cuadro" más abajo. 0 = desconocido, no se aplica.
+    let elencoTotal = 0;
     if (!detail.project.character_id) {
       const cast = await getProjectCast(parsed.data.project_id).catch(() => []);
+      elencoTotal = cast.length;
       withPortrait = cast.filter((c) => c.reference_image_url);
 
       // SIN RETRATO NO HAY REFERENCIA, Y SIN REFERENCIA LAS CARAS SE VAN.
@@ -366,8 +370,35 @@ export async function POST(req: NextRequest) {
         "SHOT SPEC: low angle from table height looking up at the subject, foreground objects large and out of focus",
         "SHOT SPEC: profile shot from the side, subject in the right third, negative space left",
       ];
-      const especDePlano = (idx: number) => proyectoMudo
-        ? " " + ESCALERA[idx % ESCALERA.length] + ". This framing is MANDATORY and overrides any other framing described."
+      // Medido también en un proyecto HABLADO (la confesión de los insectos,
+      // realista): 4 planos medios idénticos de cocina seguidos, el plano de la
+      // puerta 3 veces. La convergencia de nano-banana no distingue mudo de
+      // hablado — solo que en hablado el guion sí trae encuadres, así que la
+      // espec es más suave: obliga a cambiar la DISTANCIA cuando la escena
+      // anterior comparte lugar, sin imponer la escalera completa.
+      const VARIACION = [
+        "medium shot at subject level, waist-up",
+        "tight close-up — the face filling the frame",
+        "wide shot from across the room, the subject within the full space",
+        "extreme close-up of the key object or the hands, face not visible",
+      ];
+      const lugarDe = (s: { location?: string | null }) => (s.location ?? "").trim().toLowerCase();
+      let corrida = 0;
+      const especDePlano = (idx: number) => {
+        if (proyectoMudo) return " " + ESCALERA[idx % ESCALERA.length] + ". This framing is MANDATORY and overrides any other framing described.";
+        corrida = idx > 0 && lugarDe(targetScenes[idx]!) === lugarDe(targetScenes[idx - 1]!) ? corrida + 1 : 0;
+        if (corrida === 0) return "";
+        return ` SHOT SPEC: change the camera DISTANCE decisively from the previous scene — ${VARIACION[corrida % VARIACION.length]}. Never repeat the framing of the previous frame.`;
+      };
+      // ── ELENCO DE UNO — respaldo en la capa de píxeles ────────────────────
+      // El guionista ya tiene la ley y la guardia; esto cubre el caso en que un
+      // elenco viejo o un prompt colado meta un segundo cuerpo: la orden va al
+      // FINAL de cada prompt de imagen (recencia) y el juez de cuadro la lee,
+      // así una segunda persona pasa a ser figura_extra aunque el image_prompt
+      // la describa. Medido: la protagonista besando a un clon de sí misma.
+      const unSolo = elencoTotal === 1;
+      const soloUno = unSolo
+        ? " EXACTLY ONE PERSON in this frame and in the whole video — this story has a single character. No second person, no one to kiss, hug or talk to, no extra hands, no human reflection or human silhouette."
         : "";
 
     const results = await generateProjectImages({
@@ -380,7 +411,7 @@ export async function POST(req: NextRequest) {
         image_prompt: s.image_prompt ?? "",
         emotion: s.emotion ?? undefined,
         narration_text: s.narration_text ?? undefined,
-        image_prompt_extra: (especDePlano(idx) + (parsed.data.variar ? " COMPLETELY DIFFERENT SHOT than any previous frame of this scene: change the camera DISTANCE decisively, change the angle, and shift the subject off-center. Same person, same room, same light — different composition." : "")) || undefined,
+        image_prompt_extra: (especDePlano(idx) + soloUno + (parsed.data.variar ? " COMPLETELY DIFFERENT SHOT than any previous frame of this scene: change the camera DISTANCE decisively, change the angle, and shift the subject off-center. Same person, same room, same light — different composition." : "")) || undefined,
         location: s.location ?? null,
       })),
       referenceImageUrl,

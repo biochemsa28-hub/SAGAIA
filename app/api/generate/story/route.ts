@@ -482,7 +482,26 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, total: (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
+        // 15) CUERPO AJENO. Elenco de UN personaje y el guionista mete otro
+        //     cuerpo en cuadro. Medido en video terminado (la confesión de los
+        //     insectos, realista): la protagonista besando en la boca a un CLON
+        //     de sí misma en la escena 1 y abrazándolo al final — el juez de
+        //     cuadro no lo mata porque el image_prompt lo describía como pedido.
+        //     El origen es el guion; se corta acá.
+        const unSolo = (parsed.data.cast ?? []).length === 1;
+        const AJENO = /\b(kiss(es|ing)?|hugs?|hugging|embrac(e|es|ing)|another (woman|man|person|figure|body)|second (woman|man|person|figure)|a stranger|someone else|two women|two men|both women|bes(a|an|ando|o)s?|abraz(a|an|ando|o)s?|otra (mujer|persona)|otro (hombre|cuerpo))\b/i;
+        const cuerpoAjeno = unSolo
+          ? scenes.filter((sc) => AJENO.test(`${sc.image_prompt ?? ""} ${sc.physical_action ?? ""}`)).map((sc) => sc.scene_number ?? 0)
+          : [];
+        // 16) EL ACTO DE COMER NO SE VE. Premisa "come y disfruta" y en 30s solo
+        //     hay gusano-cerca-de-labios: nunca mastica ni traga. Medido en el
+        //     mismo video. Si la premisa promete comer, al menos DOS escenas
+        //     tienen que congelar la boca en plena acción.
+        const premisaComer = /\b(com(e|er|iendo|érsel[oa]s?)|mastic|trag(a|ar|ando|árse)|devor|se los? (come|traga)|saborea)/i.test(parsed.data.topic);
+        const COMIDO = /\b(chew(s|ing)?|bit(e|es|ing)|swallow(s|ing)?|mouth (full|closes|closing|working)|between (her|his) teeth|crunch(es|ing)?|munch(es|ing)?|lick(s|ing)?|savou?r(s|ing)?|eat(s|ing)|mastica|mordi(da|endo)|traga(ndo)?)\b/i;
+        const escenasComiendo = premisaComer ? scenes.filter((sc) => COMIDO.test(`${sc.image_prompt ?? ""} ${sc.physical_action ?? ""}`)).length : 99;
+        const sinActoComer = premisaComer && scenes.length >= 3 && escenasComiendo < 2;
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, cuerpoAjeno, sinActoComer, escenasComiendo, total: (cuerpoAjeno.length ? 1 : 0) + (sinActoComer ? 1 : 0) + (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const esEscenaFmt = (parsed.data.format ?? "story") === "escena";
@@ -516,7 +535,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}], cuerpo ajeno: [${defectos.cuerpoAjeno.length ? "escenas " + defectos.cuerpoAjeno.join(", ") : "no"}], acto de comer no se ve: [${defectos.sinActoComer ? "sí" : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -540,6 +559,12 @@ export async function POST(req: NextRequest) {
             : "") +
           (defectos.escenaHablada.length
             ? ` El formato es ESCENA (performance) y ${defectos.escenaHablada.length} escenas tienen diálogo. Reescribí el guion MUDO: narration_text = "" en todas (una sola línea corta permitida si la premisa la pide). Lo que hoy dicen las líneas se convierte en physical_action ejecutada: el baile con técnica real, la reacción física, la cámara. El sujeto de la premisa hace su acción en TODAS las escenas.`
+            : "") +
+          (defectos.cuerpoAjeno.length
+            ? ` Las escenas ${defectos.cuerpoAjeno.join(", ")} meten un SEGUNDO CUERPO humano (beso, abrazo, otra persona) y el ELENCO tiene UN solo personaje. Eliminá a esa otra persona por completo de physical_action e image_prompt: nadie a quien besar ni abrazar, ni manos ajenas, ni siluetas. El contrapunto es la cámara (le habla al espectador de frente), un objeto que escala, o su propio reflejo. Reescribí esas escenas con el personaje SOLO en cuadro.`
+            : "") +
+          (defectos.sinActoComer
+            ? ` La premisa promete VER a alguien COMER y disfrutarlo, y el guion solo lo sostiene, lo acerca o lo cuenta: apenas ${defectos.escenasComiendo} escena(s) ejecutan el acto. Reescribí para que AL MENOS dos escenas congelen la boca EN PLENA ACCIÓN — la mordida a la mitad, la masticación con placer, el trago — escalando de contenida a desatada. Acercarse a los labios NO es comer.`
             : "") +
           (defectos.picoTierno.length
             ? ` En las escenas ${defectos.picoTierno.join(", ")} el que traicionó le sostiene la cara / la besa / la abraza DESPUÉS del descubrimiento. En una traición el contacto del tramo final es RUPTURA, nunca ternura: reemplazalo por la mano que se aparta de un tirón, el empujón, la bofetada, el anillo sobre la mesa, el cuerpo que retrocede, el portazo. El infiel no consuela.`
