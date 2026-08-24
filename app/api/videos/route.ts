@@ -1094,6 +1094,9 @@ export async function POST(req: NextRequest) {
         .filter((n) => n.length >= 3);
       // escena → ¿la voz del clip coincide con el guion? (ver [voz] abajo)
       const vozPorEscena = new Map<number, boolean>();
+      // escena → ¿la ANIMACIÓN rompió el clip? (ver [clip] abajo). El juez de
+      // cuadro mira la imagen fija; este mira lo que Seedance hizo con ella.
+      const clipPorEscena = new Map<number, boolean>();
       const collectUser = await getUserById(userId).catch(() => null);
       const collectTier = resolveProjectTier(collectDetail?.project.animation_tier, collectUser?.plan ?? "free");
       const stage = parsed.data.stage;
@@ -1263,6 +1266,23 @@ export async function POST(req: NextRequest) {
               (ok ? "" : ` — POR DEBAJO DE ${Math.round(VOZ_MINIMA * 100)}%: la voz se apartó del guion ("${transcript.text.slice(0, 60)}")`),
             );
           }
+          // ── LA ANIMACIÓN SE MIRA ANTES DE DARLA POR BUENA ──────────────
+          // Medido en un video terminado: el cuadro de partida pasó el juez de
+          // cuadro, pero a mitad del clip el mentón salió deforme y los dedos
+          // pellizcaban NADA — el insecto desapareció entre las manos. Tres
+          // cuadros del clip a un modelo de visión (~$0.01); si está roto, el
+          // worker lo vuelve a pedir una vez, igual que la voz apartada.
+          try {
+            const { revisarClip } = await import("@/services/quality/clip");
+            const escenaTexto = collectDetail?.scenes?.find((s) => s.scene_number === r.scene_number)?.image_prompt ?? "";
+            const vc = await revisarClip(durableUrl, escenaTexto);
+            clipPorEscena.set(r.scene_number, vc.ok);
+            if (!vc.ok) {
+              console.warn(`[clip] escena ${r.scene_number}: la animación rompió el clip (${vc.defecto}): ${vc.motivo ?? ""} — se marca para repedir`);
+            } else {
+              console.log(`[clip] escena ${r.scene_number}: animación OK`);
+            }
+          } catch { /* el juez jamás puede costar un video */ }
           if (transcript) {
             console.log(`[nativo] escena ${r.scene_number}: "${transcript.text.slice(0, 70)}" (${transcript.words.length} palabras)`);
           } else if (!NATIVE_AUDIO_ON) {
@@ -1360,7 +1380,7 @@ export async function POST(req: NextRequest) {
         success: true,
         action: "collect",
         all_done: allDone,
-        scenes: results.map((r) => ({ ...r, voz_ok: vozPorEscena.get(r.scene_number) ?? true })),
+        scenes: results.map((r) => ({ ...r, voz_ok: vozPorEscena.get(r.scene_number) ?? true, clip_ok: clipPorEscena.get(r.scene_number) ?? true })),
       });
     }
 

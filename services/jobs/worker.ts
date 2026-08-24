@@ -157,13 +157,15 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
     while (sub.jobs?.length && vueltas < 40) {
       vueltas++;
       const vozMal: number[] = [];
-      await pollStage(post, job, sub.jobs, undefined, vozMal);
-      if (vozMal.length) {
-        for (const n of vozMal.slice(0, 2)) {
-          console.log(`[voz] escena ${n}: la voz se apartó del guion — se pide de nuevo una vez`);
-          const re = await (await post("/api/videos", { project_id: job.project_id, action: "submit", scene_number: n })).json() as { jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
-          if (re.jobs?.length) await pollStage(post, job, re.jobs, undefined);
-        }
+      const clipMal: number[] = [];
+      await pollStage(post, job, sub.jobs, undefined, vozMal, clipMal);
+      // Un clip puede caer en las dos listas (voz Y animación rotas): se pide
+      // una sola vez. Tope de 2 repedidos por vuelta — mismo criterio que la voz.
+      const aRepedir = [...new Set([...vozMal, ...clipMal])].slice(0, 2);
+      for (const n of aRepedir) {
+        console.log(`[repedido] escena ${n}: ${vozMal.includes(n) ? "voz apartada del guion" : "animación rota"} — se pide de nuevo una vez`);
+        const re = await (await post("/api/videos", { project_id: job.project_id, action: "submit", scene_number: n })).json() as { jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
+        if (re.jobs?.length) await pollStage(post, job, re.jobs, undefined);
       }
       await heartbeatJob(job.id);
       sub = await (await post("/api/videos", { project_id: job.project_id, action: "submit", chain: true })).json() as typeof sub;
@@ -172,16 +174,17 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
     if (vueltas) console.log(`[chain] animación completa en ${vueltas} vuelta(s)`);
   } else if (sub.action !== "skipped") {
     const vozMal: number[] = [];
-    const motionUrls = await pollStage(post, job, sub.jobs ?? [], sub.pipeline === "pro" ? "motion" : undefined, vozMal);
+    const clipMal: number[] = [];
+    const motionUrls = await pollStage(post, job, sub.jobs ?? [], sub.pipeline === "pro" ? "motion" : undefined, vozMal, clipMal);
     // ── LA VOZ QUE NO DIJO EL GUION SE VUELVE A PEDIR, UNA VEZ ──────────────
     // collect compara la transcripción de cada clip con el guion (ver [voz] en
     // /api/videos). Medido: "no me toques" salió como "mi tokeks" en el pico
     // emocional y nadie lo atrapó. Un clip de 6s cuesta ~$0.31; un video con
     // el clímax en un idioma inventado no vale nada. Tope de 2 clips por video
     // y un solo reintento — si vuelve mal, se monta igual y queda en el log.
-    if (vozMal.length && sub.pipeline !== "pro") {
-      const aRepetir = vozMal.slice(0, 2);
-      console.log(`[voz] ${aRepetir.length} clip(s) con la voz apartada del guion (escenas ${aRepetir.join(", ")}) — se piden de nuevo una vez`);
+    if ((vozMal.length || clipMal.length) && sub.pipeline !== "pro") {
+      const aRepetir = [...new Set([...vozMal, ...clipMal])].slice(0, 2);
+      console.log(`[repedido] ${aRepetir.length} clip(s) roto(s) — voz: [${vozMal.join(", ") || "ninguno"}], animación: [${clipMal.join(", ") || "ninguno"}] — se piden de nuevo una vez`);
       for (const n of aRepetir) {
         const re = await (await post("/api/videos", { project_id: job.project_id, action: "submit", scene_number: n })).json() as
           { jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
@@ -228,6 +231,8 @@ async function pollStage(
   stage?: "motion" | "lipsync",
   /** Se llena con las escenas cuyo clip completó pero la voz no dijo el guion. */
   vozMal?: number[],
+  /** Se llena con las escenas cuya ANIMACIÓN rompió el clip (ver [clip]). */
+  clipMal?: number[],
 ) {
   let pending = initial.filter((j) => j.request_id);
   const urls: Array<{ scene_number: number; video_url: string }> = [];
@@ -241,10 +246,11 @@ async function pollStage(
       // El modelo viaja con el job: un clip de reference-to-video consultado en
       // la cola de image-to-video es un 404 y el video moriría por timeout.
       jobs: pending.map((j) => ({ scene_number: j.scene_number, request_id: j.request_id, model: j.model })),
-    })).json() as { all_done: boolean; scenes: Array<{ scene_number: number; status: string; url?: string; voz_ok?: boolean }> };
+    })).json() as { all_done: boolean; scenes: Array<{ scene_number: number; status: string; url?: string; voz_ok?: boolean; clip_ok?: boolean }> };
     for (const s of col.scenes) if (s.status === "completed" && s.url) {
       urls.push({ scene_number: s.scene_number, video_url: s.url });
       if (s.voz_ok === false && vozMal && !vozMal.includes(s.scene_number)) vozMal.push(s.scene_number);
+      if (s.clip_ok === false && clipMal && !clipMal.includes(s.scene_number)) clipMal.push(s.scene_number);
     }
     // RETURN, not break — see the note in the client flow. Breaking here would
     // have failed every queued job whose animation actually succeeded.
