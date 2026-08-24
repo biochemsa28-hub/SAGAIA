@@ -403,9 +403,9 @@ function buildAssContent(
     "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV\n" +
     // Cap: heavy Arial Black, thick outline + drop shadow, wide side margins so a
     // long line NEVER runs off the 1080px frame (it wraps instead).
-    `Style: Cap,${SUBTITLE_FONT},86,&H00FFFFFF,&H00000000,&H00000000,-1,0,1,8,4,2,110,110,400\n` +
+    `Style: Cap,${SUBTITLE_FONT},86,&H00FFFFFF,&H00000000,&H00000000,-1,0,1,8,4,2,110,110,620\n` +
     // Pop: same but in the niche's highlight color — used for the punch word.
-    `Style: Pop,${SUBTITLE_FONT},90,${hi},&H00000000,&H00000000,-1,0,1,8,4,2,110,110,400\n` +
+    `Style: Pop,${SUBTITLE_FONT},90,${hi},&H00000000,&H00000000,-1,0,1,8,4,2,110,110,620\n` +
     "Style: Mark,Arial,38,&H60FFFFFF,&H60000000,&H00000000,-1,0,1,2,0,8,40,40,60\n" +
     // 74px no entraba: un CTA de hasta 60 caracteres a ese cuerpo mide bastante
     // mas que los 900px utiles. Con WrapStyle 0 ya parte solo, pero bajarlo a 58

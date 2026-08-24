@@ -485,7 +485,7 @@ export const MAX_BLOCKS_PER_VIDEO = Math.max(2, Math.ceil(MAX_VIDEO_SECONDS / BL
 //
 // La variable global queda como techo absoluto de gasto, nunca como el objetivo.
 const SEGUNDOS_POR_DURACION: Record<string, number> = {
-  "15s": 15, "30s": 30, "60s": 60, "90s": 90, "120s": 120,
+  "15s": 15, "25s": 25, "30s": 30, "60s": 60, "90s": 90, "120s": 120,
   // Se conservan SOLO para no romper proyectos viejos que ya las tienen
   // guardadas. No se ofrecen más en el selector: mapeaban a 120s, la producción
   // recortaba a 60, y el usuario que pedía 20 minutos recibía uno.

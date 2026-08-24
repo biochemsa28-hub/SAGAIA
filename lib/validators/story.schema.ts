@@ -38,7 +38,7 @@ export const StoryInputSchema = z.object({
     "chisme",
     "confesion",
   ]),
-  duration_target: z.enum(["30s", "60s", "3-5min", "10-20min"]),
+  duration_target: z.enum(["25s", "30s", "60s", "90s", "3-5min", "10-20min"]),
   language: z.enum(["es", "en", "pt"]).default("es"),
   visual_style: z
     .enum(["cinematic", "anime", "realistic", "cartoon", "vintage"])

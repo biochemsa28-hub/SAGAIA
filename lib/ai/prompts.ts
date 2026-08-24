@@ -18,6 +18,7 @@ import type { StoryInput } from "@/lib/validators/story.schema";
 // The long options stay in the schema so old projects still load, but they now
 // resolve to the same 60-second ceiling instead of quietly costing 4x.
 const DURATION_SCENE_MAP: Record<string, { min: number; max: number; seconds: number }> = {
+  "25s": { min: 4, max: 6, seconds: 25 },
   "30s":      { min: 7,  max: 10, seconds: 30 },  // ~3-4s per scene
   "60s":      { min: 10, max: 14, seconds: 60 },  // ~4-6s per scene
   "3-5min":   { min: 10, max: 14, seconds: 60 },  // capped — see note above

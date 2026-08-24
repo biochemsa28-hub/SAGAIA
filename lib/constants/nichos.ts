@@ -109,8 +109,12 @@ export const TONES = [
 // borrador. La mitad de segundos cuesta la mitad de NAVOS — no es un descuento
 // por elegir corto, es que el precio es por segundo.
 export const DURATION_OPTIONS = [
+  // 25s: medido en Facebook real — videos de 45-60s promediaban 5s vistos (11%).
+  // El algoritmo compara PORCENTAJES: 12s vistos de 25 = 48% y distribución.
+  // Primero se gana la retención corta; los 60s vuelven cuando hay audiencia.
+  { id: "25s", label: "25 segundos", hint: "Arranque en redes: máxima retención. La historia completa, sin relleno.", scenes: "4-5", recomendada: true },
   { id: "30s", label: "30 segundos", hint: "Corto y directo. Perfecto para una escena graciosa o para probar una idea.", scenes: "5-6", recomendada: false },
-  { id: "60s", label: "60 segundos", hint: "El que más se ve. Tiene tiempo para enganchar, sorprender y cerrar bien.", scenes: "10-12", recomendada: true },
+  { id: "60s", label: "60 segundos", hint: "Para series y cuentas con audiencia ya ganada. Tiempo para enganchar, sorprender y cerrar.", scenes: "10-12", recomendada: false },
   { id: "90s", label: "90 segundos", hint: "Para una historia con más personajes o más vueltas.", scenes: "15-18", recomendada: false },
 ] as const;
 
