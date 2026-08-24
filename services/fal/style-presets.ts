@@ -69,7 +69,11 @@ const NICHE_SIGNATURE: Record<string, string> = {
 // ── Per visual_style rendering modifier ──────────────────────────────────────
 const STYLE_MODIFIER: Record<string, string> = {
   cinematic:
-    "shot on ARRI Alexa, anamorphic widescreen, professional cinematic color grade, photographic realism",
+    // "anamorphic widescreen" era una orden de pantalla ANCHA en un video
+    // VERTICAL: el modelo componía en horizontal dentro del 9:16 — sujetos
+    // chicos, aire muerto, encuadres rotos. Medido: el usuario reportó que
+    // "los videos salen ojetes en ese estilo" y el realista (sin esa orden) no.
+    "shot on ARRI Alexa, VERTICAL 9:16 cinematic composition with the subject filling the frame, professional cinematic color grade, photographic realism, razor-sharp focus, lifelike skin and textures",
   realistic:
     "hyperrealistic, photorealistic, ultra-detailed, razor-sharp focus, lifelike skin and textures, 8k photography",
   anime:
