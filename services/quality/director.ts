@@ -57,6 +57,23 @@ export async function revisarComoDirector(params: {
   ).join("\n");
 
   const esConsejo = (params.format ?? "") === "consejo";
+
+  // ── EL NIVEL ──────────────────────────────────────────────────────────────
+  // El estándar NO es una lista de reglas: es la vara de los videos que el
+  // dueño aprobó como "esto es lo que busco". El Director compara contra esa
+  // vara — como un director humano compara contra las mejores obras que vio —
+  // en vez de solo marcar defectos. Destilado de los 5 aprobados (la cena del
+  // veneno, la transformación de Osvaldo, el muñeco, la cantante, la confesión
+  // de los insectos):
+  const EL_NIVEL =
+    "\nEL NIVEL (la vara — tus notas deben empujar el guion HACIA esto, no solo corregir errores):\n" +
+    "Los mejores videos de esta casa comparten un ADN: (1) UNA imagen de apertura que ya ES la historia — el veneno sirviéndose, el muñeco ya girado, el escarabajo en los labios; nunca preámbulo. " +
+    "(2) Un OBJETO-TERMÓMETRO que escala solo y sin comentario — la copa, las pantuflas movidas, el espejo que se agrieta: el estado de la historia se LEE en el objeto. " +
+    "(3) La emoción VERDADERA de cada personaje en su cara — la que goza goza, el que no sabe no sabe; el género vive en luz y sonido, jamás imposta las caras. " +
+    "(4) Escalada CORPORAL, no verbal: compuesta → la sonrisa que se ensancha → la carcajada → la calma peor; en cada plano el cuerpo dice más que la línea. " +
+    "(5) Un cierre que se queda en el espectador: la amenaza directa ('tú también vas a disfrutarlo'), la pregunta que obliga a elegir, el objeto nuevo que exige parte 2. " +
+    "(6) Economía total: ni una línea que explique lo que la imagen ya dijo, ni un plano que repita el anterior. " +
+    "Si este guion no está a esa vara, tu nota más importante es la que más lo acerque — aunque técnicamente no haya ningún error.\n";
   const pedido =
     "Sos el DIRECTOR de un microdrama vertical (TikTok/Reels) de " + (params.durationTarget ?? "60s") + ". " +
     "Leé el guion ENTERO como pieza y juzgalo como lo juzgaría el espectador al verlo terminado. " +
@@ -64,6 +81,7 @@ export async function revisarComoDirector(params: {
     `PREMISA: ${params.topic}\nFORMATO: ${params.format ?? "story"} · NICHO: ${params.niche ?? "-"} · TONO: ${params.tone ?? "-"}` +
     (params.cast?.length ? `\nELENCO: ${params.cast.join(", ")}` : "") +
     "\n\nGUION:\n" + guion + "\n\n" +
+    EL_NIVEL +
     "LISTA DE CHEQUEO (marcá solo lo que falla, con la escena y la corrección concreta):\n" +
     "1. PROMESA VISUAL: lo que la premisa promete ver (el beso, el engaño, la transformación, el objeto) ¿se VE en cuadro y se sostiene los segundos que necesita, o solo se menciona? Si la premisa es de descubrir/ver algo: ¿la escena 1 es la ilusión (el hecho, hablado por quien lo comete) y la revelación llega en la escena 2?\n" +
     "2. RITMO: ¿corre demasiado rápido (todo pasa en las primeras 3 escenas, no hay aire antes del golpe) o se arrastra (3+ escenas sin que cambie nada)? ¿Hay una escena de respiro antes del pico?\n" +
