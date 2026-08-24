@@ -16,6 +16,9 @@ export const maxDuration = 300;
 const BodySchema = z.object({
   project_id: z.string().uuid(),
   scene_number: z.number().int().positive().optional(), // regenerate a single scene
+  // Redibujo por DUPLICADO: el mismo prompt regenera el mismo gemelo. Con esta
+  // bandera se le ordena otro encuadre de forma explícita.
+  variar: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -356,6 +359,7 @@ export async function POST(req: NextRequest) {
         image_prompt: s.image_prompt ?? "",
         emotion: s.emotion ?? undefined,
         narration_text: s.narration_text ?? undefined,
+        image_prompt_extra: parsed.data.variar ? " COMPLETELY DIFFERENT SHOT than any previous frame of this scene: change the camera DISTANCE decisively (if it was a medium shot, go extreme close-up macro on the key object or hands, or a wide shot from a corner), change the angle (low, high, or over-the-object), and shift the subject off-center. Same person, same room, same light — different composition." : undefined,
         location: s.location ?? null,
       })),
       referenceImageUrl,

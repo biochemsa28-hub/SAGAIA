@@ -213,6 +213,20 @@ const SUAVIZADO: Array<[RegExp, string]> = [
   [/\b(dishevell?ed|tousled|rumpled from|tangled (?:in|across))\b/gi, "untidy"],
   [/\b(?:in|on) (?:the )?(?:rumpled|unmade|messy) bed\b/gi, "in the room"],
   [/\b(straddling|astride|on top of (?:him|her))\b/gi, "close to"],
+  // ── ASCO EXTREMO. Medido: la mujer que come insectos — nano-banana (Google)
+  // rechazó los bichos DENTRO de la boca y el proyecto entero se atascó. El
+  // cuadro pasa al instante ANTES del contacto (el modelo de video anima lo que
+  // la foto no puede mostrar) y los términos más crudos bajan un grado.
+  // La clave: MISMO cuadro, palabras de GASTRONOMÍA. Los insectos comestibles
+  // son cocina real (chapulines, gusanos de maguey) — "edible/gourmet" le dice
+  // al filtro "comida exótica" mientras la imagen sigue mostrando exactamente
+  // los mismos bichos en la boca. Explícito primero; eufemismo solo al rechazo.
+  [/\b(?:live\s+)?(maggots?|larvae?|larva)\b/gi, "pale wriggling edible mealworms, a gourmet delicacy"],
+  [/\b(?:live\s+)?(cockroach(?:es)?)\b/gi, "large glossy edible beetles, an exotic delicacy"],
+  [/\b(?:live\s+)?(?:insects?|bugs?|worms?|crickets?)([^.,;]{0,40})\b(in|into|inside|entering|past|between)\s+(her|his)\s+(?:open\s+)?(mouth|lips|teeth|tongue)/gi, "edible gourmet crickets and mealworms, entomophagy fine dining$2$3 $4 $5"],
+  [/\bchewing\s+(?:a\s+|the\s+)?(?:live\s+)?(?:insects?|bugs?|worms?|maggots?|grubs?|beetles?|crickets?|cockroach(?:es)?)\b/gi, "chewing crunchy edible insects, gourmet entomophagy tasting, a thin leg visible at the corner of her lips"],
+  [/\b(?:eating|swallowing|biting|savoring)\s+(?:a\s+|the\s+)?(?:live\s+)?(?:insects?|bugs?|worms?|maggots?|grubs?|beetles?|crickets?|cockroach(?:es)?)\b/gi, "savoring edible gourmet insects with eyes closed in delight, entomophagy cuisine"],
+  [/\b(antenna|leg|wing)\b([^.,;]{0,40})\b(mouth|lips|teeth)\b/gi, "a thin cricket $1 visible at the corner of her smiling $3, edible insect delicacy"],
 ];
 
 export function suavizarParaModeracion(prompt: string): string {
@@ -775,7 +789,7 @@ export async function generateProjectImages(params: {
   projectId: string;
   niche: string;
   visualStyle: string;
-  scenes: Array<{ scene_number: number; image_prompt: string; emotion?: string; narration_text?: string; location?: string | null }>;
+  scenes: Array<{ scene_number: number; image_prompt: string; emotion?: string; narration_text?: string; location?: string | null; image_prompt_extra?: string }>;
   referenceImageUrl?: string;
   referenceImageUrls?: string[];   // multiple product angles → nano-banana sees them all
   sceneReferences?: Map<number, string>;
@@ -819,7 +833,7 @@ export async function generateProjectImages(params: {
     const generar = async (scene: (typeof scenes)[number], setRef?: string) => {
       const ref = refs.get(scene.scene_number);
       const result = await generateSceneImage({
-        prompt: scene.image_prompt,
+        prompt: scene.image_prompt + (scene.image_prompt_extra ?? ""),
         projectId: params.projectId,
         sceneNumber: scene.scene_number,
         niche: params.niche,

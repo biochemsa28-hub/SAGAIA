@@ -114,7 +114,8 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
 
         const redibujadas = await Promise.all(sospechosas.map(async (n) => {
           try {
-            const r = await post("/api/images", { project_id: job.project_id, scene_number: n });
+            const esDuplicado = report.issues.some((i) => i.code === "duplicate_scenes" && i.scenes.includes(n));
+            const r = await post("/api/images", { project_id: job.project_id, scene_number: n, variar: esDuplicado });
             const j = await r.json() as { success?: boolean; locked?: boolean; error?: string };
             // Una escena aprobada por el usuario NO se toca: su decisión manda
             // sobre la del portero.
