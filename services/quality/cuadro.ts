@@ -15,7 +15,7 @@
 // positivo cuesta una imagen; un falso negativo cuesta un clip.
 export interface VeredictoCuadro {
   ok: boolean;
-  defecto?: "doble_exposicion" | "figura_extra" | "duplicado" | "anatomia" | "collage" | "texto" | "utileria" | "otro";
+  defecto?: "doble_exposicion" | "figura_extra" | "duplicado" | "anatomia" | "collage" | "texto" | "utileria" | "mirada" | "otro";
   motivo?: string;
 }
 
@@ -51,6 +51,7 @@ export async function revisarCuadro(url: string, escena: string): Promise<Veredi
     "- collage: paneles, viñetas, cuadrícula o varias vistas lado a lado.\n" +
     "- texto: letras, palabras o logos legibles.\n" +
     "- utileria: un objeto de utilería que la escena NO describe pegado o flotando junto a la cara o el cuerpo — un micrófono de diadema o de solapa, un auricular, un cable. Medido: la actriz salió con un micrófono flotante pegado a los labios porque el guion decía 'confiesa a cámara'.\n" +
+    "- mirada: SOLO si la escena pide 'DIALOGUE EYE-LINE' (es una conversación entre personajes) y aun así el sujeto mira DIRECTO al lente de la cámara con la cara frontal. En conversación los personajes se miran entre sí o esquivan la mirada del otro; los ojos clavados en el espectador rompen la escena. Medido: la pelea entera dicha a cámara. Si la escena NO pide DIALOGUE EYE-LINE, mirar a cámara es válido y NO es defecto.\n" +
     "Estilo, calidad, ángulo, expresión, ropa, luz u objetos distintos NO cuentan. Una escena de terror con la amenaza parcial (una mano, una sombra fuera de foco) que la escena SÍ describe está bien. Ante la duda respondé ok=true.\n" +
     'Respondé SOLO este JSON: {"ok": true|false, "defecto": "doble_exposicion|figura_extra|duplicado|anatomia|collage|texto|otro", "motivo": "una frase"}';
 
@@ -94,5 +95,6 @@ export function ordenDeCuadroLimpio(defecto?: VeredictoCuadro["defecto"]): strin
   if (defecto === "duplicado") return base + " Each person appears EXACTLY ONCE in the frame: if someone is seen from behind in the foreground, they are NOT also standing in the background.";
   if (defecto === "anatomia") return base + " Correct anatomy: each person has exactly two arms, two hands with five fingers, two legs; no stray limbs; if someone is seen from behind in the foreground, show only their shoulder and head, not their arms.";
   if (defecto === "utileria") return base + " NO microphone, headset, lavalier, earpiece, cable or any recording equipment anywhere in the frame — the person speaks naturally with nothing attached to their face or clothes.";
+  if (defecto === "mirada") return base + " The subject does NOT look into the camera lens: their eyes are locked on the other character (or pointedly turned away from them), face in three-quarter view or profile — this is a conversation the camera merely observes.";
   return base;
 }
