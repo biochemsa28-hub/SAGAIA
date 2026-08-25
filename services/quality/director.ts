@@ -45,6 +45,11 @@ export async function revisarComoDirector(params: {
   scenes: EscenaDirector[];
   mecanicas?: string[];
   curvaEmocional?: string;
+  /** SET VIVO: los últimos videos del usuario que a las 48h midieron
+   *  tiempo_promedio ≥ 6s y distribución ≥ +0.3x (del Genoma). La vara
+   *  rotatoria — sube sola conforme el canal mejora, en vez de quedarse
+   *  congelada en el gusto de agosto. */
+  ganadores?: Array<{ premisa?: string | null; hook?: string | null; cta?: string | null; tiempoPromedio?: number | null; distribucion?: number | null }>;
 }): Promise<VeredictoDirector | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (DIRECTOR === "off" || !apiKey || params.scenes.length < 3) return null;
@@ -75,7 +80,15 @@ export async function revisarComoDirector(params: {
     "(5) La emoción VERDADERA de cada personaje en su cara — la que goza goza, el que no sabe no sabe; el género vive en luz y sonido. " +
     "(6) Un cierre que resuelve la pregunta central PERO deja un dato lateral colgando, más la pregunta que obliga a elegir bando. " +
     "(7) Economía total: ni una línea que explique lo que la imagen ya dijo, ni un plano que repita el anterior. " +
-    "Si este guion no está a esa vara, tu nota más importante es la que más lo acerque — aunque técnicamente no haya ningún error. Y juzgá el SOSTÉN antes de leer la premisa: leé las escenas en orden y anotá en qué segundo te habrías ido.\n";
+    "Si este guion no está a esa vara, tu nota más importante es la que más lo acerque — aunque técnicamente no haya ningún error. Y juzgá el SOSTÉN antes de leer la premisa: leé las escenas en orden y anotá en qué segundo te habrías ido.\n" +
+    (params.ganadores?.length
+      ? "\nEL SET VIVO (los últimos videos de ESTE canal que a las 48h midieron ≥6s de tiempo promedio y ≥+0.3x de distribución — la vara real y rotatoria; compará este guion contra ELLOS):\n" +
+        params.ganadores.slice(0, 3).map((g, i) =>
+          `${i + 1}. [${g.tiempoPromedio ?? "?"}s · ${g.distribucion != null ? (g.distribucion >= 0 ? "+" : "") + g.distribucion + "x" : "?"}] premisa: «${(g.premisa ?? "").slice(0, 140)}»` +
+          (g.hook ? ` · gancho: «${(g.hook ?? "").slice(0, 90)}»` : "") +
+          (g.cta ? ` · cierre: «${(g.cta ?? "").slice(0, 90)}»` : ""),
+        ).join("\n") + "\n"
+      : "");
   const pedido =
     "Sos el DIRECTOR de un microdrama vertical (TikTok/Reels) de " + (params.durationTarget ?? "60s") + ". " +
     "Leé el guion ENTERO como pieza y juzgalo como lo juzgaría el espectador al verlo terminado. " +

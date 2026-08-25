@@ -231,6 +231,12 @@ export async function initDb(): Promise<void> {
     publicado_en  TEXT,
     actualizado   TEXT DEFAULT (datetime('now'))
   )`);
+  // Las DOS métricas que predicen (medido sobre 8 videos: tiempo promedio ↔
+  // distribución = +0.84; el hook no correlaciona). Son las que definen el SET
+  // VIVO del Director: todo video con tiempo_promedio ≥ 6 y distribucion ≥ 0.3
+  // a las 48h entra a la vara; el más viejo sale.
+  await runMigration(db, "ALTER TABLE video_genome ADD COLUMN tiempo_promedio REAL");
+  await runMigration(db, "ALTER TABLE video_genome ADD COLUMN distribucion REAL");
 
   // ── EL GUIONISTA DECLARA CUÁL ES EL PICO, EN VEZ DE QUE LO ADIVINEMOS ──────
   //

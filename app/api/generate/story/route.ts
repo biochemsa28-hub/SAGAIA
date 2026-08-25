@@ -568,7 +568,28 @@ export async function POST(req: NextRequest) {
       // ── EL DIRECTOR lee el primer borrador entero ─────────────────────────
       // Ritmo, dramaturgia y promesa visual: lo que las regex no ven. Sus notas
       // entran en la MISMA regeneración que las guardias (una sola pasada extra).
+      // SET VIVO para el Director: los últimos ganadores MEDIDOS del canal
+      // (≥6s de tiempo promedio y ≥+0.3x a las 48h, del Genoma). Rotatorio por
+      // fecha: entra el nuevo que supere el umbral, sale el más viejo. Si aún
+      // no hay métricas anotadas, el Director usa solo la vara destilada.
+      const ganadores = await (async () => {
+        try {
+          const { getDb } = await import("@/lib/db");
+          const r = await getDb().execute({
+            sql: `SELECT premisa, hook, cta, tiempo_promedio, distribucion FROM video_genome
+                  WHERE user_id = ? AND tiempo_promedio >= 6 AND distribucion >= 0.3
+                  ORDER BY actualizado DESC LIMIT 3`,
+            args: [userId],
+          });
+          return r.rows.map((g) => ({
+            premisa: g.premisa as string | null, hook: g.hook as string | null, cta: g.cta as string | null,
+            tiempoPromedio: g.tiempo_promedio as number | null, distribucion: g.distribucion as number | null,
+          }));
+        } catch { return []; }
+      })();
+      if (ganadores.length) console.log(`[director] set vivo: ${ganadores.length} ganador(es) medido(s) como vara`);
       const director = await revisarComoDirector({
+        ganadores,
         topic: parsed.data.topic,
         format: parsed.data.format ?? "story",
         niche: parsed.data.niche,

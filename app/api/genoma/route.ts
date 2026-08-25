@@ -27,6 +27,10 @@ const MetricsSchema = z.object({
   compartidos: z.number().int().nonnegative().optional(),
   guardados: z.number().int().nonnegative().optional(),
   seguidores: z.number().int().nonnegative().optional(),
+  // Las dos que predicen (protocolo 48h): segundos promedio de reproducción y
+  // distribución relativa de Facebook (+0.4x → 0.4, −0.2x → -0.2).
+  tiempo_promedio: z.number().min(0).max(120).optional(),
+  distribucion: z.number().min(-5).max(20).optional(),
   notas: z.string().max(500).optional(),
 });
 
@@ -50,7 +54,7 @@ export async function POST(req: NextRequest) {
   const m = parsed.data;
   const db = getDb();
   const campos: string[] = []; const args: (string | number)[] = [];
-  for (const k of ["plataforma", "url_publicada", "vistas", "ret_3s", "completion", "rewatch", "likes", "comentarios", "compartidos", "guardados", "seguidores", "notas"] as const) {
+  for (const k of ["plataforma", "url_publicada", "vistas", "ret_3s", "completion", "rewatch", "likes", "comentarios", "compartidos", "guardados", "seguidores", "tiempo_promedio", "distribucion", "notas"] as const) {
     const v = m[k];
     if (v !== undefined) { campos.push(`${k} = ?`); args.push(v as string | number); }
   }
