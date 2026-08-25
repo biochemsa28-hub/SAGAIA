@@ -1306,10 +1306,14 @@ export async function POST(req: NextRequest) {
             // actually said, with word timings. The captions describe the take
             // instead of dictating it, which is the only honest way to subtitle
             // audio the model improvised the delivery of.
-            metadata: (blockScenes && blockScenes.length > 1) || transcript
+            metadata: (blockScenes && blockScenes.length > 1) || transcript || clipPorEscena.get(r.scene_number) === false
               ? JSON.stringify({
                   ...(blockScenes && blockScenes.length > 1 ? { block: blockScenes } : {}),
                   ...(transcript ? { native_audio: true, text: transcript.text, wordTimings: transcript.words, ...(vozScore !== null ? { voz_score: vozScore } : {}) } : {}),
+                  // Telemetría: el juez de clip lo marcó roto. Si el repedido
+                  // también sale roto, este flag es el rastro de que embarcó
+                  // con defecto — antes pasaba en silencio.
+                  ...(clipPorEscena.get(r.scene_number) === false ? { clip_defecto: true } : {}),
                 })
               : undefined,
           });
@@ -1370,6 +1374,16 @@ export async function POST(req: NextRequest) {
         } catch { /* never break on logging */ }
       }
 
+      // Resumen de jueces de esta tanda: cuántos clips quedaron marcados. El
+      // worker repide una vez; lo que siga roto en el SEGUNDO collect queda
+      // registrado acá y en el metadata del asset — fin del techo silencioso.
+      {
+        const clipsMal = [...clipPorEscena].filter(([, ok]) => !ok).map(([n]) => n);
+        const vocesMal = [...vozPorEscena].filter(([, ok]) => !ok).map(([n]) => n);
+        if (clipsMal.length || vocesMal.length) {
+          console.warn(`[jueces] tanda con marcas — animación rota: [${clipsMal.join(", ") || "ninguna"}], voz apartada: [${vocesMal.join(", ") || "ninguna"}] (el worker repide una vez; si reaparecen en el próximo collect, embarcaron así)`);
+        }
+      }
       const allDone = results.every((r) => r.status === "completed" || r.status === "failed");
       if (allDone) {
         const anySuccess = results.some((r) => r.status === "completed");

@@ -510,6 +510,23 @@ export async function POST(req: NextRequest) {
         const segundosMeta = parseInt(parsed.data.duration_target ?? "25", 10) || 25;
         const palabrasGuion = scenes.reduce((n, sc) => n + ((sc.narration_text ?? "").trim() ? (sc.narration_text ?? "").trim().split(/\s+/).length : 0), 0);
         const guionRalo = esDrama && scenes.length >= 3 && palabrasGuion < Math.round(segundosMeta * 1.6);
+        // 21) GUION DESBORDADO. La aritmética que ninguna ley de estilo puede
+        //     torcer: la voz corre a ~2.5 pal/s, así que 25s aguantan ~70
+        //     palabras. Un guion de 100 no cabe — el montaje lo paga en
+        //     segundos de más o en líneas atropelladas. Techo: 2.8 pal/s.
+        const guionDesbordado = !esEscenaFmt && scenes.length >= 3 && palabrasGuion > Math.round(segundosMeta * 2.8);
+        // 22) EL RELOJ DEL GIRO. La variable con más correlación medida con la
+        //     distribución (+0.84): el vuelco tiene que estar en pantalla entre
+        //     el segundo 4 y el 7. Determinista: la escena 1 estimada en
+        //     segundos hablados (chars / CHARS_PER_SECOND, piso 3s si es muda)
+        //     no puede pasar de 7.5s — si pasa, la escena 2 (el vuelco) llega
+        //     tarde y el espectador ya se fue.
+        const estimaSeg = (sc: EscenaMin) => {
+          const t = (sc.narration_text ?? "").trim();
+          return t ? Math.max(3, t.length / CHARS_PER_SECOND) : Math.max(3, 4);
+        };
+        const seg1 = scenes.length >= 3 ? estimaSeg(scenes[0]!) : 0;
+        const giroTarde = !esEscenaFmt && scenes.length >= 3 && seg1 > 7.5;
         // 18) FRASES DE TRÁILER. Medido: «esto no arregla nada», «¿cómo vamos a
         //     seguir?» ×2 — líneas que sirven para CUALQUIER pelea. Dos o más
         //     en un guion = melodrama genérico, se regenera.
@@ -534,7 +551,7 @@ export async function POST(req: NextRequest) {
         for (let a = 0; a < lineasNorm.length; a++) for (let b = 0; b < lineasNorm.length; b++) {
           if (a !== b && lineasNorm[b]!.t.includes(lineasNorm[a]!.t) && !lineasRepetidas.includes(lineasNorm[b]!.n)) lineasRepetidas.push(lineasNorm[b]!.n);
         }
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, cuerpoAjeno, sinActoComer, escenasComiendo, guionRalo, palabrasGuion, segundosMeta, trailerSpam, vocativoSpam, lineasRepetidas, total: (trailerSpam.length ? 1 : 0) + (vocativoSpam ? 1 : 0) + (lineasRepetidas.length ? 1 : 0) + (guionRalo ? 1 : 0) + (cuerpoAjeno.length ? 1 : 0) + (sinActoComer ? 1 : 0) + (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, cuerpoAjeno, sinActoComer, escenasComiendo, guionRalo, palabrasGuion, segundosMeta, trailerSpam, vocativoSpam, lineasRepetidas, guionDesbordado, giroTarde, seg1, total: (guionDesbordado ? 1 : 0) + (giroTarde ? 1 : 0) + (trailerSpam.length ? 1 : 0) + (vocativoSpam ? 1 : 0) + (lineasRepetidas.length ? 1 : 0) + (guionRalo ? 1 : 0) + (cuerpoAjeno.length ? 1 : 0) + (sinActoComer ? 1 : 0) + (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const esEscenaFmt = (parsed.data.format ?? "story") === "escena";
@@ -568,7 +585,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}], cuerpo ajeno: [${defectos.cuerpoAjeno.length ? "escenas " + defectos.cuerpoAjeno.join(", ") : "no"}], acto de comer no se ve: [${defectos.sinActoComer ? "sí" : "no"}], guion ralo: [${defectos.guionRalo ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}], frases de tráiler: [${defectos.trailerSpam.length ? "escenas " + defectos.trailerSpam.join(", ") : "no"}], vocativo en exceso: [${defectos.vocativoSpam ? "sí" : "no"}], línea repetida: [${defectos.lineasRepetidas.length ? "escenas " + defectos.lineasRepetidas.join(", ") : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}], cuerpo ajeno: [${defectos.cuerpoAjeno.length ? "escenas " + defectos.cuerpoAjeno.join(", ") : "no"}], acto de comer no se ve: [${defectos.sinActoComer ? "sí" : "no"}], guion ralo: [${defectos.guionRalo ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}], frases de tráiler: [${defectos.trailerSpam.length ? "escenas " + defectos.trailerSpam.join(", ") : "no"}], vocativo en exceso: [${defectos.vocativoSpam ? "sí" : "no"}], línea repetida: [${defectos.lineasRepetidas.length ? "escenas " + defectos.lineasRepetidas.join(", ") : "no"}], guion desbordado: [${defectos.guionDesbordado ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}], giro tarde: [${defectos.giroTarde ? `escena 1 ≈ ${defectos.seg1.toFixed(1)}s` : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -592,6 +609,12 @@ export async function POST(req: NextRequest) {
             : "") +
           (defectos.escenaHablada.length
             ? ` El formato es ESCENA (performance) y ${defectos.escenaHablada.length} escenas tienen diálogo. Reescribí el guion MUDO: narration_text = "" en todas (una sola línea corta permitida si la premisa la pide). Lo que hoy dicen las líneas se convierte en physical_action ejecutada: el baile con técnica real, la reacción física, la cámara. El sujeto de la premisa hace su acción en TODAS las escenas.`
+            : "") +
+          (defectos.guionDesbordado
+            ? ` El guion tiene ${defectos.palabrasGuion} palabras para ${defectos.segundosMeta} segundos y NO CABEN (la voz corre a ~2.5 palabras/segundo). Recortá a MÁXIMO ${Math.round(defectos.segundosMeta * 2.4)} palabras en total, asimétricas: el que ataca lleva la línea larga con el dato (10-18 palabras) y el otro contesta corto (2-8). Cortá líneas enteras, no palabras sueltas.`
+            : "") +
+          (defectos.giroTarde
+            ? ` La escena 1 dura ≈${defectos.seg1.toFixed(0)} segundos hablados — el VUELCO (escena 2) llega tarde. El giro tiene que estar en pantalla entre el segundo 4 y el 7: acortá la escena 1 a una sola línea de ≤6 segundos y mové el resto de su contenido después del vuelco o cortalo.`
             : "") +
           (defectos.trailerSpam.length
             ? ` Las escenas ${defectos.trailerSpam.join(", ")} usan FRASES DE TRÁILER («esto no arregla nada», «¿cómo vamos a seguir?») que sirven para cualquier pelea. Reescribí cada una con el reproche CONCRETO de ESTA casa: cifras, terceros con nombre, hechos que se echan en cara («son dos meses, doña Mary vino ayer», «te gastaste el aguinaldo en la moto»). Si la línea sirve para otra discusión, está mal.`

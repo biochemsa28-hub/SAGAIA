@@ -59,21 +59,23 @@ export async function revisarComoDirector(params: {
   const esConsejo = (params.format ?? "") === "consejo";
 
   // ── EL NIVEL ──────────────────────────────────────────────────────────────
-  // El estándar NO es una lista de reglas: es la vara de los videos que el
-  // dueño aprobó como "esto es lo que busco". El Director compara contra esa
-  // vara — como un director humano compara contra las mejores obras que vio —
-  // en vez de solo marcar defectos. Destilado de los 5 aprobados (la cena del
-  // veneno, la transformación de Osvaldo, el muñeco, la cantante, la confesión
-  // de los insectos):
+  // La vara NO es el gusto del dueño: es lo que comparten los videos con
+  // DISTRIBUCIÓN POSITIVA MEDIDA en Facebook a 48h (≥6s de tiempo promedio,
+  // ≥+0.3x de alcance): "ella cree que son dulces" (7s, +0.4x), "3 secretos
+  // para tu marido" (7s, +0.3x), "el veneno en su copa" (6s, +0.3x). Los
+  // videos que solo eran bellos (el muñeco: mejor gancho de todos, 4s y
+  // −0.2x) salieron de la vara — el Director estaba defendiendo un estándar
+  // perdedor. Se re-basa con datos nuevos del Genoma, no con aprobaciones.
   const EL_NIVEL =
-    "\nEL NIVEL (la vara — tus notas deben empujar el guion HACIA esto, no solo corregir errores):\n" +
-    "Los mejores videos de esta casa comparten un ADN: (1) UNA imagen de apertura que ya ES la historia — el veneno sirviéndose, el muñeco ya girado, el escarabajo en los labios; nunca preámbulo. " +
-    "(2) Un OBJETO-TERMÓMETRO que escala solo y sin comentario — la copa, las pantuflas movidas, el espejo que se agrieta: el estado de la historia se LEE en el objeto. " +
-    "(3) La emoción VERDADERA de cada personaje en su cara — la que goza goza, el que no sabe no sabe; el género vive en luz y sonido, jamás imposta las caras. " +
-    "(4) Escalada CORPORAL, no verbal: compuesta → la sonrisa que se ensancha → la carcajada → la calma peor; en cada plano el cuerpo dice más que la línea. " +
-    "(5) Un cierre que se queda en el espectador: la amenaza directa ('tú también vas a disfrutarlo'), la pregunta que obliga a elegir, el objeto nuevo que exige parte 2. " +
-    "(6) Economía total: ni una línea que explique lo que la imagen ya dijo, ni un plano que repita el anterior. " +
-    "Si este guion no está a esa vara, tu nota más importante es la que más lo acerque — aunque técnicamente no haya ningún error.\n";
+    "\nEL NIVEL (la vara — viene de los videos MEDIDOS con distribución positiva, no del gusto; tus notas deben empujar el guion HACIA esto):\n" +
+    "Los videos que el público de esta casa sostiene 6+ segundos comparten un ADN: (1) UNA imagen de apertura que ya ES la historia y pasa DENTRO de una casa reconocible — el veneno sirviéndose en la copa, los dulces espolvoreándose; nunca preámbulo. " +
+    "(2) Un ACTO DE CUIDADO COTIDIANO QUE ES AMENAZA (o una promesa útil y concreta): la que cocina para el que quiere, la que aconseja — lo doméstico torcido es lo que este público se queda a ver. " +
+    "(3) SOSTÉN: cada 4-6 segundos entra UN dato nuevo que reabre la pregunta — el espectador que llegó al segundo 5 tiene que tener un motivo NUEVO para llegar al 10, y el del 10 para llegar al 20. Un guion cuyo único imán es el gancho muere a los 4 segundos aunque el gancho sea perfecto (medido: el mejor gancho de la casa tuvo la peor distribución). " +
+    "(4) Un OBJETO-TERMÓMETRO de cocina o de casa que escala solo y sin comentario — la copa, la bandeja, el frasco: el estado de la historia se LEE en el objeto. " +
+    "(5) La emoción VERDADERA de cada personaje en su cara — la que goza goza, el que no sabe no sabe; el género vive en luz y sonido. " +
+    "(6) Un cierre que resuelve la pregunta central PERO deja un dato lateral colgando, más la pregunta que obliga a elegir bando. " +
+    "(7) Economía total: ni una línea que explique lo que la imagen ya dijo, ni un plano que repita el anterior. " +
+    "Si este guion no está a esa vara, tu nota más importante es la que más lo acerque — aunque técnicamente no haya ningún error. Y juzgá el SOSTÉN antes de leer la premisa: leé las escenas en orden y anotá en qué segundo te habrías ido.\n";
   const pedido =
     "Sos el DIRECTOR de un microdrama vertical (TikTok/Reels) de " + (params.durationTarget ?? "60s") + ". " +
     "Leé el guion ENTERO como pieza y juzgalo como lo juzgaría el espectador al verlo terminado. " +

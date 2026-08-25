@@ -47,7 +47,7 @@ export async function evaluarPremisa(params: {
     `FORMATO: ${params.format ?? "story"} · UNIVERSO: ${params.niche ?? "-"} · TONO: ${params.tone ?? "-"}\n\n` +
     "Puntuá 0-10 cada eje, con una nota de UNA frase concreta (qué tiene o qué le falta):\n" +
     "1. gancho: ¿la premisa misma detiene el scroll en 3 segundos, sin contexto?\n" +
-    "2. curiosidad: ¿abre una pregunta que NECESITA respuesta? (brecha entre lo que se sabe y lo que falta)\n" +
+    "2. curiosidad: no solo si abre una pregunta — ¿cuántos BUCLES SOSTIENE? Contá las preguntas abiertas que el espectador tendría en el segundo 5, en el 10 y en el 20: una premisa de un solo bucle (todo el imán está en el gancho) muere a los 4 segundos aunque el gancho sea perfecto — medido en esta casa: el video con mejor gancho tuvo la peor distribución. 9-10 = tres momentos con pregunta nueva; 5 = solo el gancho; 2 = ni eso.\n" +
     "3. conflicto: ¿hay fuerzas opuestas claras (expectativa vs realidad, poder vs débil)?\n" +
     "4. apuesta: ¿qué está en riesgo y cuánto pesa (dinero, amor, reputación, supervivencia)?\n" +
     "5. emocion: ¿provoca UNA emoción dominante clara (sorpresa, indignación, ternura, miedo, humor)?\n" +
