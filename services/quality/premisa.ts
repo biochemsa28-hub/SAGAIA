@@ -3,9 +3,11 @@
 // un centavo, no una producción. El Director revisa el guion ya escrito; esto
 // revisa la SEMILLA.
 //
-// 8 ejes (0-10): gancho, brecha de curiosidad, conflicto, apuesta (qué está en
-// riesgo), emoción dominante, vuelco, identificación ("podría pasarme a mí") y
-// debate (¿genera opinión dividida?). Devuelve además DOS reescrituras con la
+// 9 ejes (0-10), pero solo 4 puntúan — re-basado en rendimiento medido
+// (2026-08-25, 8 videos): SOSTÉN 40 (bucles que aguanta en seg 5/10/20; <6
+// reprueba con tapa en 59), gancho 20, vuelco 20, especificidad 20 (cifra o
+// nombre reenviable). Conflicto, apuesta, emoción, identificación y debate se
+// puntúan como diagnóstico sin peso. Devuelve además DOS reescrituras con la
 // fórmula maestra: PERSONA + DESEO + ANOMALÍA + CONSECUENCIA + SECRETO + REVERSAL.
 //
 // FASE 1: aconseja, nunca bloquea — sin retención real medida, un umbral sería
@@ -20,16 +22,21 @@ export interface EvaluacionPremisa {
   arquetipo?: string;            // qué tipo de premisa es (misterio_de_objeto, dilema_moral…)
 }
 
-// Pesos del Viral Addiction Score: el gancho y la curiosidad valen el doble que
-// el resto — son los primeros 3 segundos. Suman 100.
+// Pesos del Viral Addiction Score — RE-BASADOS EN RENDIMIENTO (2026-08-25):
+// sobre 8 videos publicados, el tiempo promedio de reproducción correlaciona
+// +0.84 con la distribución y el hook rate NO correlaciona (−0.27). El video
+// con mejor gancho de la casa (32.8%) tuvo la peor distribución (−0.2x). Por
+// eso el SOSTÉN pesa el doble que el gancho, y la especificidad compartible
+// (cifra/nombre en la primera línea) entra como eje. Los ejes con peso 0 se
+// siguen puntuando: son diagnóstico para las reescrituras, no nota.
 const PESOS: Record<string, number> = {
-  gancho: 20, curiosidad: 20, conflicto: 10, apuesta: 10,
-  emocion: 10, vuelco: 12, identificacion: 9, debate: 9,
+  sosten: 40, gancho: 20, vuelco: 20, especificidad: 20,
+  conflicto: 0, apuesta: 0, emocion: 0, identificacion: 0, debate: 0,
 };
 
 const ARQUETIPOS = "misterio_de_objeto, dilema_moral, investigacion, supervivencia, romance_prohibido, competencia, secreto_familiar, experimento_social, venganza, identidad_oculta, casa_o_lugar_extraño, desaparicion";
 
-const EJES = ["gancho", "curiosidad", "conflicto", "apuesta", "emocion", "vuelco", "identificacion", "debate"] as const;
+const EJES = ["gancho", "sosten", "especificidad", "conflicto", "apuesta", "emocion", "vuelco", "identificacion", "debate"] as const;
 
 export async function evaluarPremisa(params: {
   topic: string;
@@ -45,22 +52,23 @@ export async function evaluarPremisa(params: {
     "Sos un productor de contenido viral vertical (TikTok/Reels, videos de 30-60s). Evaluá esta PREMISA — no el guion — con ojo frío de productor que decide dónde poner dinero.\n\n" +
     `PREMISA: "${params.topic.trim().slice(0, 400)}"\n` +
     `FORMATO: ${params.format ?? "story"} · UNIVERSO: ${params.niche ?? "-"} · TONO: ${params.tone ?? "-"}\n\n` +
-    "Puntuá 0-10 cada eje, con una nota de UNA frase concreta (qué tiene o qué le falta):\n" +
-    "1. gancho: ¿la premisa misma detiene el scroll en 3 segundos, sin contexto?\n" +
-    "2. curiosidad: no solo si abre una pregunta — ¿cuántos BUCLES SOSTIENE? Contá las preguntas abiertas que el espectador tendría en el segundo 5, en el 10 y en el 20: una premisa de un solo bucle (todo el imán está en el gancho) muere a los 4 segundos aunque el gancho sea perfecto — medido en esta casa: el video con mejor gancho tuvo la peor distribución. 9-10 = tres momentos con pregunta nueva; 5 = solo el gancho; 2 = ni eso.\n" +
-    "3. conflicto: ¿hay fuerzas opuestas claras (expectativa vs realidad, poder vs débil)?\n" +
-    "4. apuesta: ¿qué está en riesgo y cuánto pesa (dinero, amor, reputación, supervivencia)?\n" +
-    "5. emocion: ¿provoca UNA emoción dominante clara (sorpresa, indignación, ternura, miedo, humor)?\n" +
-    "6. vuelco: ¿contiene un cambio de percepción (primero crees X, descubres Y)?\n" +
+    "Puntuá 0-10 cada eje, con una nota de UNA frase concreta (qué tiene o qué le falta). LOS PESOS REALES (medidos sobre videos publicados: el tiempo de reproducción correlaciona +0.84 con la distribución, el gancho NO correlaciona): sosten 40, gancho 20, vuelco 20, especificidad 20 — el resto es diagnóstico sin nota. Una premisa de gancho perfecto y un solo bucle ES una premisa reprobada:\n" +
+    "1. sosten (EL EJE QUE MÁS PESA): ¿cuántos BUCLES DE CURIOSIDAD aguanta en 25 segundos? Contá las preguntas abiertas que el espectador tendría en el segundo 5, en el 10 y en el 20: una premisa de un solo bucle (todo el imán está en el gancho) muere a los 4 segundos aunque el gancho sea perfecto — medido en esta casa: el video con mejor gancho tuvo la peor distribución. 9-10 = tres momentos con pregunta nueva; 5 = dos bucles; 3 = solo el gancho; menos de 6 REPRUEBA la premisa entera.\n" +
+    "2. gancho: ¿la premisa misma detiene el scroll en 3 segundos, sin contexto?\n" +
+    "3. vuelco: ¿contiene un cambio de percepción (primero crees X, descubres Y)?\n" +
+    "4. especificidad: ¿la premisa trae (o produce naturalmente) una CIFRA o un NOMBRE PROPIO reenviable en la primera línea ('son dos meses de renta', 'doña Mary vino a tocar')? Lo concreto es lo que la gente le manda a alguien; lo abstracto no se comparte.\n" +
+    "5. conflicto: ¿hay fuerzas opuestas claras (expectativa vs realidad, poder vs débil)?\n" +
+    "6. apuesta: ¿qué está en riesgo y cuánto pesa (dinero, amor, reputación, supervivencia)?\n" +
+    "7. emocion: ¿provoca UNA emoción dominante clara (sorpresa, indignación, ternura, miedo, humor)?\n" +
     (esEscena
-      ? "7. identificacion: ¿el espectador quiere SER o VER eso (satisfacción visual, destreza, morbo)?\n8. debate: ¿provoca compartir o comentar ('¿viste eso?')?\n"
-      : "7. identificacion: ¿el espectador piensa 'esto podría pasarme' o 'conozco a alguien así'?\n8. debate: ¿hay ambigüedad moral que divida opiniones en los comentarios?\n") +
-    "\nDespués escribí DOS reescrituras de ESTA premisa (no otra historia) que suban los ejes flojos, usando la fórmula PERSONA NORMAL + DESEO + CONTRADICCIÓN IMPOSIBLE + CONSECUENCIA + SECRETO + REVERSAL. La CONTRADICCIÓN IMPOSIBLE es el corazón: dos hechos verificables que no pueden ser verdad a la vez (el dueño lleva 17 años muerto / la foto de la caja es de hace 3 meses) — más fuerte que una simple anomalía. " +
+      ? "8. identificacion: ¿el espectador quiere SER o VER eso (satisfacción visual, destreza, morbo)?\n9. debate: ¿provoca compartir o comentar ('¿viste eso?')?\n"
+      : "8. identificacion: ¿el espectador piensa 'esto podría pasarme' o 'conozco a alguien así'?\n9. debate: ¿hay ambigüedad moral que divida opiniones en los comentarios?\n") +
+    "\nDespués escribí DOS reescrituras de ESTA premisa (no otra historia) que suban los ejes flojos — EL SOSTÉN PRIMERO: si la premisa tiene un solo bucle, la reescritura siembra el segundo y el tercero (el dato lateral que abre pregunta a los 10s, el objeto que reaparece a los 20s) — usando la fórmula PERSONA NORMAL + DESEO + CONTRADICCIÓN IMPOSIBLE + CONSECUENCIA + SECRETO + REVERSAL. La CONTRADICCIÓN IMPOSIBLE es el corazón: dos hechos verificables que no pueden ser verdad a la vez (el dueño lleva 17 años muerto / la foto de la caja es de hace 3 meses) — más fuerte que una simple anomalía. " +
     "Cada una en 1-2 frases, en español neutro, lista para pegar. La primera fiel a la premisa original; la segunda más agresiva para redes. " +
     (esEscena ? "El formato es ESCENA (performance sin diálogo): las reescrituras describen lo que SE VE, no una trama hablada. " : "") +
     "En 60 segundos cabe UN vuelco: no metas dos giros.\n" +
     `También clasificá la premisa en UN arquetipo: ${ARQUETIPOS}.\n` +
-    'Respondé SOLO este JSON: {"ejes": [{"eje": "gancho", "puntaje": N, "nota": "..."}, ...los 8...], "veredicto": "una frase honesta de productor", "arquetipo": "una_clave", "mejoras": ["...", "..."]}';
+    'Respondé SOLO este JSON: {"ejes": [{"eje": "sosten", "puntaje": N, "nota": "..."}, ...los 9...], "veredicto": "una frase honesta de productor", "arquetipo": "una_clave", "mejoras": ["...", "..."]}';
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -82,10 +90,18 @@ export async function evaluarPremisa(params: {
       .filter((e): e is EjePremisa => Boolean(e) && typeof (e as EjePremisa).eje === "string")
       .map((e) => ({ eje: String(e.eje).toLowerCase(), puntaje: Math.max(0, Math.min(10, Number(e.puntaje) || 0)), nota: String(e.nota ?? "").slice(0, 160) }))
       .filter((e) => (EJES as readonly string[]).includes(e.eje))
-      .slice(0, 8);
+      .slice(0, 9);
     if (ejes.length < 6) { console.warn("[premisa] respuesta incompleta — se ignora"); return null; }
     // Ponderado /100: cada eje 0-10 × su peso /10. Ejes ausentes no puntúan.
-    const total = Math.round(ejes.reduce((a, e) => a + e.puntaje * ((PESOS[e.eje] ?? 10) / 10), 0));
+    let total = Math.round(ejes.reduce((a, e) => a + e.puntaje * ((PESOS[e.eje] ?? 0) / 10), 0));
+    // REPROBACIÓN POR SOSTÉN: una premisa de un solo bucle produce un video de
+    // 4 segundos aunque el gancho sea perfecto (medido: el mejor gancho de la
+    // casa, −0.2x de distribución). Sostén < 6 tapa el total en 59 — reprobada.
+    const sosten = ejes.find((e) => e.eje === "sosten")?.puntaje;
+    if (typeof sosten === "number" && sosten < 6 && total > 59) {
+      console.log(`[premisa] sostén ${sosten}/10 < 6 — total ${total} tapado a 59 (un solo bucle no aguanta 25s)`);
+      total = 59;
+    }
     const mejoras = (Array.isArray(v.mejoras) ? v.mejoras : []).map((x) => String(x).slice(0, 420)).filter(Boolean).slice(0, 2);
     const out: EvaluacionPremisa = { total, ejes, veredicto: String(v.veredicto ?? "").slice(0, 200), mejoras, arquetipo: typeof (v as { arquetipo?: string }).arquetipo === "string" ? (v as { arquetipo?: string }).arquetipo : undefined };
     console.log(`[premisa] ${total}/100 · ${out.arquetipo ?? "?"} · ${out.veredicto}`);
