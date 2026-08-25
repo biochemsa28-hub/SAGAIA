@@ -45,6 +45,8 @@ export async function revisarComoDirector(params: {
   scenes: EscenaDirector[];
   mecanicas?: string[];
   curvaEmocional?: string;
+  /** El HUECO declarado por el guionista (ley 9): el dato lateral sin cerrar. */
+  hueco?: string;
   /** SET VIVO: los últimos videos del usuario que a las 48h midieron
    *  tiempo_promedio ≥ 6s y distribución ≥ +0.3x (del Genoma). La vara
    *  rotatoria — sube sola conforme el canal mejora, en vez de quedarse
@@ -104,6 +106,8 @@ export async function revisarComoDirector(params: {
     "4. CUERPOS: ¿el mismo gesto dura más de 2 escenas seguidas? ¿La acción física es coherente con la situación (al que acaban de pillar no le toca acariciar a la esposa)?\n" +
     "5. CUADRO Y VOZ: en cada escena, ¿quien habla es el sujeto del cuadro y los demás escuchan (boca cerrada)? ¿Alguna escena pone en primer plano al que NO habla?\n" +
     "6. LUGAR: ¿cambia de lugar sin necesidad?\n" +
+    "6d. LA PRUEBA DEL SORDO: mirá SOLO los cuadros y las acciones (image_prompt + physical_action) en orden, SIN leer las líneas. ¿Se entiende quién hizo qué a quién y dónde está el giro? El público de Facebook mira EN SILENCIO: si la trama vive solo en el audio, marcá las escenas donde la imagen no cuenta nada y pedí que la acción cargue el dato.\n" +
+    (params.hueco ? `7d. EL HUECO DECLARADO: el guion dice dejar colgando «${params.hueco.slice(0, 140)}». ¿Está de verdad SEMBRADO en al menos dos escenas (visible o mencionado) y NUNCA explicado? Si solo existe en la declaración, decí en qué escenas plantarlo; si alguna línea lo explica, marcala.\n` : "") +
     "6b. LA PRUEBA DEL CIEGO: leé SOLO las líneas habladas, en orden, sin mirar los cuadros. ¿Un oyente sin pantalla puede contar quién hizo qué a quién? Si las líneas viven de 'eso/esto/lo' sin nombrar la cosa (la carta, el beso, el nombre), o si son puras reacciones sin datos, el guion está hueco — pedí que cada línea nombre su objeto y aporte un dato nuevo. Esta nota pesa más que cualquier otra de estilo.\n" +
     "6c. MANOS: ¿en cada escena el que habla HACE algo con un objeto, o los personajes están parados posando (brazos cruzados, mirando)? Tres o más escenas de gente de pie sin manipular nada = catálogo de modelos, no drama. Pedí la acción de manos concreta por escena.\n" +
     (params.curvaEmocional ? `7c. CURVA DECLARADA: el guion promete "${params.curvaEmocional}". ¿Las escenas la CUMPLEN acto por acto? ¿Hay tensión-liberación-tensión o es una meseta?\n` : "") +

@@ -389,7 +389,7 @@ export async function POST(req: NextRequest) {
         const i = scenes.findIndex((s) => s.is_peak);
         return i >= 0 && scenes.length >= 4 && i === scenes.length - 1;
       };
-      const defectosDe = (scenes: EscenaMin[]) => {
+      const defectosDe = (scenes: EscenaMin[], notas?: { hueco?: string }) => {
         const largas = scenes
           .filter((s) => (s.narration_text ?? "").trim().length > TECHO_ESCENA)
           .map((s) => `${s.scene_number} (${(s.narration_text ?? "").trim().length} car.)`);
@@ -510,6 +510,13 @@ export async function POST(req: NextRequest) {
         const segundosMeta = parseInt(parsed.data.duration_target ?? "25", 10) || 25;
         const palabrasGuion = scenes.reduce((n, sc) => n + ((sc.narration_text ?? "").trim() ? (sc.narration_text ?? "").trim().split(/\s+/).length : 0), 0);
         const guionRalo = esDrama && scenes.length >= 3 && palabrasGuion < Math.round(segundosMeta * 1.6);
+        // 23) SIN HUECO DECLARADO. 8 reels publicados, 0 comentarios: los
+        //     cierres resolvían todo perfecto y no dejaban nada que preguntar.
+        //     La ley 9 pide un dato lateral sin cerrar; esta guardia exige que
+        //     el guionista lo DECLARE (production_notes.hueco) — el Director
+        //     después verifica que esté sembrado de verdad en las escenas.
+        const huecoDeclarado = ((notas as { hueco?: string } | undefined)?.hueco ?? "").trim();
+        const sinHueco = scenes.length >= 3 && huecoDeclarado.length < 10;
         // 21) GUION DESBORDADO. La aritmética que ninguna ley de estilo puede
         //     torcer: la voz corre a ~2.5 pal/s, así que 25s aguantan ~70
         //     palabras. Un guion de 100 no cabe — el montaje lo paga en
@@ -551,7 +558,7 @@ export async function POST(req: NextRequest) {
         for (let a = 0; a < lineasNorm.length; a++) for (let b = 0; b < lineasNorm.length; b++) {
           if (a !== b && lineasNorm[b]!.t.includes(lineasNorm[a]!.t) && !lineasRepetidas.includes(lineasNorm[b]!.n)) lineasRepetidas.push(lineasNorm[b]!.n);
         }
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, cuerpoAjeno, sinActoComer, escenasComiendo, guionRalo, palabrasGuion, segundosMeta, trailerSpam, vocativoSpam, lineasRepetidas, guionDesbordado, giroTarde, seg1, total: (guionDesbordado ? 1 : 0) + (giroTarde ? 1 : 0) + (trailerSpam.length ? 1 : 0) + (vocativoSpam ? 1 : 0) + (lineasRepetidas.length ? 1 : 0) + (guionRalo ? 1 : 0) + (cuerpoAjeno.length ? 1 : 0) + (sinActoComer ? 1 : 0) + (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, cuerpoAjeno, sinActoComer, escenasComiendo, guionRalo, palabrasGuion, segundosMeta, trailerSpam, vocativoSpam, lineasRepetidas, guionDesbordado, giroTarde, seg1, sinHueco, huecoDeclarado, total: (sinHueco ? 1 : 0) + (guionDesbordado ? 1 : 0) + (giroTarde ? 1 : 0) + (trailerSpam.length ? 1 : 0) + (vocativoSpam ? 1 : 0) + (lineasRepetidas.length ? 1 : 0) + (guionRalo ? 1 : 0) + (cuerpoAjeno.length ? 1 : 0) + (sinActoComer ? 1 : 0) + (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const esEscenaFmt = (parsed.data.format ?? "story") === "escena";
@@ -564,7 +571,7 @@ export async function POST(req: NextRequest) {
       const TERNURA = /kiss|lips (meet|touch|brush)|cup(s|ping)? (her|his) (face|jaw|cheek|chin)|caress|strok(es|ing)|embrace|hug|holds? (her|his) (face|cheek|hand)|foreheads? (touch|press|rest)|wipes? (her|his) tear|touch(es|ing)? (her|his) (face|cheek|jaw|chin|hair|lips)|(hand|palm|fingers?|thumb) (on|to|against|reach(es|ing)? (for )?|brush(es|ing)? |cradlw+ |restw+ on )(her|his) (face|cheek|jaw|chin|hair|lips|neck)|tilts? (her|his) (chin|face)|pulls? (her|him) (close|closer|in|to him|to her|into)|leans? in (to|toward)/i;
       const RUPTURA = /slap|shove|push|pull(s|ing)? (away|back|free)|step(s)? back|rips?|throws?|slams?|storms? out|turns? away|recoils?|flinch|swats?|knocks? (his|her) hand|jerks? (away|back)/i;
       const MARCA_CONSEJO = /(primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|consejo|paso|regla|señal|secreto|truco|clave|h[aá]bito|error)/i;
-      const defectos = defectosDe((result.data?.scenes ?? []) as EscenaMin[]);
+      const defectos = defectosDe((result.data?.scenes ?? []) as EscenaMin[], (result.data as { production_notes?: { hueco?: string } })?.production_notes);
       // ── EL DIRECTOR lee el primer borrador entero ─────────────────────────
       // Ritmo, dramaturgia y promesa visual: lo que las regex no ven. Sus notas
       // entran en la MISMA regeneración que las guardias (una sola pasada extra).
@@ -598,6 +605,7 @@ export async function POST(req: NextRequest) {
         cast: (parsed.data.cast ?? []).map((c) => c.name).filter((n): n is string => Boolean(n)),
         scenes: (result.data?.scenes ?? []) as Parameters<typeof revisarComoDirector>[0]["scenes"],
         mecanicas: (result.data as { production_notes?: { mecanicas?: string[] } }).production_notes?.mecanicas,
+        hueco: (result.data as { production_notes?: { hueco?: string } }).production_notes?.hueco,
         curvaEmocional: (result.data as { production_notes?: { curva_emocional?: string } }).production_notes?.curva_emocional,
       });
       const notasDirector = notasComoCorreccion(director);
@@ -606,7 +614,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}], cuerpo ajeno: [${defectos.cuerpoAjeno.length ? "escenas " + defectos.cuerpoAjeno.join(", ") : "no"}], acto de comer no se ve: [${defectos.sinActoComer ? "sí" : "no"}], guion ralo: [${defectos.guionRalo ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}], frases de tráiler: [${defectos.trailerSpam.length ? "escenas " + defectos.trailerSpam.join(", ") : "no"}], vocativo en exceso: [${defectos.vocativoSpam ? "sí" : "no"}], línea repetida: [${defectos.lineasRepetidas.length ? "escenas " + defectos.lineasRepetidas.join(", ") : "no"}], guion desbordado: [${defectos.guionDesbordado ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}], giro tarde: [${defectos.giroTarde ? `escena 1 ≈ ${defectos.seg1.toFixed(1)}s` : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}], cuerpo ajeno: [${defectos.cuerpoAjeno.length ? "escenas " + defectos.cuerpoAjeno.join(", ") : "no"}], acto de comer no se ve: [${defectos.sinActoComer ? "sí" : "no"}], guion ralo: [${defectos.guionRalo ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}], frases de tráiler: [${defectos.trailerSpam.length ? "escenas " + defectos.trailerSpam.join(", ") : "no"}], vocativo en exceso: [${defectos.vocativoSpam ? "sí" : "no"}], línea repetida: [${defectos.lineasRepetidas.length ? "escenas " + defectos.lineasRepetidas.join(", ") : "no"}], guion desbordado: [${defectos.guionDesbordado ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}], giro tarde: [${defectos.giroTarde ? `escena 1 ≈ ${defectos.seg1.toFixed(1)}s` : "no"}], sin hueco: [${defectos.sinHueco ? "sí" : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -630,6 +638,9 @@ export async function POST(req: NextRequest) {
             : "") +
           (defectos.escenaHablada.length
             ? ` El formato es ESCENA (performance) y ${defectos.escenaHablada.length} escenas tienen diálogo. Reescribí el guion MUDO: narration_text = "" en todas (una sola línea corta permitida si la premisa la pide). Lo que hoy dicen las líneas se convierte en physical_action ejecutada: el baile con técnica real, la reacción física, la cámara. El sujeto de la premisa hace su acción en TODAS las escenas.`
+            : "") +
+          (defectos.sinHueco
+            ? ` El guion NO declara su HUECO (ley 9). Elegí UN dato lateral concreto que quede sin cerrar — el sobre que nunca se abre, quién tocó la puerta, la segunda nuez — sembralo en al menos dos escenas sin explicarlo jamás, y declaralo en production_notes.hueco con la frase "qué dato y en qué escenas vive".`
             : "") +
           (defectos.guionDesbordado
             ? ` El guion tiene ${defectos.palabrasGuion} palabras para ${defectos.segundosMeta} segundos y NO CABEN (la voz corre a ~2.5 palabras/segundo). Recortá a MÁXIMO ${Math.round(defectos.segundosMeta * 2.4)} palabras en total, asimétricas: el que ataca lleva la línea larga con el dato (10-18 palabras) y el otro contesta corto (2-8). Cortá líneas enteras, no palabras sueltas.`
@@ -688,7 +699,7 @@ export async function POST(req: NextRequest) {
           animation_tier: animationTier,
         });
         if (reintentoEscenas.success && reintentoEscenas.data?.scenes?.length) {
-          const despues = defectosDe(reintentoEscenas.data.scenes as EscenaMin[]);
+          const despues = defectosDe(reintentoEscenas.data.scenes as EscenaMin[], (reintentoEscenas.data as { production_notes?: { hueco?: string } })?.production_notes);
           // Con notas del director el reintento se acepta si no EMPEORA en
           // defectos de forma (la mejora de ritmo no se mide con regex).
           if (despues.total < defectos.total || (notasDirector && despues.total <= defectos.total)) {

@@ -226,6 +226,10 @@ export const ProductionNotesSchema = z.object({
   mecanicas: z.array(z.string()).max(4).optional(),
   // La onda emocional declarada (4 tramos, uno por acto). El Director la audita.
   curva_emocional: z.string().max(120).optional(),
+  // EL HUECO declarado (ley 9): el dato lateral que queda SIN cerrar — lo que
+  // hace que alguien pregunte en comentarios. La guardia exige que exista;
+  // el Director verifica que esté sembrado en las escenas.
+  hueco: z.string().max(200).optional(),
 });
 
 export const StoryOutputSchema = z.object({
