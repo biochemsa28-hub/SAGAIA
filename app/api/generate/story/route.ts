@@ -510,7 +510,31 @@ export async function POST(req: NextRequest) {
         const segundosMeta = parseInt(parsed.data.duration_target ?? "25", 10) || 25;
         const palabrasGuion = scenes.reduce((n, sc) => n + ((sc.narration_text ?? "").trim() ? (sc.narration_text ?? "").trim().split(/\s+/).length : 0), 0);
         const guionRalo = esDrama && scenes.length >= 3 && palabrasGuion < Math.round(segundosMeta * 1.6);
-        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, cuerpoAjeno, sinActoComer, escenasComiendo, guionRalo, palabrasGuion, segundosMeta, total: (guionRalo ? 1 : 0) + (cuerpoAjeno.length ? 1 : 0) + (sinActoComer ? 1 : 0) + (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
+        // 18) FRASES DE TRÁILER. Medido: «esto no arregla nada», «¿cómo vamos a
+        //     seguir?» ×2 — líneas que sirven para CUALQUIER pelea. Dos o más
+        //     en un guion = melodrama genérico, se regenera.
+        const TRAILER = /\b((esto|eso) no (arregla|cambia|soluciona|resuelve)|c[oó]mo vamos a (seguir|continuar)|no puedo m[aá]s\b|ya no (s[eé] qui[eé]n eres|te reconozco)|esto (se acab[oó]|no puede seguir)|no me des (eso|esto)\b)/i;
+        const frasesTrailer = scenes.filter((sc) => TRAILER.test(sc.narration_text ?? "")).map((sc) => sc.scene_number ?? 0);
+        const trailerSpam = frasesTrailer.length >= 2 ? frasesTrailer : [];
+        // 19) VOCATIVO EN CADA LÍNEA. Medido: Agustín/Renata en casi todas las
+        //     líneas — nadie repite tu nombre seis veces en 27 segundos. Más de
+        //     la mitad de las líneas habladas con nombre del elenco = spam.
+        const nombresCast = (parsed.data.cast ?? []).map((c) => (c.name ?? "").trim().split(/\s+/)[0]).filter((n) => n && n.length >= 3);
+        const habladasTodas = scenes.filter((sc) => (sc.narration_text ?? "").trim().length > 0);
+        const conVocativo = nombresCast.length
+          ? habladasTodas.filter((sc) => nombresCast.some((n) => new RegExp(`\\b${n}\\b`, "i").test(sc.narration_text ?? ""))).length
+          : 0;
+        const vocativoSpam = habladasTodas.length >= 4 && conVocativo > habladasTodas.length * 0.5;
+        // 20) LÍNEA REPETIDA CON VARIACIÓN. «¿Cómo vamos a seguir viviendo?» y
+        //     luego «¿Cómo vamos a seguir?» — la misma línea recortada. Si una
+        //     línea normalizada contiene a otra (ambas largas), es repetición.
+        const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zñ ]/g, "").replace(/\s+/g, " ").trim();
+        const lineasNorm = habladasTodas.map((sc) => ({ n: sc.scene_number ?? 0, t: norm(sc.narration_text ?? "") })).filter((x) => x.t.length >= 12);
+        const lineasRepetidas: number[] = [];
+        for (let a = 0; a < lineasNorm.length; a++) for (let b = 0; b < lineasNorm.length; b++) {
+          if (a !== b && lineasNorm[b]!.t.includes(lineasNorm[a]!.t) && !lineasRepetidas.includes(lineasNorm[b]!.n)) lineasRepetidas.push(lineasNorm[b]!.n);
+        }
+        return { largas, duplicadas, temprano, sinActo4, sinConsejo, besoIndebido, retenido, cruzados, muchosLugares, sinLoQueVe, apodos, picoTierno, escenaHablada, demasiadaReaccion, cuerpoAjeno, sinActoComer, escenasComiendo, guionRalo, palabrasGuion, segundosMeta, trailerSpam, vocativoSpam, lineasRepetidas, total: (trailerSpam.length ? 1 : 0) + (vocativoSpam ? 1 : 0) + (lineasRepetidas.length ? 1 : 0) + (guionRalo ? 1 : 0) + (cuerpoAjeno.length ? 1 : 0) + (sinActoComer ? 1 : 0) + (demasiadaReaccion.length ? 1 : 0) + (escenaHablada.length ? 1 : 0) + largas.length + duplicadas.length + (temprano ? 1 : 0) + (sinActo4 ? 1 : 0) + (sinConsejo ? 1 : 0) + besoIndebido.length + retenido.length + cruzados.length + (muchosLugares.length ? 1 : 0) + (sinLoQueVe ? 1 : 0) + apodos.length + picoTierno.length };
       };
       const esConsejo = esPremisaDeConsejo({ topic: parsed.data.topic, format: parsed.data.format ?? "story" });
       const esEscenaFmt = (parsed.data.format ?? "story") === "escena";
@@ -544,7 +568,7 @@ export async function POST(req: NextRequest) {
           `[escenas] guion con ${defectos.total} defecto(s) — parlamentos largos: [${defectos.largas.join(", ") || "ninguno"}], ` +
           `image_prompt casi duplicados: [${defectos.duplicadas.join(", ") || "ninguno"}], ` +
           `pico temprano: [${defectos.temprano ? `escena ${defectos.temprano.escena} de ${defectos.temprano.total} (${defectos.temprano.pct}%)` : "no"}], ` +
-          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}], cuerpo ajeno: [${defectos.cuerpoAjeno.length ? "escenas " + defectos.cuerpoAjeno.join(", ") : "no"}], acto de comer no se ve: [${defectos.sinActoComer ? "sí" : "no"}], guion ralo: [${defectos.guionRalo ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}] — regenerando una vez`,
+          `consejo sin consejos: [${defectos.sinConsejo ? "sí" : "no"}], sin acto 4: [${defectos.sinActo4 ? "sí" : "no"}], nombre cruzado: [${defectos.cruzados.length ? "escenas " + defectos.cruzados.join(", ") : "no"}], consejo retenido: [${defectos.retenido.length ? "escenas " + defectos.retenido.join(", ") : "no"}], beso en consejo de ruptura: [${defectos.besoIndebido.length ? "escenas " + defectos.besoIndebido.join(", ") : "no"}], lugares: [${defectos.muchosLugares.length ? defectos.muchosLugares.join(" / ") : "ok"}], lo que ve no se ve: [${defectos.sinLoQueVe ? "sí" : "no"}], apodos: [${defectos.apodos.join(", ") || "no"}], ternura del infiel: [${defectos.picoTierno.length ? "escenas " + defectos.picoTierno.join(", ") : "no"}], escena hablada: [${defectos.escenaHablada.length ? defectos.escenaHablada.length + " líneas" : "no"}], reacción de más: [${defectos.demasiadaReaccion.length ? "escenas " + defectos.demasiadaReaccion.join(", ") : "no"}], cuerpo ajeno: [${defectos.cuerpoAjeno.length ? "escenas " + defectos.cuerpoAjeno.join(", ") : "no"}], acto de comer no se ve: [${defectos.sinActoComer ? "sí" : "no"}], guion ralo: [${defectos.guionRalo ? `${defectos.palabrasGuion} palabras para ${defectos.segundosMeta}s` : "no"}], frases de tráiler: [${defectos.trailerSpam.length ? "escenas " + defectos.trailerSpam.join(", ") : "no"}], vocativo en exceso: [${defectos.vocativoSpam ? "sí" : "no"}], línea repetida: [${defectos.lineasRepetidas.length ? "escenas " + defectos.lineasRepetidas.join(", ") : "no"}] — regenerando una vez`,
         );
         const correcciones =
           "\n[CORRECCIÓN DE ESCENAS] Reescribí el guion COMPLETO corrigiendo esto:" +
@@ -568,6 +592,15 @@ export async function POST(req: NextRequest) {
             : "") +
           (defectos.escenaHablada.length
             ? ` El formato es ESCENA (performance) y ${defectos.escenaHablada.length} escenas tienen diálogo. Reescribí el guion MUDO: narration_text = "" en todas (una sola línea corta permitida si la premisa la pide). Lo que hoy dicen las líneas se convierte en physical_action ejecutada: el baile con técnica real, la reacción física, la cámara. El sujeto de la premisa hace su acción en TODAS las escenas.`
+            : "") +
+          (defectos.trailerSpam.length
+            ? ` Las escenas ${defectos.trailerSpam.join(", ")} usan FRASES DE TRÁILER («esto no arregla nada», «¿cómo vamos a seguir?») que sirven para cualquier pelea. Reescribí cada una con el reproche CONCRETO de ESTA casa: cifras, terceros con nombre, hechos que se echan en cara («son dos meses, doña Mary vino ayer», «te gastaste el aguinaldo en la moto»). Si la línea sirve para otra discusión, está mal.`
+            : "") +
+          (defectos.vocativoSpam
+            ? ` Más de la mitad de las líneas repiten el nombre del otro personaje. La gente real no dice tu nombre en cada frase: dejá el vocativo en UNA de cada tres líneas como máximo y quitá el resto.`
+            : "") +
+          (defectos.lineasRepetidas.length
+            ? ` Las escenas ${defectos.lineasRepetidas.join(", ")} repiten una línea ya dicha (igual o recortada). Cada línea se dice UNA vez; reemplazá la repetición por un dato nuevo de la discusión.`
             : "") +
           (defectos.guionRalo
             ? ` El guion tiene solo ${defectos.palabrasGuion} palabras para ${defectos.segundosMeta} segundos de drama hablado — el espectador siente que "no dice nada". Reescribí con TODAS las escenas habladas (máximo UNA muda), líneas de 8 a 18 palabras que nombren la cosa y la persona (nada de "eso/esto"), y en réplica: lo que uno dice, el otro lo contesta o lo revienta en la escena siguiente. Mínimo ${Math.round(defectos.segundosMeta * 1.8)} palabras en total.`
