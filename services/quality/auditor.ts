@@ -70,6 +70,10 @@ export type AuditoriaVideo = {
   volumenMedioDb: number | null;
   silencios: Array<{ desde: number; dura: number }>;
   avisos: string[];
+  // Lo que antes se medía a mano con Whisper sobre el mp4 final: cuándo entra
+  // la primera palabra, cuánto aire muerto hay entre réplicas y la densidad.
+  // Sale gratis de los wordTimings que ya viajan con cada escena.
+  dialogo?: { primeraPalabra: number; palabras: number; palPorSeg: number; aireInternoSeg: number; huecos: number };
 };
 
 // La serie de movimiento: para cada cuadro, cuánto cambió respecto del anterior.

@@ -25,7 +25,7 @@ const CLIP = (process.env.CLIP_GATE ?? "on").toLowerCase();
 
 export interface VeredictoClip {
   ok: boolean;
-  defecto?: "anatomia" | "objeto_fantasma" | "morph" | "figura_extra" | "otro";
+  defecto?: "anatomia" | "objeto_fantasma" | "morph" | "figura_extra" | "collage" | "otro";
   motivo?: string;
 }
 
@@ -55,6 +55,7 @@ export async function revisarClip(url: string, escena: string): Promise<Veredict
       "- objeto_fantasma: las manos sostienen, pellizcan o llevan a la boca NADA — el objeto que la escena describe desapareció entre un cuadro y otro, o flota sin que nadie lo toque.\n" +
       "- morph: la persona se convierte en OTRA entre los cuadros (cara distinta, pelo distinto) sin que la escena lo pida.\n" +
       "- figura_extra: aparece una persona o silueta que la escena no describe.\n" +
+      "- collage: cualquier cuadro muestra paneles, viñetas o una CUADRÍCULA de varias imágenes lado a lado (la grilla del storyboard). Medido: el video final abrió con una grilla de 4 paneles durante 2 segundos.\n" +
       "El estilo oscuro, el desenfoque de movimiento normal y la emoción intensa NO son defectos. " +
       "Criterio: ante la duda, APROBÁ — un falso defecto cuesta un clip pago entero.\n" +
       'Respondé SOLO este JSON: {"ok": true|false, "defecto": "anatomia|objeto_fantasma|morph|figura_extra|otro", "motivo": "una frase"}';

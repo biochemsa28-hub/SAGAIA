@@ -1096,6 +1096,9 @@ export async function assembleWithFfmpeg(params: {
     const boundaries: number[] = [];   // absolute start time of each scene (for SFX)
     const duraciones: number[] = [];
     const cambioDeLugar: boolean[] = [];
+    // Qué escena produjo cada clip: si una falla, clips y boundaries quedan más
+    // cortos que params.scenes y el índice directo mentiría (auditoría de diálogo).
+    const escenaDeClip: number[] = [];
     let elapsed = 0;
     const last = params.scenes.length - 1;
     for (let i = 0; i < params.scenes.length; i++) {
@@ -1110,6 +1113,7 @@ export async function assembleWithFfmpeg(params: {
       if (c) {
         clips.push(c);
         boundaries.push(elapsed);
+        escenaDeClip.push(i);
         const d = await probeDuration(c);
         duraciones.push(d);
         cambioDeLugar.push(Boolean(params.scenes[i]!.newLocation));
@@ -1541,6 +1545,35 @@ export async function assembleWithFfmpeg(params: {
     // videos terminados —planos eternos, congelados, volumen flojo— sale de
     // estos números, así que a partir de ahora se anuncian solos en el log.
     const audit = await auditarVideo(finalOut);
+    // ── AUDITORÍA DE DIÁLOGO ─────────────────────────────────────────────────
+    // Los números que hasta hoy se sacaban a mano con Whisper sobre el final
+    // (primera palabra en 7.1s, 12.4s de aire entre réplicas — dos videos
+    // muertos medidos) salen GRATIS de los wordTimings que ya viajan con cada
+    // escena, puestos sobre la línea de tiempo final (boundaries ya refleja
+    // los empalmes). Se anuncian solos en el log y viajan en el metadata.
+    try {
+      const abs: Array<{ start: number; end: number }> = [];
+      for (let k = 0; k < escenaDeClip.length; k++) {
+        const sc = params.scenes[escenaDeClip[k]!];
+        for (const w of sc?.wordTimings ?? []) abs.push({ start: boundaries[k]! + w.start, end: boundaries[k]! + w.end });
+      }
+      abs.sort((a, b) => a.start - b.start);
+      if (abs.length >= 5 && audit) {
+        const primera = abs[0]!.start;
+        let aire = 0, huecos = 0;
+        for (let k = 1; k < abs.length; k++) {
+          const g = abs[k]!.start - abs[k - 1]!.end;
+          if (g > 1.2) { aire += g; huecos++; }
+        }
+        const palPorSeg = abs.length / Math.max(1, audit.segundos);
+        audit.dialogo = { primeraPalabra: +primera.toFixed(1), palabras: abs.length, palPorSeg: +palPorSeg.toFixed(2), aireInternoSeg: +aire.toFixed(1), huecos };
+        if (primera > 2.5) audit.avisos.push(`la primera palabra llega a los ${primera.toFixed(1)}s — arranque mudo (la retención se decide antes del segundo 5)`);
+        if (aire > audit.segundos * 0.15) audit.avisos.push(`${aire.toFixed(1)}s de aire muerto entre réplicas repartidos en ${huecos} hueco(s) — el diálogo no fluye`);
+        console.log(`[audit diálogo] primera palabra ${primera.toFixed(1)}s · ${abs.length} palabras (${palPorSeg.toFixed(2)}/s) · ${huecos} hueco(s) >1.2s = ${aire.toFixed(1)}s de aire`);
+      }
+    } catch (e) {
+      console.warn("[audit diálogo] omitida:", e instanceof Error ? e.message.slice(0, 120) : e);
+    }
 
     // Salida local para PROBAR el ensamblador sin subir nada: con
     // ASSEMBLE_LOCAL_OUT=<ruta.mp4> el archivo se copia ahí y se devuelve como
