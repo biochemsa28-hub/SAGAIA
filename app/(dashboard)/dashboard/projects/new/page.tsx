@@ -251,6 +251,7 @@ const HOOK_META: Record<string, { icon: string; color: string; bg: string; borde
   contradiction:     { icon: "🧩", color: "text-fuchsia-300", bg: "bg-fuchsia-950/50", border: "border-fuchsia-700/50" },
   incomplete_action: { icon: "⏸️", color: "text-amber-300",   bg: "bg-amber-950/50",   border: "border-amber-700/50" },
   strange_object:    { icon: "🗝️", color: "text-violet-300",  bg: "bg-violet-950/50",  border: "border-violet-700/50" },
+  identification:    { icon: "🫵", color: "text-emerald-300", bg: "bg-emerald-950/50", border: "border-emerald-700/50" },
 };
 
 interface FormState {

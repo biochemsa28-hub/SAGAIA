@@ -44,8 +44,8 @@ leyendo un anuncio en lugar de viviendo una escena.
 ✅ "Tomás. Tomás, despertate. Hay alguien en el cuarto de la nena."
    → un personaje, hablándole a otro, dentro del momento
 
-SEIS ÁNGULOS (uno por hook, los seis SIEMPRE en forma de diálogo hablado —
-tipos psicológicos DISTINTOS, no seis variantes del mismo):
+SIETE ÁNGULOS (uno por hook, SIEMPRE en forma de diálogo hablado —
+tipos psicológicos DISTINTOS, no siete variantes del mismo):
 1. EN CRISIS: la línea arranca con la situación ya ocurriendo. El personaje
    reacciona a algo que el espectador todavía no vio.
 2. A OTRO PERSONAJE: le habla a alguien —lo nombra, lo interpela, le reclama—
@@ -58,6 +58,12 @@ tipos psicológicos DISTINTOS, no seis variantes del mismo):
    la línea lo congela ahí ("no cuelgues… si cuelgo, no sé qué hace").
 6. OBJETO EXTRAÑO: la línea gira sobre un objeto concreto que no debería
    existir/estar ahí ("¿por qué hay un cuchillo en la cuna, Tomás?").
+7. IDENTIFICACIÓN: el personaje le habla AL ESPECTADOR acusándolo con humor o
+   complicidad de conocer (o ser) alguien así — la única excepción a la regla
+   de no hablarle al espectador, porque es la que hace ETIQUETAR a un amigo
+   ("seguro conoces una suegra así… y si dices que no, a lo mejor la suegra
+   eres tú"). Medido en una página de 416 mil seguidores: es su gancho fijo.
+   Siempre en dos tiempos: "conoces a uno" + "o a lo mejor eres tú".
 
 REGLAS:
 - Máximo 20 palabras
@@ -131,6 +137,13 @@ Genera EXACTAMENTE este JSON (sin texto adicional):
       "type_label": "${input.format === "escena" ? "El objeto que no va" : "Objeto extraño"}",
       "text": "la línea que gira sobre un objeto concreto que no debería estar ahí (máx 20 palabras)",
       "why": "por qué esta línea detiene el scroll (1 frase)"
+    },
+    {
+      "id": "identification",
+      "type": "identification",
+      "type_label": "${input.format === "escena" ? "Te va a sonar" : "Seguro conoces una"}",
+      "text": "el personaje acusa al espectador con complicidad: conoces a alguien así… o eres tú (máx 20 palabras)",
+      "why": "por qué esta línea hace etiquetar a un amigo (1 frase)"
     }
   ]
 }`;

@@ -15,7 +15,7 @@
 // positivo cuesta una imagen; un falso negativo cuesta un clip.
 export interface VeredictoCuadro {
   ok: boolean;
-  defecto?: "doble_exposicion" | "figura_extra" | "duplicado" | "anatomia" | "collage" | "texto" | "otro";
+  defecto?: "doble_exposicion" | "figura_extra" | "duplicado" | "anatomia" | "collage" | "texto" | "utileria" | "otro";
   motivo?: string;
 }
 
@@ -50,6 +50,7 @@ export async function revisarCuadro(url: string, escena: string): Promise<Veredi
     "- anatomia: brazos, manos o piernas DE MÁS (tres o cuatro brazos, una mano que no es de nadie), dedos fundidos o deformes, caras o cuerpos deformados. Medido: una mujer sentada en la cama con cuatro brazos.\n" +
     "- collage: paneles, viñetas, cuadrícula o varias vistas lado a lado.\n" +
     "- texto: letras, palabras o logos legibles.\n" +
+    "- utileria: un objeto de utilería que la escena NO describe pegado o flotando junto a la cara o el cuerpo — un micrófono de diadema o de solapa, un auricular, un cable. Medido: la actriz salió con un micrófono flotante pegado a los labios porque el guion decía 'confiesa a cámara'.\n" +
     "Estilo, calidad, ángulo, expresión, ropa, luz u objetos distintos NO cuentan. Una escena de terror con la amenaza parcial (una mano, una sombra fuera de foco) que la escena SÍ describe está bien. Ante la duda respondé ok=true.\n" +
     'Respondé SOLO este JSON: {"ok": true|false, "defecto": "doble_exposicion|figura_extra|duplicado|anatomia|collage|texto|otro", "motivo": "una frase"}';
 
@@ -92,5 +93,6 @@ export function ordenDeCuadroLimpio(defecto?: VeredictoCuadro["defecto"]): strin
   if (defecto === "doble_exposicion") return base + " If the scene asks for a close-up, frame the close-up ONLY — do not layer it over a wide shot.";
   if (defecto === "duplicado") return base + " Each person appears EXACTLY ONCE in the frame: if someone is seen from behind in the foreground, they are NOT also standing in the background.";
   if (defecto === "anatomia") return base + " Correct anatomy: each person has exactly two arms, two hands with five fingers, two legs; no stray limbs; if someone is seen from behind in the foreground, show only their shoulder and head, not their arms.";
+  if (defecto === "utileria") return base + " NO microphone, headset, lavalier, earpiece, cable or any recording equipment anywhere in the frame — the person speaks naturally with nothing attached to their face or clothes.";
   return base;
 }
