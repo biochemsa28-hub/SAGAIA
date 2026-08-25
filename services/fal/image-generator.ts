@@ -513,7 +513,14 @@ async function generateReal(params: {
   // Enrich with the scene's emotion translated into ENGLISH photographic direction.
   // (Raw Spanish emotion words and raw dialogue are NOT injected: Flux is trained on
   // English and would either ignore them or try to render the text into the frame.)
-  let prompt = replantearSobreElHombro(params.prompt);
+  // En una CONVERSACIÓN (la orden DIALOGUE EYE-LINE viaja en el prompt), el
+  // "sobre el hombro" es la gramática correcta y se respeta tal cual: el
+  // replanteo a punto de vista nació para la escena de la revelación (dos
+  // Ramiros), pero convertía TODOS los diálogos en caras hablando al lente
+  // (medido: la pelea entera dicha a cámara, la charla nunca existió).
+  let prompt = params.prompt.includes("DIALOGUE EYE-LINE")
+    ? params.prompt
+    : replantearSobreElHombro(params.prompt);
   // Si el plano pasó a punto de vista, el que mira NO está en cuadro: sus
   // retratos de "otros en escena" no viajan (son la invitación a dibujarlo).
   const esPOV = prompt !== params.prompt && /does NOT appear in the frame/.test(prompt);

@@ -8,7 +8,7 @@
 
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { writeFileSync, mkdirSync, rmSync, readFileSync, existsSync } from "fs";
+import { writeFileSync, mkdirSync, rmSync, readFileSync, existsSync, copyFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
@@ -705,6 +705,41 @@ async function buildSceneClip(
   const vidPath = scene.videoUrl ? join(dir, `v_${i}.mp4`) : null;
   if (vidPath) {
     try { await download(scene.videoUrl!, vidPath); } catch { /* la rama de abajo reintenta y falla ahí */ }
+  }
+  // ── RECORTE DE AIRE MUERTO (audio nativo) ─────────────────────────────────
+  // Seedance decide en qué segundo del clip el personaje habla, y a veces
+  // arranca tarde. Medido en un video terminado: primera palabra en el
+  // segundo 7.1, huecos de 2.8s y 3.0s entre réplicas, 67% del video sin
+  // habla — "el diálogo no es fluido". Los tiempos de palabra ya viajan con
+  // el clip; se recorta el aire ANTES de la primera palabra (dejando un
+  // respiro) y el sobrante DESPUÉS de la última, y los wordTimings se
+  // corren para que subtítulos, ralentí y cola sigan alineados. Solo con
+  // audio nativo (el clip trae su propia voz); RITMO_GATE=off lo apaga.
+  if (vidPath && !hasAudio && scene.wordTimings?.length && (process.env.RITMO_GATE ?? "on").toLowerCase() !== "off") {
+    try {
+      const D = await probeDuration(vidPath);
+      const t0 = Math.min(...scene.wordTimings.map((w) => w.start));
+      const tFin = Math.max(...scene.wordTimings.map((w) => w.end));
+      // Respiro antes de la línea: 0.5s en la escena 1 (el gancho visual
+      // necesita un instante), 0.35s en el resto. Tope de 4.5s por si el clip
+      // trae la grilla del storyboard entera.
+      const margenIni = deco?.isFirst ? 0.5 : 0.35;
+      const recIni = t0 > margenIni + 0.35 ? Math.min(t0 - margenIni, 4.5) : 0;
+      // Cola después de la última palabra: 0.9s bastan para el gesto; la
+      // última escena conserva su aire (ahí viven el cierre y el CTA).
+      const resto = D - tFin;
+      const recFin = !deco?.isLast && resto > 1.6 ? tFin + 0.9 : D;
+      if (recIni > 0.05 || recFin < D - 0.05) {
+        const tight = join(dir, `v_${i}_tight.mp4`);
+        await exec(FFMPEG, ["-y", "-loglevel", "error", "-ss", recIni.toFixed(2), "-to", recFin.toFixed(2), "-i", vidPath,
+          ...X264_THREADS, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", tight], { maxBuffer: 1 << 26 });
+        copyFileSync(tight, vidPath);
+        scene.wordTimings = scene.wordTimings.map((w) => ({ ...w, start: Math.max(0, w.start - recIni), end: Math.max(0, w.end - recIni) }));
+        console.log(`[ritmo] escena ${i}: recortados ${recIni.toFixed(1)}s de arranque y ${(D - recFin).toFixed(1)}s de cola — la línea entra a los ${(t0 - recIni).toFixed(1)}s`);
+      }
+    } catch (e) {
+      console.warn(`[ritmo] escena ${i}: recorte omitido — ${e instanceof Error ? e.message.slice(0, 120) : e}`);
+    }
   }
   const dur = hasAudio
     ? Math.max(1.5, (await probeDuration(audioPath)) + 0.3)

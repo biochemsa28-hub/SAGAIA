@@ -421,6 +421,17 @@ export async function POST(req: NextRequest) {
       const soloUno = unSolo
         ? " EXACTLY ONE PERSON in this frame and in the whole video — this story has a single character. No second person, no one to kiss, hug or talk to, no extra hands, no human reflection or human silhouette."
         : "";
+      // ── MIRADAS: la conversación no se le habla al lente ──────────────────
+      // Medido en un video terminado: los dos personajes dijeron toda la pelea
+      // en retrato frontal mirando a cámara — la charla nunca existió en
+      // pantalla. Con dos o más en el elenco (historia hablada), cada cuadro
+      // ordena la mirada al otro. Consejo y confesión (elenco de uno) quedan
+      // fuera: ahí mirar al lente es el formato.
+      // Formato no viaja en el proyecto: se infiere. Hablado + 2 o más en el
+      // elenco = conversación (consejo/confesión son de elenco de uno).
+      const miradas = !proyectoMudo && elencoTotal >= 2
+        ? " DIALOGUE EYE-LINE: this is a conversation between characters — the subject looks AT the other person (or pointedly away from them), in three-quarter view, profile, two-shot or over-the-shoulder framing. NEVER looking into the camera lens; the camera observes, nobody addresses it."
+        : "";
 
     const results = await generateProjectImages({
       projectId: parsed.data.project_id,
@@ -432,7 +443,7 @@ export async function POST(req: NextRequest) {
         image_prompt: s.image_prompt ?? "",
         emotion: s.emotion ?? undefined,
         narration_text: s.narration_text ?? undefined,
-        image_prompt_extra: (especDePlano(idx) + soloUno + (parsed.data.variar ? " COMPLETELY DIFFERENT SHOT than any previous frame of this scene: change the camera DISTANCE decisively, change the angle, and shift the subject off-center. Same person, same room, same light — different composition." : "")) || undefined,
+        image_prompt_extra: (especDePlano(idx) + soloUno + miradas + (parsed.data.variar ? " COMPLETELY DIFFERENT SHOT than any previous frame of this scene: change the camera DISTANCE decisively, change the angle, and shift the subject off-center. Same person, same room, same light — different composition." : "")) || undefined,
         location: s.location ?? null,
       })),
       referenceImageUrl,
