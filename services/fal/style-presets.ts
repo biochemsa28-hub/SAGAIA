@@ -82,6 +82,7 @@ const STYLE_MODIFIER: Record<string, string> = {
     "crisp confident linework, rich cel shading with soft gradients, dramatic anime lighting with god rays and lens flare, " +
     "lush hand-painted detailed backgrounds, cinematic composition, vibrant saturated color grading, " +
     "emotional atmosphere, anime key visual, masterpiece anime illustration, " +
+    "NO artist signature, NO watermark, NO website text anywhere in the frame or corners, " +
     // El anime también tiene "piel": el sombreado de la cara con dos tonos y un
     // rubor suave, la luz de recorte en el pelo, y ojos con brillo doble — es lo
     // que separa un fotograma de película de un dibujo plano.
