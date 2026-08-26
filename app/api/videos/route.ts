@@ -325,15 +325,50 @@ export async function POST(req: NextRequest) {
             .map((a) => detail.scenes.find((s) => s.id === a.scene_id)?.scene_number)
             .filter((n): n is number => typeof n === "number"),
         );
+        const sceneByNumber = new Map(detail.scenes.map((sc) => [sc.scene_number, sc]));
         if (escenasConClip.size && !parsed.data.scene_number) {
           const antes = paraAnimar.length;
+          const ordenAnimacion = paraAnimar;
           paraAnimar = paraAnimar.filter((b) => !escenasConClip.has(b.leadScene));
-          // ENCADENADO REAL: un bloque por llamada. El worker vuelve a llamar
-          // cuando el clip está y este filtro ya lo salta; así el siguiente
-          // bloque puede arrancar del último cuadro real del anterior.
+          // ENCADENADO REAL, PERO SOLO DONDE HAY CADENA. Antes se encolaba UN
+          // bloque por llamada, siempre: reanudar un video de 6 bloques eran 6
+          // vueltas en serie aunque el cuadro de arranque del anterior fuera a
+          // descartarse igual (arranqueEncadenado lo tira cuando cambia el lugar
+          // o cambia el sujeto — y por guion, el sujeto cambia casi siempre).
+          // Ahora se encola todo bloque cuyo arranque NO depende de un clip
+          // pendiente: o su anterior ya tiene clip (el cuadro existe), o el
+          // corte es seco de todos modos. Solo espera el que de verdad va a usar
+          // el último cuadro del que todavía se está generando.
           if (parsed.data.chain && CHAIN_REAL && paraAnimar.length > 1) {
-            console.log(`[chain] encadenado real: se encola 1 de ${paraAnimar.length} bloques pendientes (escena ${paraAnimar[0]!.leadScene})`);
-            paraAnimar = paraAnimar.slice(0, 1);
+            const lugarDe = (n: number) =>
+              ((sceneByNumber.get(n) as { location?: string | null } | undefined)?.location ?? "").trim().toLowerCase();
+            const sujetoDe = (n: number) =>
+              ((sceneByNumber.get(n) as { speaker?: string | null } | undefined)?.speaker ?? "").trim().toLowerCase();
+            // Mismos criterios que arranqueEncadenado: la cadena solo existe si
+            // no hay un desacuerdo claro de lugar ni de sujeto.
+            const dependeDelAnterior = (b: typeof paraAnimar[number], prev: typeof paraAnimar[number]) => {
+              const l1 = lugarDe(b.leadScene), l0 = lugarDe(prev.leadScene);
+              if (l1 && l0 && l1 !== l0) return false;
+              const s1 = sujetoDe(b.leadScene), s0 = sujetoDe(b.leadScene - 1) || sujetoDe(prev.leadScene);
+              if (s1 && s0 && s1 !== s0) return false;
+              return true;
+            };
+            const listos = paraAnimar.filter((b) => {
+              const idx = ordenAnimacion.findIndex((x) => x.leadScene === b.leadScene);
+              const prev = idx > 0 ? ordenAnimacion[idx - 1] : undefined;
+              if (!prev || escenasConClip.has(prev.leadScene)) return true;
+              return !dependeDelAnterior(b, prev);
+            });
+            const encolados = listos.length ? listos : paraAnimar.slice(0, 1);
+            if (encolados.length < paraAnimar.length) {
+              console.log(
+                `[chain] encadenado real: se encolan ${encolados.length} de ${paraAnimar.length} bloques pendientes ` +
+                `(esperan su cuadro: ${paraAnimar.filter((b) => !encolados.includes(b)).map((b) => b.leadScene).join(", ")})`,
+              );
+            } else {
+              console.log(`[chain] ${encolados.length} bloque(s) pendientes sin dependencia entre sí — se encolan todos en paralelo`);
+            }
+            paraAnimar = encolados;
           }
           if (paraAnimar.length < antes) {
             console.log(
@@ -346,7 +381,6 @@ export async function POST(req: NextRequest) {
         const imgByScene = new Map(
           detail.scenes.map((sc) => [sc.scene_number, imageBySceneId.get(sc.id)?.public_url]),
         );
-        const sceneByNumber = new Map(detail.scenes.map((sc) => [sc.scene_number, sc]));
         // Cuadros de encadenado real: el último fotograma del clip anterior,
         // guardado por collect para la escena líder del bloque siguiente
         // (asset "chain_frame"). Solo se usa si el lugar coincide — cruzando un

@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "VYNAVO-dev",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": ["C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js", "run", "dev"],
-      "cwd": "C:\\Users\\DELL5430\\microdrama-studio",
+      "runtimeExecutable": "/Users/carlosalbertorebolledoteran/NOVA/SAGAIA/scripts/dev-mac.sh",
+      "runtimeArgs": [],
+      "cwd": "/Users/carlosalbertorebolledoteran/NOVA/SAGAIA",
       "port": 3000
     }
   ]

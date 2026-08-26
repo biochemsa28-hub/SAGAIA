@@ -3,6 +3,7 @@ import { mensajeLegible } from "@/lib/json-seguro";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Thumb from "@/components/thumb";
 import confetti from "canvas-confetti";
 import { track } from "@/components/providers/PostHogProvider";
 import {
@@ -1082,8 +1083,7 @@ function ProjectDetail() {
                         aprobada ? "border-emerald-500/70 ring-1 ring-emerald-500/30" : "border-zinc-800"
                       }`}>
                         {thumb ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={thumb} alt={`Escena ${sc.scene_number}`} className="w-full h-full object-cover" />
+                          <Thumb src={thumb} alt={`Escena ${sc.scene_number}`} sizes="(max-width: 768px) 33vw, 15vw" className="object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-zinc-700 text-xs">Escena {sc.scene_number}</div>
                         )}
@@ -1231,8 +1231,7 @@ function ProjectDetail() {
                     <div key={sc.id} className="relative rounded-xl overflow-hidden border border-violet-900/40 bg-zinc-900 aspect-[9/16]">
                       {thumb ? (
                         <>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={thumb} alt={`Escena ${sc.scene_number}`} className="w-full h-full object-cover vy-ken2" />
+                          <Thumb src={thumb} alt={`Escena ${sc.scene_number}`} sizes="(max-width: 768px) 33vw, 15vw" className="object-cover vy-ken2" />
                           <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
                             <Check className="w-2.5 h-2.5 text-white" />
                           </div>

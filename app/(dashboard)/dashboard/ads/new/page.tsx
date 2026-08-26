@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Thumb from "@/components/thumb";
 import { TopBar } from "@/components/layout/TopBar";
 import { Megaphone, Sparkles, ArrowRight, AlertCircle, Loader2, Zap, Upload, X, Images } from "lucide-react";
 import { DURATION_OPTIONS, PLATFORMS } from "@/lib/constants/nichos";
@@ -190,8 +191,7 @@ export default function NewAdPage() {
           <div className="grid grid-cols-4 gap-2">
             {imageUrls.map((url, i) => (
               <div key={url} className="relative aspect-square group">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`Producto ${i + 1}`} className="w-full h-full object-cover rounded-xl border border-violet-700/50" />
+                <Thumb src={url} alt={`Producto ${i + 1}`} sizes="25vw" className="object-cover rounded-xl border border-violet-700/50" />
                 {i === 0 && (
                   <span className="absolute bottom-1 left-1 text-[8px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-md">Principal</span>
                 )}

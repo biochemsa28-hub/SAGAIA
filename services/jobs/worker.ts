@@ -162,11 +162,13 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
       // Un clip puede caer en las dos listas (voz Y animación rotas): se pide
       // una sola vez. Tope de 2 repedidos por vuelta — mismo criterio que la voz.
       const aRepedir = [...new Set([...vozMal, ...clipMal])].slice(0, 2);
-      for (const n of aRepedir) {
+      // Los repedidos van en paralelo: son clips independientes y esperarlos de
+      // a uno sumaba el tiempo de generación de cada uno al total del video.
+      await Promise.all(aRepedir.map(async (n) => {
         console.log(`[repedido] escena ${n}: ${vozMal.includes(n) ? "voz apartada del guion" : "animación rota"} — se pide de nuevo una vez`);
         const re = await (await post("/api/videos", { project_id: job.project_id, action: "submit", scene_number: n })).json() as { jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
         if (re.jobs?.length) await pollStage(post, job, re.jobs, undefined);
-      }
+      }));
       await heartbeatJob(job.id);
       sub = await (await post("/api/videos", { project_id: job.project_id, action: "submit", chain: true })).json() as typeof sub;
       if (sub.action === "skipped") break;
@@ -185,11 +187,12 @@ async function runPipeline(job: DbJob, mark: (s: JobStage) => Promise<void>): Pr
     if ((vozMal.length || clipMal.length) && sub.pipeline !== "pro") {
       const aRepetir = [...new Set([...vozMal, ...clipMal])].slice(0, 2);
       console.log(`[repedido] ${aRepetir.length} clip(s) roto(s) — voz: [${vozMal.join(", ") || "ninguno"}], animación: [${clipMal.join(", ") || "ninguno"}] — se piden de nuevo una vez`);
-      for (const n of aRepetir) {
+      // En paralelo: cada repedido es un clip independiente.
+      await Promise.all(aRepetir.map(async (n) => {
         const re = await (await post("/api/videos", { project_id: job.project_id, action: "submit", scene_number: n })).json() as
           { jobs?: Array<{ scene_number: number; request_id: string; model?: string }> };
         if (re.jobs?.length) await pollStage(post, job, re.jobs, undefined);
-      }
+      }));
     }
     if (sub.pipeline === "pro") {
       const ls = await (await post("/api/videos", { project_id: job.project_id, action: "lipsync_submit", motion: motionUrls })).json() as

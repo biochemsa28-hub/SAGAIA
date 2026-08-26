@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Thumb from "@/components/thumb";
 import { TopBar } from "@/components/layout/TopBar";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -159,10 +160,11 @@ export default function LibraryPage() {
                   {/* Thumbnail — 9:16 */}
                   <div className="relative aspect-[9/16] bg-zinc-800 overflow-hidden">
                     {p.thumbnail_url ? (
-                      <img
+                      <Thumb
                         src={p.thumbnail_url}
                         alt={p.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        sizes="(max-width: 768px) 50vw, 25vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-violet-950/50 to-zinc-900">
@@ -217,9 +219,9 @@ export default function LibraryPage() {
                 <div className="flex items-center gap-3 p-3 rounded-xl border border-zinc-800 bg-zinc-900 hover:border-violet-700/40 hover:bg-zinc-800/60 transition-all cursor-pointer">
 
                   {/* Mini thumbnail */}
-                  <div className="w-10 h-14 rounded-lg overflow-hidden bg-zinc-800 shrink-0">
+                  <div className="relative w-10 h-14 rounded-lg overflow-hidden bg-zinc-800 shrink-0">
                     {p.thumbnail_url ? (
-                      <img src={p.thumbnail_url} alt={p.title} className="w-full h-full object-cover" />
+                      <Thumb src={p.thumbnail_url} alt={p.title} sizes="40px" className="object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Film className="w-4 h-4 text-zinc-600" />

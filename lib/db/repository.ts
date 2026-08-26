@@ -388,20 +388,22 @@ export async function setProjectCast(
       : m.bible_url,
   })));
 
-  for (const m of durables) {
-    if (!m.name) continue;
-    await db.execute({
-      // bible_url carries over from a previous episode so a series never pays to
-      // rebuild the same character sheet twice.
-      // age decide si a este personaje se le dibujan picos de contacto o de
-      // violencia. Sin guardarla, el generador de picos no puede saber que hay
-      // un menor en la escena — y ya se midió lo que pasa: un elenco de adulta y
-      // niña recibió los picos de drama, confesión y terror igual.
+  // bible_url carries over from a previous episode so a series never pays to
+  // rebuild the same character sheet twice.
+  // age decide si a este personaje se le dibujan picos de contacto o de
+  // violencia. Sin guardarla, el generador de picos no puede saber que hay
+  // un menor en la escena — y ya se midió lo que pasa: un elenco de adulta y
+  // niña recibió los picos de drama, confesión y terror igual.
+  // En Turso cada execute es un viaje de red completo; un elenco entra en un
+  // solo batch.
+  const inserts = durables
+    .filter((m) => m.name)
+    .map((m) => ({
       sql: `INSERT INTO project_cast (id, project_id, name, role, voice_profile, reference_image_url, bible_url, age)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [uuidv4(), projectId, m.name, m.role ?? null, m.voice_profile ?? null, m.reference_image_url ?? null, m.bible_url ?? null, m.age ?? null],
-    });
-  }
+      args: [uuidv4(), projectId, m.name!, m.role ?? null, m.voice_profile ?? null, m.reference_image_url ?? null, m.bible_url ?? null, m.age ?? null],
+    }));
+  if (inserts.length) await db.batch(inserts, "write");
 }
 
 export async function getProjectCast(projectId: string): Promise<DbCastMember[]> {
@@ -704,17 +706,16 @@ export async function aplicarMotionDna(params: {
     const v = dna[k];
     return typeof v === "string" && v.trim() ? v : null;
   };
-  let tocadas = 0;
-  for (const n of params.sceneNumbers.slice(0, 40)) {
-    const r = await db.execute({
-      // El ambiente solo se pisa si el DNA trae uno: un DNA de cámara no tiene
-      // por qué borrar la lluvia que la escena ya tenía.
-      sql: `UPDATE scenes SET camera_move = ?, emotion = ?, environment = COALESCE(?, environment)
-            WHERE project_id = ? AND scene_number = ?`,
-      args: [val("camera_move"), val("emotion"), val("environment"), params.projectId, n],
-    });
-    tocadas += r.rowsAffected ?? 0;
-  }
+  // Un batch en vez de hasta 40 viajes de red a Turso.
+  const updates = params.sceneNumbers.slice(0, 40).map((n) => ({
+    // El ambiente solo se pisa si el DNA trae uno: un DNA de cámara no tiene
+    // por qué borrar la lluvia que la escena ya tenía.
+    sql: `UPDATE scenes SET camera_move = ?, emotion = ?, environment = COALESCE(?, environment)
+          WHERE project_id = ? AND scene_number = ?`,
+    args: [val("camera_move"), val("emotion"), val("environment"), params.projectId, n],
+  }));
+  const resultados = updates.length ? await db.batch(updates, "write") : [];
+  const tocadas = resultados.reduce((sum, r) => sum + (r.rowsAffected ?? 0), 0);
   if (tocadas) {
     await db.execute({ sql: "UPDATE motion_dna SET used_count = used_count + 1 WHERE id = ?", args: [params.dnaId] });
   }
@@ -927,27 +928,26 @@ export async function saveGenerationResult(params: {
     ],
   });
 
-  for (const scene of story.scenes) {
-    await db.execute({
-      sql: `INSERT INTO scenes
-        (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile, sfx_prompt, speaker_look, location, environment, physical_action, is_peak, ambience)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        uuidv4(), projectId, storyId, scene.scene_number,
-        scene.narration_text, scene.duration_seconds,
-        scene.image_prompt ?? null, scene.animation_prompt ?? null,
-        scene.emotion ?? null, scene.camera_move ?? null,
-        scene.speaker ?? null, scene.voice_profile ?? null,
-        scene.sfx_prompt || null,
-        scene.speaker_look || null,
-        scene.location || null,
-        scene.environment || null,
-        scene.physical_action || null,
-        (scene as { is_peak?: boolean }).is_peak ? 1 : 0,
-        (scene as { ambience?: string | null }).ambience || null,
-      ],
-    });
-  }
+  // Todas las escenas en un solo batch: contra Turso, N executes = N viajes de red.
+  await db.batch(story.scenes.map((scene) => ({
+    sql: `INSERT INTO scenes
+      (id, project_id, story_id, scene_number, narration_text, duration_seconds, image_prompt, animation_prompt, emotion, camera_move, speaker, voice_profile, sfx_prompt, speaker_look, location, environment, physical_action, is_peak, ambience)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      uuidv4(), projectId, storyId, scene.scene_number,
+      scene.narration_text, scene.duration_seconds,
+      scene.image_prompt ?? null, scene.animation_prompt ?? null,
+      scene.emotion ?? null, scene.camera_move ?? null,
+      scene.speaker ?? null, scene.voice_profile ?? null,
+      scene.sfx_prompt || null,
+      scene.speaker_look || null,
+      scene.location || null,
+      scene.environment || null,
+      scene.physical_action || null,
+      (scene as { is_peak?: boolean }).is_peak ? 1 : 0,
+      (scene as { ambience?: string | null }).ambience || null,
+    ],
+  })), "write");
 
   if (story.seo) {
     await db.execute({

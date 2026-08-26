@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { TOPIC_MAX } from "@/lib/validators/story.schema";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Thumb from "@/components/thumb";
 import confetti from "canvas-confetti";
 import {
   NICHOS, TONES, DURATION_OPTIONS, VISUAL_STYLES, PLATFORMS,
@@ -432,10 +433,10 @@ function MonitorDeRodaje({ tomas }: {
   const t = tomas[idx % tomas.length]!;
   return (
     <div className="relative aspect-[9/16] rounded-xl overflow-hidden border border-zinc-700 bg-black shadow-2xl">
-      {/* key con idx: cada cambio remonta el img y reinicia fundido + Ken Burns */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img key={`${t.n}-${idx}`} src={t.url} alt={`Escena ${t.n}`}
-        className="vy-monitor-frame absolute inset-0 w-full h-full object-cover" />
+      {/* key con idx: cada cambio remonta la imagen y reinicia fundido + Ken Burns */}
+      <Thumb key={`${t.n}-${idx}`} src={t.url} alt={`Escena ${t.n}`}
+        sizes="(max-width: 768px) 90vw, 420px"
+        className="vy-monitor-frame object-cover" />
       <span className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm border border-white/15">
         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
         <span className="text-[8px] font-bold uppercase tracking-wider text-white">En el monitor</span>
@@ -1126,8 +1127,7 @@ function NewProjectForm() {
                       }`}
                     >
                       {url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={url} alt={`Escena ${n}`} className="vy-pop w-full h-full object-cover" />
+                        <Thumb src={url} alt={`Escena ${n}`} sizes="(max-width: 640px) 50vw, 33vw" className="vy-pop object-cover" />
                       ) : (
                         <div className="absolute inset-0 vy-shimmer2 flex flex-col items-center justify-center gap-1">
                           <span className="text-sm font-bold text-zinc-600">{n}</span>
@@ -1421,8 +1421,7 @@ function NewProjectForm() {
                             : "border-zinc-800 hover:border-zinc-600"
                         }`}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={`${char.name} opción ${oi + 1}`} className="w-full h-full object-cover object-top" />
+                        <Thumb src={url} alt={`${char.name} opción ${oi + 1}`} sizes="(max-width: 768px) 50vw, 25vw" className="object-cover object-top" />
                         {char.selectedIdx === oi && (
                           <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
                             <CheckCircle className="w-4 h-4 text-white" />
@@ -2219,10 +2218,9 @@ function NewProjectForm() {
                       characterId === c.id ? `bg-gradient-to-br ${theme.card} ${theme.border}` : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
                     }`}
                   >
-                    <div className="w-full aspect-square rounded-lg bg-zinc-950 overflow-hidden mb-1">
+                    <div className="relative w-full aspect-square rounded-lg bg-zinc-950 overflow-hidden mb-1">
                       {c.reference_image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.reference_image_url} alt={c.name} className="w-full h-full object-cover" />
+                        <Thumb src={c.reference_image_url} alt={c.name} sizes="80px" className="object-cover" />
                       ) : null}
                     </div>
                     <p className="text-[10px] font-semibold text-white truncate">{c.name}</p>

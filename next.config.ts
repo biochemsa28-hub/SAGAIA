@@ -42,6 +42,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
       { protocol: "https", hostname: "**.cloudflare.com" },
+      // Bucket público de R2 sin dominio propio (pub-….r2.dev)
+      { protocol: "https", hostname: "**.r2.dev" },
       { protocol: "https", hostname: "**.fal.media" },
       { protocol: "https", hostname: "**.shotstack.io" },
     ],

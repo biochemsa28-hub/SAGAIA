@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Thumb from "@/components/thumb";
 import { Users, Trash2, Sparkles, Plus, Loader2, Check, X } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { NICHOS } from "@/lib/constants/nichos";
@@ -87,8 +88,7 @@ export default function CharactersPage() {
             <div key={c.id} className="rounded-2xl overflow-hidden bg-zinc-900/60 border border-zinc-800 group">
               <div className="aspect-[3/4] bg-zinc-950 relative">
                 {c.reference_image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.reference_image_url} alt={c.name} className="w-full h-full object-cover" />
+                  <Thumb src={c.reference_image_url} alt={c.name} sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
                 ) : (
                   <div className="w-full h-full grid place-items-center text-zinc-600"><Users className="w-8 h-8" /></div>
                 )}
@@ -209,8 +209,7 @@ function CreateCharacterModal({ onClose, onSaved }: { onClose: () => void; onSav
               {options.map((url) => (
                 <button key={url} onClick={() => setSelected(url)}
                   className={`relative aspect-[3/4] rounded-xl overflow-hidden border-2 transition ${selected === url ? "border-violet-500" : "border-transparent hover:border-zinc-600"}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="opción" className="w-full h-full object-cover" />
+                  <Thumb src={url} alt="opción" sizes="25vw" className="object-cover" />
                   {selected === url && (
                     <div className="absolute inset-0 bg-violet-600/30 grid place-items-center">
                       <div className="w-7 h-7 rounded-full bg-violet-500 grid place-items-center"><Check className="w-4 h-4 text-white" /></div>
