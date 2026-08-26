@@ -1277,9 +1277,46 @@ export async function POST(req: NextRequest) {
             const escenaTexto = collectDetail?.scenes?.find((s) => s.scene_number === r.scene_number)?.image_prompt ?? "";
             const vc = await revisarClip(durableUrl, escenaTexto);
             clipPorEscena.set(r.scene_number, vc.ok);
-            if (!vc.ok) {
+            if (!vc.ok && vc.defecto === "collage") {
+              // ── LA GRILLA SE CORTA, NO SE REPIDE ──────────────────────────
+              // Medido en un video terminado EN MODO NATIVO: el clip abrió con
+              // la grilla 2x2 del storyboard ~3s (el recorte fijo está apagado
+              // en nativo porque "ahí no hay grilla" — falso). Repedir el clip
+              // puede traer OTRA grilla; lo quirúrgico es buscar el primer
+              // corte de plano real en los primeros 4.5s y cortar ahí.
+              try {
+                const { execFile } = await import("node:child_process");
+                const { promisify } = await import("node:util");
+                const run = promisify(execFile);
+                const det = await run(process.env.FFMPEG_PATH ?? "ffmpeg",
+                  ["-hide_banner", "-i", durableUrl, "-vf", "select='gt(scene,0.3)',showinfo", "-frames:v", "4", "-f", "null", "-"],
+                  { maxBuffer: 1 << 24 }).catch((e: { stderr?: string }) => ({ stderr: e.stderr ?? "" }));
+                // El ÚLTIMO corte dentro de la ventana: la grilla tiene cortes
+                // internos (los paneles cambian) y el primero no es su final.
+                // Medido: cortes en 1.3s (interno) y 2.8s (grilla → plano real).
+                const cortes = [...((det as { stderr?: string }).stderr ?? "").matchAll(/pts_time:([\d.]+)/g)]
+                  .map((x) => parseFloat(x[1]!)).filter((t) => t > 0.4 && t < 4.6);
+                const corte = cortes.length ? Math.max(...cortes) : NaN;
+                if (Number.isFinite(corte) && corte > 0.4 && corte < 4.6) {
+                  const sinGrilla = await trimClipHead(durableUrl, corte + 0.05);
+                  if (sinGrilla) {
+                    const { uploadBuffer } = await import("@/services/storage");
+                    durableUrl = (await uploadBuffer({ buffer: sinGrilla, ext: "mp4", contentType: "video/mp4", folder: "clips" })).url;
+                    if (transcript?.words?.length) {
+                      const desplazadas = transcript.words.map((w) => ({ ...w, start: Math.max(0, w.start - corte), end: Math.max(0, w.end - corte) }));
+                      transcript.words.length = 0; transcript.words.push(...desplazadas);
+                    }
+                    clipPorEscena.set(r.scene_number, true);
+                    console.log(`[clip] escena ${r.scene_number}: grilla de ${corte.toFixed(1)}s cortada en el primer cambio de plano — clip salvado sin repedir`);
+                  }
+                }
+              } catch (e) {
+                console.warn(`[clip] escena ${r.scene_number}: corte de grilla falló — ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+              }
+            }
+            if (clipPorEscena.get(r.scene_number) === false) {
               console.warn(`[clip] escena ${r.scene_number}: la animación rompió el clip (${vc.defecto}): ${vc.motivo ?? ""} — se marca para repedir`);
-            } else {
+            } else if (vc.ok) {
               console.log(`[clip] escena ${r.scene_number}: animación OK`);
             }
           } catch { /* el juez jamás puede costar un video */ }
