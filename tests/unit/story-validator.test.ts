@@ -16,6 +16,26 @@ describe("StoryOutputSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("recorta un hueco de 200+ caracteres en vez de tumbar el guion", () => {
+    // Medido en producción 2026-08-26: un hueco largo invalidaba la generación
+    // ENTERA ("El proyecto no tiene historia"). El hueco es una nota auxiliar:
+    // se recorta al tope y el guion vive.
+    const conHuecoLargo = {
+      ...MOCK_STORY_HORROR,
+      production_notes: {
+        ...MOCK_STORY_HORROR.production_notes,
+        hueco: "x".repeat(350),
+        curva_emocional: "y".repeat(300),
+      },
+    };
+    const result = StoryOutputSchema.safeParse(conHuecoLargo);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.production_notes.hueco?.length).toBe(200);
+      expect(result.data.production_notes.curva_emocional?.length).toBe(120);
+    }
+  });
+
   it("rejects story with no scenes", () => {
     const invalid = { ...MOCK_STORY_HORROR, scenes: [] };
     const result = StoryOutputSchema.safeParse(invalid);
@@ -31,13 +51,15 @@ describe("StoryOutputSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects story with fewer than 5 SEO hashtags", () => {
-    const invalid = {
+  it("acepta un guion con pocos hashtags — el SEO es auxiliar, no invalida", () => {
+    // Antes exigía rechazo con <5 hashtags, pero contradice la regla de la casa:
+    // un dato auxiliar (SEO) no puede tumbar una generación que costó créditos.
+    const pocosHashtags = {
       ...MOCK_STORY_HORROR,
       seo: { ...MOCK_STORY_HORROR.seo, hashtags: ["#one", "#two"] },
     };
-    const result = StoryOutputSchema.safeParse(invalid);
-    expect(result.success).toBe(false);
+    const result = StoryOutputSchema.safeParse(pocosHashtags);
+    expect(result.success).toBe(true);
   });
 
   it("rejects story with short image prompt", () => {

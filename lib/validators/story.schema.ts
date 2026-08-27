@@ -225,11 +225,16 @@ export const ProductionNotesSchema = z.object({
   // El Director las verifica; se guardan para correlacionar con retención.
   mecanicas: z.array(z.string()).max(4).optional(),
   // La onda emocional declarada (4 tramos, uno por acto). El Director la audita.
-  curva_emocional: z.string().max(120).optional(),
+  // recortado(), no .max(): es la misma familia que speaker_look y sfx — un dato
+  // auxiliar no puede invalidar la generación.
+  curva_emocional: recortado(120),
   // EL HUECO declarado (ley 9): el dato lateral que queda SIN cerrar — lo que
   // hace que alguien pregunte en comentarios. La guardia exige que exista;
   // el Director verifica que esté sembrado en las escenas.
-  hueco: z.string().max(200).optional(),
+  // Se RECORTA, no se rechaza: un hueco de 200+ caracteres tumbó un guion entero
+  // en producción (medido 2026-08-26). Lo que importa es que exista y esté
+  // sembrado — la longitud de la nota no decide si el guion vive.
+  hueco: recortado(200),
 });
 
 export const StoryOutputSchema = z.object({
